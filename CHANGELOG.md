@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+### Changed
+
+- Remove support for Python 3.7
+- Add support for Python 3.10
+
 ## [1.5.0] - 2022-08-08
 
 ### Update notes

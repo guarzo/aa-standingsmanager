@@ -9,22 +9,25 @@
             <h3 class="panel-title">{% translate 'Alliance for Sync' %}</h3>
         </div>
         <div class="panel-body">
-
-            <img class="ra-avatar img-circle" src="{{ alliance.logo_url }}">
-            &nbsp;&nbsp;
-            {{ alliance.alliance_name }}
-            &nbsp;
-            (
-            {% if alliance_contacts_count != None %}
-                {{ alliance_contacts_count }} contacts
-                {% if alliance_war_targets_count != None %}
-                    ,
+            {% if alliance %}
+                <img class="ra-avatar img-circle" src="{{ alliance.logo_url }}">
+                &nbsp;&nbsp;
+                {{ alliance.alliance_name }}
+                &nbsp;
+                (
+                {% if alliance_contacts_count != None %}
+                    {{ alliance_contacts_count }} contacts
+                    {% if alliance_war_targets_count != None %}
+                        ,
+                    {% endif %}
                 {% endif %}
+                {% if alliance_war_targets_count != None %}
+                    {{ alliance_war_targets_count }} war targets
+                {% endif %}
+                )
+            {% else %}
+                <p class="text-muted">Not configured</p>
             {% endif %}
-            {% if alliance_war_targets_count != None %}
-                {{ alliance_war_targets_count }} war targets
-            {% endif %}
-            )
         </div>
     </div>
     <div class="panel panel-default">
@@ -60,7 +63,7 @@
                     </tbody>
                 </table>
             {% else %}
-                <p>None</p>
+                <p class="text-muted">None</p>
             {% endif %}
         </div>
     </div>

@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.6.0] - 2023-01-29
+
+### Update notes
+
+IMPORTANT: Please make sure to update to 1.5.0 first, before installing this update. This is because, this update continues the consolidation of database migrations, which was started in 1.5.0.
+
 ### Changed
 
 - Remove support for Python 3.7
 - Add support for Python 3.10
+- Remove squashed migrations which are now obsolete from 1.5.0
 
 ## [1.5.0] - 2022-08-08
 

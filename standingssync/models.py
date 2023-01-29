@@ -39,26 +39,11 @@ class _SyncBaseModel(models.Model):
 
     @property
     def is_sync_ok(self) -> bool:
-        return self.last_error == self.Error.NONE
-
-    def set_sync_status(self, status: int) -> None:
-        """sets the sync status with the current date and time"""
-        self.last_error = status
-        self.last_sync = now()
-        self.save()
+        return None
 
 
 class SyncManager(_SyncBaseModel):
     """An object for managing syncing of contacts for an alliance"""
-
-    class Error(models.IntegerChoices):
-        NONE = 0, "No error"
-        TOKEN_INVALID = 1, "Invalid token"
-        TOKEN_EXPIRED = 2, "Expired token"
-        INSUFFICIENT_PERMISSIONS = 3, "Insufficient permissions"
-        NO_CHARACTER = 4, "No character set for fetching alliance contacts"
-        ESI_UNAVAILABLE = 5, "ESI API is currently unavailable"
-        UNKNOWN = 99, "Unknown error"
 
     alliance = models.OneToOneField(
         EveAllianceInfo, on_delete=models.CASCADE, primary_key=True, related_name="+"
@@ -67,7 +52,6 @@ class SyncManager(_SyncBaseModel):
     character_ownership = models.OneToOneField(
         CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
     )
-    last_error = models.IntegerField(choices=Error.choices, default=Error.NONE)
 
     def __str__(self):
         if self.character_ownership is not None:
@@ -109,7 +93,6 @@ class SyncManager(_SyncBaseModel):
         """
         if self.character_ownership is None:
             logger.error("%s: No character configured to sync the alliance", self)
-            self.set_sync_status(self.Error.NO_CHARACTER)
             return None
 
         # abort if character does not have sufficient permissions
@@ -119,38 +102,26 @@ class SyncManager(_SyncBaseModel):
                 "to sync the alliance",
                 self,
             )
-            self.set_sync_status(self.Error.INSUFFICIENT_PERMISSIONS)
             return None
 
-        try:
-            # get token
-            token = (
-                Token.objects.filter(
-                    user=self.character_ownership.user,
-                    character_id=self.character_ownership.character.character_id,
-                )
-                .require_scopes(self.get_esi_scopes())
-                .require_valid()
-                .first()
-            )
-
-        except TokenInvalidError:
-            logger.error("%s: Invalid token for fetching alliance contacts", self)
-            self.set_sync_status(self.Error.TOKEN_INVALID)
+        token = self._fetch_token()
+        if not token:
             return None
-
-        except TokenExpiredError:
-            self.set_sync_status(self.Error.TOKEN_EXPIRED)
-            return None
-
-        else:
-            if not token:
-                self.set_sync_status(self.Error.TOKEN_INVALID)
-                return None
 
         new_version_hash = self._perform_update_from_esi(token, force_sync)
-        self.set_sync_status(self.Error.NONE)
         return new_version_hash
+
+    def _fetch_token(self):
+        token = (
+            Token.objects.filter(
+                user=self.character_ownership.user,
+                character_id=self.character_ownership.character.character_id,
+            )
+            .require_scopes(self.get_esi_scopes())
+            .require_valid()
+            .first()
+        )
+        return token
 
     def _perform_update_from_esi(self, token, force_sync) -> str:
         # get alliance contacts
@@ -171,10 +142,6 @@ class SyncManager(_SyncBaseModel):
         # determine if contacts have changed by comparing their hashes
         new_version_hash = self._calculate_version_hash(contacts)
         if force_sync or new_version_hash != self.version_hash:
-            logger.info(
-                "%s: Storing alliance update with %d contacts", self, len(contacts)
-            )
-
             # add the sync alliance with max standing to contacts
             contacts[alliance_id] = {
                 "contact_id": alliance_id,
@@ -182,8 +149,6 @@ class SyncManager(_SyncBaseModel):
                 "standing": 10,
             }
             with transaction.atomic():
-                self.version_hash = new_version_hash
-                self.save()
                 self.contacts.all().delete()
                 contacts = [
                     EveContact(
@@ -195,8 +160,16 @@ class SyncManager(_SyncBaseModel):
                     for contact_id, contact in contacts.items()
                 ]
                 EveContact.objects.bulk_create(contacts, batch_size=500)
+                self.version_hash = new_version_hash
+                self.save()
+                logger.info(
+                    "%s: Stored alliance update with %d contacts", self, len(contacts)
+                )
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
+
+        self.last_sync = now()
+        self.save()
         return new_version_hash
 
     @staticmethod
@@ -280,6 +253,8 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info(
                 "%s: contacts of this char are up-to-date, no sync required", self
             )
+            self.last_sync = now()
+            self.save()
             return True
 
         token = self._fetch_token()
@@ -408,8 +383,8 @@ class SyncedCharacter(_SyncBaseModel):
 
         # store updated version hash with character
         self.version_hash = self.manager.version_hash
+        self.last_sync = now()
         self.save()
-        self.set_sync_status(self.Error.NONE)
         return True
 
     def _determine_war_target_id(self, labels_raw: list) -> Optional[int]:

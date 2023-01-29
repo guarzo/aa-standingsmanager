@@ -31,29 +31,19 @@ def run_regular_sync():
 
 
 @shared_task
-def run_manager_sync(manager_pk: int, force_sync: bool = False) -> bool:
+def run_manager_sync(manager_pk: int, force_sync: bool = False):
     """updates contacts for given manager and related characters
 
     Args:
     - manage_pk: primary key of sync manager to run sync for
     - force_sync: will ignore version_hash if set to true
-
-    Returns:
-    - True on success or False on error
     """
-
     sync_manager = SyncManager.objects.get(pk=manager_pk)
-    try:
-        new_version_hash = sync_manager.update_from_esi(force_sync)
-    except Exception:
-        logger.debug("Unexpected exception occurred", exc_info=True)
-        sync_manager.set_sync_status(sync_manager.Error.UNKNOWN)
-        return False
-    else:
-        EveEntity.objects.bulk_update_new_esi()
-
+    new_version_hash = sync_manager.update_from_esi(force_sync)
     if not new_version_hash:
-        return False
+        return
+
+    EveEntity.objects.bulk_update_new_esi()
 
     if force_sync:
         alts_need_syncing = sync_manager.synced_characters.values_list("pk", flat=True)
@@ -67,28 +57,17 @@ def run_manager_sync(manager_pk: int, force_sync: bool = False) -> bool:
             priority=DEFAULT_TASK_PRIORITY,
         )
 
-    return True
-
 
 @shared_task
-def run_character_sync(sync_char_pk: int, force_sync: bool = False) -> bool:
+def run_character_sync(sync_char_pk: int, force_sync: bool = False):
     """updates in-game contacts for given character
 
     Args:
     - sync_char_pk: primary key of sync character to run sync for
     - force_sync: will ignore version_hash if set to true
-
-    Returns:
-    - False if sync failed and the sync character was deleted, True otherwise
     """
-
     synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
-    try:
-        return synced_character.update(force_sync)
-    except Exception as ex:
-        logger.error("An unexpected error ocurred: %s", ex, exc_info=True)
-        synced_character.set_sync_status(SyncedCharacter.Error.UNKNOWN)
-        raise ex
+    synced_character.update(force_sync)
 
 
 @shared_task

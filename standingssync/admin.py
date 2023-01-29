@@ -114,11 +114,9 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
         "version_hash",
         "_sync_ok",
         "last_sync",
-        "last_error",
         "manager",
     )
     list_filter = (
-        "last_error",
         "version_hash",
         "last_sync",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
@@ -171,7 +169,6 @@ class SyncManagerAdmin(admin.ModelAdmin):
         "version_hash",
         "_sync_ok",
         "last_sync",
-        "last_error",
     )
     list_display_links = None
     list_filter = (("character_ownership__user", admin.RelatedOnlyFieldListFilter),)

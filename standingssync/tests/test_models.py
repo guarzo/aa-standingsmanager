@@ -141,41 +141,6 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
             character=cls.character_4, owner_hash="x4", user=cls.user_2
         )
 
-    def test_should_report_no_sync_error(self):
-        # given
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        sync_manager.set_sync_status(SyncManager.Error.NONE)
-        # when/then
-        self.assertTrue(sync_manager.is_sync_ok)
-
-    def test_should_report_sync_error(self):
-        # given
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        for status in [
-            SyncManager.Error.TOKEN_INVALID,
-            SyncManager.Error.TOKEN_EXPIRED,
-            SyncManager.Error.INSUFFICIENT_PERMISSIONS,
-            SyncManager.Error.NO_CHARACTER,
-            SyncManager.Error.ESI_UNAVAILABLE,
-            SyncManager.Error.UNKNOWN,
-        ]:
-            with self.subTest(status=status):
-                sync_manager.set_sync_status(status)
-                # when/then
-                self.assertFalse(sync_manager.is_sync_ok)
-
-    def test_set_sync_status(self):
-        # given
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        sync_manager.last_error = SyncManager.Error.NONE
-        sync_manager.last_sync = None
-        # when
-        sync_manager.set_sync_status(SyncManager.Error.TOKEN_INVALID)
-        # then
-        sync_manager.refresh_from_db()
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.TOKEN_INVALID)
-        self.assertIsNotNone(sync_manager.last_sync)
-
     def test_should_abort_when_no_char(self):
         # given
         sync_manager = SyncManagerFactory(
@@ -493,57 +458,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         self.synced_character_3 = SyncedCharacterFactory(
             character_ownership=self.alt_ownership_3, manager=self.sync_manager
         )
-
-    def test_should_report_no_sync_error(self):
-        # given
-        self.synced_character_2.set_sync_status(SyncManager.Error.NONE)
-        # when/then
-        self.assertTrue(self.synced_character_2.is_sync_ok)
-
-    def test_should_report_sync_error(self):
-        # given
-        for status in [
-            SyncedCharacter.Error.TOKEN_INVALID,
-            SyncedCharacter.Error.TOKEN_EXPIRED,
-            SyncedCharacter.Error.INSUFFICIENT_PERMISSIONS,
-            SyncedCharacter.Error.ESI_UNAVAILABLE,
-            SyncedCharacter.Error.UNKNOWN,
-        ]:
-            self.synced_character_2.set_sync_status(status)
-            # when/then
-            self.assertFalse(self.synced_character_2.is_sync_ok)
-
-    def test_get_last_error_message_after_sync(self):
-        self.synced_character_2.last_sync = now()
-        self.synced_character_2.last_error = SyncedCharacter.Error.NONE
-        expected = "OK"
-        self.assertEqual(self.synced_character_2.get_status_message(), expected)
-
-        self.synced_character_2.last_error = SyncedCharacter.Error.TOKEN_EXPIRED
-        expected = "Expired token"
-        self.assertEqual(self.synced_character_2.get_status_message(), expected)
-
-    def test_get_last_error_message_no_sync(self):
-        self.synced_character_2.last_sync = None
-        self.synced_character_2.last_error = SyncedCharacter.Error.NONE
-        expected = "Not synced yet"
-        self.assertEqual(self.synced_character_2.get_status_message(), expected)
-
-        self.synced_character_2.last_error = SyncedCharacter.Error.TOKEN_EXPIRED
-        expected = "Expired token"
-        self.assertEqual(self.synced_character_2.get_status_message(), expected)
-
-    def test_set_sync_status(self):
-        self.synced_character_2.last_error = SyncManager.Error.NONE
-        self.synced_character_2.last_sync = None
-
-        self.synced_character_2.set_sync_status(SyncManager.Error.TOKEN_INVALID)
-        self.synced_character_2.refresh_from_db()
-
-        self.assertEqual(
-            self.synced_character_2.last_error, SyncManager.Error.TOKEN_INVALID
-        )
-        self.assertIsNotNone(self.synced_character_2.last_sync)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)

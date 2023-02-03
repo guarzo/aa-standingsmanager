@@ -32,7 +32,7 @@ class _SyncBaseModel(models.Model):
     """Base for sync models"""
 
     version_hash = models.CharField(max_length=32, default="")
-    last_sync = models.DateTimeField(null=True, default=None)
+    last_update_at = models.DateTimeField(null=True, default=None)
 
     class Meta:
         abstract = True
@@ -168,7 +168,7 @@ class SyncManager(_SyncBaseModel):
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
 
-        self.last_sync = now()
+        self.last_update_at = now()
         self.save()
         return new_version_hash
 
@@ -221,7 +221,7 @@ class SyncedCharacter(_SyncBaseModel):
     def get_status_message(self):
         if self.last_error != self.Error.NONE:
             return self.get_last_error_display()
-        elif self.last_sync is not None:
+        elif self.last_update_at is not None:
             return "OK"
         return "Not synced yet"
 
@@ -253,7 +253,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info(
                 "%s: contacts of this char are up-to-date, no sync required", self
             )
-            self.last_sync = now()
+            self.last_update_at = now()
             self.save()
             return True
 
@@ -383,7 +383,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         # store updated version hash with character
         self.version_hash = self.manager.version_hash
-        self.last_sync = now()
+        self.last_update_at = now()
         self.save()
         return True
 

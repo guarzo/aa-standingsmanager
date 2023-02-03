@@ -479,7 +479,7 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertIsNone(self.synced_character_2.last_sync)
+        self.assertIsNone(self.synced_character_2.last_update_at)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)

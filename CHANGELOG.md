@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+### Added
+
+### Changed
+
+- Instead of reporting the latest error on the admin site, most errors will now result in exceptions which will result in tasks failing. And which can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
+
+### Fixed
+
 ## [1.6.0] - 2023-01-29
 
 ### Update notes

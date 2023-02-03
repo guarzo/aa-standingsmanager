@@ -82,32 +82,24 @@ class SyncManager(_SyncBaseModel):
 
         return contact_found.standing if contact_found is not None else 0.0
 
-    def update_from_esi(self, force_sync: bool = False) -> Optional[str]:
+    def update_from_esi(self, force_sync: bool = False) -> str:
         """Update this sync manager from ESi
 
         Args:
         - force_sync: will ignore version_hash if set to true
 
         Returns:
-        - newest version hash on success or None on error
+        - newest version hash on success (or raises exception on error)
         """
         if self.character_ownership is None:
-            logger.error("%s: No character configured to sync the alliance", self)
-            return None
-
-        # abort if character does not have sufficient permissions
+            raise RuntimeError(f"{self}: Can not sync. No character configured.")
         if not self.character_ownership.user.has_perm("standingssync.add_syncmanager"):
-            logger.error(
-                "%s: Character does not have sufficient permission "
-                "to sync the alliance",
-                self,
+            raise RuntimeError(
+                f"{self}: Can not sync. Character does not have sufficient permission."
             )
-            return None
-
         token = self._fetch_token()
         if not token:
-            return None
-
+            raise RuntimeError(f"{self}: Can not sync. No valid token found.")
         new_version_hash = self._perform_update_from_esi(token, force_sync)
         return new_version_hash
 
@@ -235,7 +227,9 @@ class SyncedCharacter(_SyncBaseModel):
         - force_sync: will ignore version_hash if set to true
 
         Returns:
-        - False if the sync character was deleted, True otherwise
+        - False when the sync character was deleted
+        - None when no update was needed
+        - True when update was done successfully
         """
         # abort if owner does not have sufficient permissions
         logger.info("%s: Updating contacts", self)
@@ -255,7 +249,7 @@ class SyncedCharacter(_SyncBaseModel):
             )
             self.last_update_at = now()
             self.save()
-            return True
+            return None
 
         token = self._fetch_token()
         if not token:

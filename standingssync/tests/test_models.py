@@ -146,24 +146,16 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
         sync_manager = SyncManagerFactory(
             alliance=self.alliance_1, character_ownership=None
         )
-        # when
-        result = sync_manager.update_from_esi()
-        # then
-        self.assertFalse(result)
-        sync_manager.refresh_from_db()
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.NO_CHARACTER)
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.update_from_esi()
 
     def test_should_abort_when_insufficient_permission(self):
         # given
         sync_manager = SyncManagerFactory(user=self.user_2)
-        # when
-        result = sync_manager.update_from_esi()
-        # then
-        self.assertFalse(result)
-        sync_manager.refresh_from_db()
-        self.assertEqual(
-            sync_manager.last_error, SyncManager.Error.INSUFFICIENT_PERMISSIONS
-        )
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.update_from_esi()
 
     @patch(MODELS_PATH + ".Token")
     def test_should_report_error_when_character_has_no_token(self, mock_Token):
@@ -172,42 +164,9 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
             None
         )
         sync_manager = SyncManagerFactory(user=self.user_1)
-        # when
-        result = sync_manager.update_from_esi()
-        # then
-        sync_manager.refresh_from_db()
-        self.assertFalse(result)
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.TOKEN_INVALID)
-
-    @patch(MODELS_PATH + ".Token")
-    def test_should_report_error_when_token_is_expired(self, mock_Token):
-        # given
-        mock_Token.objects.filter.side_effect = TokenExpiredError()
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        SyncedCharacterFactory(
-            character_ownership=self.alt_ownership, manager=sync_manager
-        )
-        # when
-        result = sync_manager.update_from_esi()
-        # then
-        sync_manager.refresh_from_db()
-        self.assertFalse(result)
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.TOKEN_EXPIRED)
-
-    @patch(MODELS_PATH + ".Token")
-    def test_should_report_error_when_token_is_invalid(self, mock_Token):
-        # given
-        mock_Token.objects.filter.side_effect = TokenInvalidError()
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        SyncedCharacterFactory(
-            character_ownership=self.alt_ownership, manager=sync_manager
-        )
-        # when
-        result = sync_manager.update_from_esi()
-        # then
-        sync_manager.refresh_from_db()
-        self.assertFalse(result)
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.TOKEN_INVALID)
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.update_from_esi()
 
     @patch(MODELS_PATH + ".Token")
     @patch(MODELS_PATH + ".esi")
@@ -267,7 +226,6 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
         # then
         self.assertTrue(result)
         sync_manager.refresh_from_db()
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.NONE)
         expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
         expected_contact_ids.add(self.character_1.alliance_id)
         result_contact_ids = set(
@@ -478,8 +436,8 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
             mock_esi, mock_Token, self.synced_character_2, esi_character_contacts
         )
         # then
-        self.assertTrue(result)
-        self.assertIsNone(self.synced_character_2.last_update_at)
+        self.assertIsNone(result)
+        self.assertIsNotNone(self.synced_character_2.last_update_at)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)

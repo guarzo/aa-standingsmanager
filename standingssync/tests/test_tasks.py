@@ -93,9 +93,8 @@ class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
         # given
         mock_update.return_value = True
         # when
-        result = tasks.run_character_sync(self.synced_character_2)
+        tasks.run_character_sync(self.synced_character_2)
         # then
-        self.assertTrue(result)
         self.assertTrue(mock_update.called)
 
     @patch(TASKS_PATH + ".SyncedCharacter.update")
@@ -133,18 +132,16 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
             tasks.run_manager_sync(99999)
 
     @patch(MODELS_PATH + ".SyncManager.update_from_esi")
-    def test_should_report_error_when_unexpected_exception_occurs(
+    def test_should_abort_when_unexpected_exception_occurs(
         self, mock_update_from_esi, mock_run_character_sync
     ):
         # given
         mock_update_from_esi.side_effect = RuntimeError
         sync_manager = SyncManagerFactory(user=self.user_1)
-        # when
-        result = tasks.run_manager_sync(sync_manager.pk)
+        # when/then
+        with self.assertRaises(RuntimeError):
+            tasks.run_manager_sync(sync_manager.pk)
         # then
-        sync_manager.refresh_from_db()
-        self.assertFalse(result)
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.UNKNOWN)
 
     @patch(MODELS_PATH + ".SyncManager.update_from_esi")
     def test_should_normally_run_character_sync(
@@ -157,11 +154,9 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
             character_ownership=self.alt_ownership_2, manager=sync_manager
         )
         # when
-        result = tasks.run_manager_sync(sync_manager.pk)
+        tasks.run_manager_sync(sync_manager.pk)
         # then
         sync_manager.refresh_from_db()
-        self.assertTrue(result)
-        self.assertEqual(sync_manager.last_error, SyncManager.Error.NONE)
         _, kwargs = mock_run_character_sync.apply_async.call_args
         self.assertEqual(kwargs["kwargs"]["sync_char_pk"], synced_character.pk)
         self.assertFalse(kwargs["kwargs"]["force_sync"])

@@ -40,9 +40,6 @@ def run_manager_sync(manager_pk: int, force_sync: bool = False):
     """
     sync_manager = SyncManager.objects.get(pk=manager_pk)
     new_version_hash = sync_manager.update_from_esi(force_sync)
-    if not new_version_hash:
-        return
-
     EveEntity.objects.bulk_update_new_esi()
 
     if force_sync:

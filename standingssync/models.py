@@ -2,6 +2,7 @@ import hashlib
 import json
 from typing import Optional
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
@@ -186,34 +187,27 @@ class SyncManager(_SyncBaseModel):
 class SyncedCharacter(_SyncBaseModel):
     """A character that has his personal contacts synced with an alliance"""
 
-    class Error(models.IntegerChoices):
-        NONE = 0, "No error"
-        TOKEN_INVALID = 1, "Invalid token"
-        TOKEN_EXPIRED = 2, "Expired token"
-        INSUFFICIENT_PERMISSIONS = 3, "Insufficient permissions"
-        ESI_UNAVAILABLE = 5, "ESI API is currently unavailable"
-        UNKNOWN = 99, "Unknown error"
-
     character_ownership = models.OneToOneField(
         CharacterOwnership, on_delete=models.CASCADE, primary_key=True
     )
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
-    last_error = models.IntegerField(choices=Error.choices, default=Error.NONE)
     has_war_targets_label = models.BooleanField(default=None, null=True)
 
     def __str__(self):
-        return self.character_ownership.character.character_name
+        try:
+            character_name = self.character_ownership.character.character_name
+        except ObjectDoesNotExist:
+            character_name = f"[{self.pk}]"
+        return f"{character_name} - {self.manager}"
 
     @property
-    def character(self) -> int:
+    def character(self) -> EveCharacter:
         return self.character_ownership.character
 
     def get_status_message(self):
-        if self.last_error != self.Error.NONE:
-            return self.get_last_error_display()
-        elif self.last_update_at is not None:
+        if self.is_sync_ok:
             return "OK"
         return "Not synced yet"
 
@@ -231,8 +225,8 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        # abort if owner does not have sufficient permissions
         logger.info("%s: Updating contacts", self)
+        # abort if owner does not have sufficient permissions
         if not self.character_ownership.user.has_perm(
             "standingssync.add_syncedcharacter"
         ):
@@ -253,6 +247,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         token = self._fetch_token()
         if not token:
+            logger.error("%s: Can not sync. No valid token found.", self)
             return False
 
         if not self.manager.contacts.exists():

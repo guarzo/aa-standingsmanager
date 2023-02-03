@@ -458,7 +458,7 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_2.last_error, SyncedCharacter.Error.NONE)
+        self.assertIsNotNone(self.synced_character_2.last_update_at)
         alliance_contacts_2 = {
             obj for obj in self.alliance_contacts if obj.contact_id != character_id
         }
@@ -485,7 +485,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_3.last_error, SyncedCharacter.Error.NONE)
         self.assertSetEqual(
             set(esi_character_contacts.contacts(character_id)),
             set(self.alliance_contacts),
@@ -514,7 +513,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_2.last_error, SyncedCharacter.Error.NONE)
         result = set(esi_character_contacts.contacts(character_id))
         expected = {
             EsiContact(
@@ -562,7 +560,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_2.last_error, SyncedCharacter.Error.NONE)
         expected = {
             EsiContact(1014, EsiContact.ContactType.CHARACTER, standing=-10.0),
             EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
@@ -596,7 +593,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_2.last_error, SyncedCharacter.Error.NONE)
         expected = {
             EsiContact(
                 1014,
@@ -650,7 +646,6 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
         )
         # then
         self.assertTrue(result)
-        self.assertEqual(self.synced_character_2.last_error, SyncedCharacter.Error.NONE)
         expected = {
             EsiContact(
                 1014,

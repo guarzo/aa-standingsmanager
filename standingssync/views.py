@@ -111,7 +111,7 @@ def index(request):
                 "name_html": name_html,
                 "organization": organization,
                 "status_message": status_message,
-                "has_error": synced_character.last_error != SyncedCharacter.Error.NONE,
+                "has_error": not synced_character.is_sync_ok,
                 "pk": synced_character.pk,
             }
         )

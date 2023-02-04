@@ -225,7 +225,13 @@ class SyncedCharacter(_SyncBaseModel):
         return self.character_ownership.character
 
     @property
+    def character_id(self) -> int:
+        return self.character.character_id
+
+    @property
     def is_sync_fresh(self) -> bool:
+        if not self.last_update_at:
+            return False
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC)
         return self.last_update_at > deadline
 
@@ -293,21 +299,16 @@ class SyncedCharacter(_SyncBaseModel):
             )
             return False
 
-        character_id = self.character_ownership.character.character_id
         logger.info("%s: Fetching current contacts", self)
         character_contacts_raw = (
             esi.client.Contacts.get_characters_character_id_contacts(
-                token=token.valid_access_token(), character_id=character_id
+                token=token.valid_access_token(), character_id=self.character_id
             ).results()
         )
         character_contacts = {
             contact["contact_id"]: contact for contact in character_contacts_raw
         }
-        logger.info("%s: Fetching current labels", self)
-        labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
-            character_id=character_id, token=token.valid_access_token()
-        ).results()
-        war_target_id = self._determine_war_target_id(labels_raw)
+        war_target_id = self._determine_war_target_id(token)
         if war_target_id:
             logger.debug("%s: Has war target label", self)
             self.has_war_targets_label = True
@@ -320,7 +321,9 @@ class SyncedCharacter(_SyncBaseModel):
             if ids_to_delete:
                 logger.info("%s: Removing old war target contacts", self)
                 self._esi_delete_contacts(
-                    character_id=character_id, token=token, contact_ids=ids_to_delete
+                    character_id=self.character_id,
+                    token=token,
+                    contact_ids=ids_to_delete,
                 )
                 for contact_id in ids_to_delete:
                     del character_contacts[contact_id]
@@ -332,24 +335,24 @@ class SyncedCharacter(_SyncBaseModel):
         if STANDINGSSYNC_REPLACE_CONTACTS:
             logger.info("%s: Deleting current contacts", self)
             self._esi_delete_contacts(
-                character_id=character_id,
+                character_id=self.character_id,
                 token=token,
                 contact_ids=list(character_contacts.keys()),
             )
             if STANDINGSSYNC_ADD_WAR_TARGETS and war_target_id:
                 logger.info("%s: Writing alliance contacts and war targets", self)
                 self._esi_update(
-                    character_id=character_id,
+                    character_id=self.character_id,
                     token=token,
                     contacts_by_standing=self.manager.contacts.exclude(
-                        eve_entity_id=character_id
+                        eve_entity_id=self.character_id
                     )
                     .filter(is_war_target=False)
                     .grouped_by_standing(),
                     esi_method=esi.client.Contacts.post_characters_character_id_contacts,
                 )
                 self._esi_update(
-                    character_id=character_id,
+                    character_id=self.character_id,
                     token=token,
                     contacts_by_standing=self.manager.contacts.filter(
                         is_war_target=True
@@ -360,10 +363,10 @@ class SyncedCharacter(_SyncBaseModel):
             else:
                 logger.info("%s: Writing alliance contacts", self)
                 self._esi_update(
-                    character_id=character_id,
+                    character_id=self.character_id,
                     token=token,
                     contacts_by_standing=self.manager.contacts.exclude(
-                        eve_entity_id=character_id
+                        eve_entity_id=self.character_id
                     ).grouped_by_standing(),
                     esi_method=esi.client.Contacts.post_characters_character_id_contacts,
                 )
@@ -375,7 +378,7 @@ class SyncedCharacter(_SyncBaseModel):
                     eve_entity_id__in=character_contacts.keys()
                 ).grouped_by_standing()
                 self._esi_update(
-                    character_id=character_id,
+                    character_id=self.character_id,
                     token=token,
                     contacts_by_standing=contacts_by_standing,
                     esi_method=esi.client.Contacts.put_characters_character_id_contacts,
@@ -386,7 +389,7 @@ class SyncedCharacter(_SyncBaseModel):
                     eve_entity_id__in=character_contacts.keys()
                 ).grouped_by_standing()
                 self._esi_update(
-                    character_id=character_id,
+                    character_id=self.character_id,
                     token=token,
                     contacts_by_standing=contacts_by_standing,
                     esi_method=esi.client.Contacts.post_characters_character_id_contacts,
@@ -399,7 +402,11 @@ class SyncedCharacter(_SyncBaseModel):
         self.save()
         return True
 
-    def _determine_war_target_id(self, labels_raw: list) -> Optional[int]:
+    def _determine_war_target_id(self, token: Token) -> Optional[int]:
+        logger.info("%s: Fetching current labels", self)
+        labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
+            character_id=self.character_id, token=token.valid_access_token()
+        ).results()
         for row in labels_raw:
             if (
                 row.get("label_name").lower()

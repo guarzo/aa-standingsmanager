@@ -65,6 +65,10 @@ class SyncManager(_SyncBaseModel):
         return "{} ({})".format(self.alliance.alliance_name, character_name)
 
     @property
+    def character_alliance_id(self) -> int:
+        return self.character_ownership.character.alliance_id
+
+    @property
     def is_sync_fresh(self) -> bool:
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_MANAGER_SYNC)
         return self.last_update_at > deadline
@@ -112,7 +116,7 @@ class SyncManager(_SyncBaseModel):
         new_version_hash = self._perform_update_from_esi(token, force_sync)
         return new_version_hash
 
-    def _fetch_token(self):
+    def _fetch_token(self) -> Token:
         token = (
             Token.objects.filter(
                 user=self.character_ownership.user,
@@ -124,31 +128,12 @@ class SyncManager(_SyncBaseModel):
         )
         return token
 
-    def _perform_update_from_esi(self, token, force_sync) -> str:
-        # get alliance contacts
-        alliance_id = self.character_ownership.character.alliance_id
-        contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
-            token=token.valid_access_token(), alliance_id=alliance_id
-        ).results()
-        contacts = {int(row["contact_id"]): row for row in contacts_raw}
-
-        if STANDINGSSYNC_ADD_WAR_TARGETS:
-            war_targets = EveWar.objects.war_targets(alliance_id)
-            for war_target in war_targets:
-                contacts[war_target.id] = self._to_esi_dict(war_target, -10.0)
-            war_target_ids = {war_target.id for war_target in war_targets}
-        else:
-            war_target_ids = set()
-
-        # determine if contacts have changed by comparing their hashes
+    def _perform_update_from_esi(self, token: Token, force_sync: bool) -> str:
+        """Update alliance contacts incl. war targets."""
+        contacts = self._fetch_alliance_contacts(token)
+        war_target_ids = self._add_war_targets(contacts)
         new_version_hash = self._calculate_version_hash(contacts)
         if force_sync or new_version_hash != self.version_hash:
-            # add the sync alliance with max standing to contacts
-            contacts[alliance_id] = {
-                "contact_id": alliance_id,
-                "contact_type": "alliance",
-                "standing": 10,
-            }
             with transaction.atomic():
                 self.contacts.all().delete()
                 contacts = [
@@ -172,6 +157,31 @@ class SyncManager(_SyncBaseModel):
         self.last_update_at = now()
         self.save()
         return new_version_hash
+
+    def _fetch_alliance_contacts(self, token: Token) -> dict:
+        contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
+            token=token.valid_access_token(), alliance_id=self.alliance.alliance_id
+        ).results()
+        contacts = {int(row["contact_id"]): row for row in contacts_raw}
+        # add the sync alliance with max standing to contacts
+        contacts[self.alliance.alliance_id] = {
+            "contact_id": self.alliance.alliance_id,
+            "contact_type": "alliance",
+            "standing": 10,
+        }
+        return contacts
+
+    def _add_war_targets(self, contacts: dict):
+        """Add war targets to contacts (if enabled).
+
+        Returns contact IDs of war targets.
+        """
+        if not STANDINGSSYNC_ADD_WAR_TARGETS:
+            return set()
+        war_targets = EveWar.objects.war_targets(self.character_alliance_id)
+        for war_target in war_targets:
+            contacts[war_target.id] = self._to_esi_dict(war_target, -10.0)
+        return {war_target.id for war_target in war_targets}
 
     @staticmethod
     def _to_esi_dict(eve_entity: EveEntity, standing: float) -> dict:

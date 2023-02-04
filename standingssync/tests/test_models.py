@@ -246,6 +246,26 @@ def fetch_war_targets():
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
 @patch(MODELS_PATH + ".esi")
 class TestSyncManager2(NoSocketsTestCase):
+    def test_should_report_sync_as_ok(self, dummy):
+        # given
+        my_dt = now()
+        sync_manager = SyncManagerFactory(
+            last_update_at=my_dt - dt.timedelta(minutes=1)
+        )
+        # when/then
+        with patch(MODELS_PATH + ".STANDINGSSYNC_TIMEOUT_MANAGER_SYNC", 60):
+            self.assertTrue(sync_manager.is_sync_fresh)
+
+    def test_should_report_sync_as_not_ok(self, dummy):
+        # given
+        my_dt = now()
+        sync_manager = SyncManagerFactory(
+            last_update_at=my_dt - dt.timedelta(minutes=61)
+        )
+        # when/then
+        with patch(MODELS_PATH + ".STANDINGSSYNC_TIMEOUT_MANAGER_SYNC", 60):
+            self.assertFalse(sync_manager.is_sync_fresh)
+
     def test_should_add_war_target_contact_as_aggressor_1(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -815,6 +835,22 @@ class TestSyncCharacter(LoadTestDataMixin, TestCase):
 
 
 class TestSyncCharacter2(NoSocketsTestCase):
+    def test_should_report_sync_as_ok(self):
+        # given
+        my_dt = now()
+        obj = SyncedCharacterFactory(last_update_at=my_dt - dt.timedelta(minutes=1))
+        # when/then
+        with patch(MODELS_PATH + ".STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC", 60):
+            self.assertTrue(obj.is_sync_fresh)
+
+    def test_should_report_sync_as_not_ok(self):
+        # given
+        my_dt = now()
+        obj = SyncedCharacterFactory(last_update_at=my_dt - dt.timedelta(minutes=61))
+        # when/then
+        with patch(MODELS_PATH + ".STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC", 60):
+            self.assertFalse(obj.is_sync_fresh)
+
     def test_should_not_sync_when_no_contacts(self):
         # given
         manager = SyncManagerFactory(version_hash="abc")

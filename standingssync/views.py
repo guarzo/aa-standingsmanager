@@ -111,7 +111,7 @@ def index(request):
                 "name_html": name_html,
                 "organization": organization,
                 "status_message": status_message,
-                "has_error": not synced_character.is_sync_ok,
+                "has_error": not synced_character.is_sync_fresh,
                 "pk": synced_character.pk,
             }
         )

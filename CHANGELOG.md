@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Instead of reporting the latest error on the admin site, most errors will now result in exceptions which will result in tasks failing. And which can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
+- Sync is now reported as "OK" when the last successful update happened before a timeout. Timeouts for manager and character sync can be configured via settings.
 
 ### Fixed
 

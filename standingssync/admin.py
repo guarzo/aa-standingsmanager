@@ -139,7 +139,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True)
     def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_ok
+        return obj.is_sync_fresh
 
     @admin.display(ordering="character_ownership__user")
     def _user(self, obj):
@@ -183,7 +183,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True)
     def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_ok
+        return obj.is_sync_fresh
 
     @admin.display(ordering="character_ownership__user__username")
     def _user(self, obj):

@@ -1,3 +1,4 @@
+import datetime as dt
 import hashlib
 import json
 from typing import Optional
@@ -21,6 +22,8 @@ from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
+    STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC,
+    STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
 )
 from .managers import EveContactManager, EveWarManager
@@ -39,8 +42,8 @@ class _SyncBaseModel(models.Model):
         abstract = True
 
     @property
-    def is_sync_ok(self) -> bool:
-        return None
+    def is_sync_fresh(self) -> bool:
+        raise NotImplementedError()
 
 
 class SyncManager(_SyncBaseModel):
@@ -60,6 +63,11 @@ class SyncManager(_SyncBaseModel):
         else:
             character_name = "None"
         return "{} ({})".format(self.alliance.alliance_name, character_name)
+
+    @property
+    def is_sync_fresh(self) -> bool:
+        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_MANAGER_SYNC)
+        return self.last_update_at > deadline
 
     def get_effective_standing(self, character: EveCharacter) -> float:
         """return the effective standing with this alliance"""
@@ -206,10 +214,15 @@ class SyncedCharacter(_SyncBaseModel):
     def character(self) -> EveCharacter:
         return self.character_ownership.character
 
+    @property
+    def is_sync_fresh(self) -> bool:
+        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC)
+        return self.last_update_at > deadline
+
     def get_status_message(self):
-        if self.is_sync_ok:
+        if self.is_sync_fresh:
             return "OK"
-        return "Not synced yet"
+        return "Sync is outdated."
 
     def update(self, force_sync: bool = False) -> bool:
         """updates in-game contacts for given character

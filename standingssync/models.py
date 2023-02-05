@@ -539,11 +539,10 @@ class SyncedCharacter(_SyncBaseModel):
         """Update character contracts on ESI."""
         max_items = 100
         for standing in contacts_by_standing:
-            contact_ids_chunks = chunks(
-                [contact.eve_entity_id for contact in contacts_by_standing[standing]],
-                max_items,
+            contact_ids = sorted(
+                [contact.eve_entity_id for contact in contacts_by_standing[standing]]
             )
-            for contact_ids_chunk in contact_ids_chunks:
+            for contact_ids_chunk in chunks(contact_ids, max_items):
                 params = {
                     "token": token.valid_access_token(),
                     "character_id": character_id,

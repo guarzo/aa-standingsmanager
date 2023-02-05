@@ -49,10 +49,7 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
         )
 
     def test_grouped_by_standing(self):
-        c = {
-            int(x.eve_entity_id): x
-            for x in self.sync_manager.contacts.order_by("eve_entity_id")
-        }
+        c = {int(x.eve_entity_id): x for x in self.sync_manager.contacts.all()}
         expected = {
             -10.0: {c[1005], c[1012], c[3011], c[2011]},
             -5.0: {c[1013], c[3012], c[2012]},
@@ -60,9 +57,10 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
             5.0: {c[1015], c[3014], c[2013]},
             10.0: {c[1002], c[1004], c[1016], c[3015], c[2015]},
         }
-        result = self.sync_manager.contacts.all().grouped_by_standing()
+        result = self.sync_manager.contacts.grouped_by_standing()
         self.maxDiff = None
         self.assertDictEqual(result, expected)
+        self.assertListEqual(list(result.keys()), list(expected.keys()))
 
 
 class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):

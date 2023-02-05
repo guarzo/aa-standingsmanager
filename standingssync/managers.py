@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import List, Set
 
 from django.db import models, transaction
@@ -19,13 +20,11 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 class EveContactQuerySet(models.QuerySet):
     def grouped_by_standing(self) -> dict:
-        """Return alliance contacts grouped by their standing as dict."""
-        contacts_by_standing = dict()
+        """Group alliance contacts by standing and convert into sorted dict."""
+        contacts_by_standing = defaultdict(set)
         for contact in self.all():
-            if contact.standing not in contacts_by_standing:
-                contacts_by_standing[contact.standing] = set()
             contacts_by_standing[contact.standing].add(contact)
-        return contacts_by_standing
+        return dict(sorted(contacts_by_standing.items()))
 
 
 class EveContactManagerBase(models.Manager):

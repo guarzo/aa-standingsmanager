@@ -275,7 +275,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.debug("%s: Has war target label", self)
             self.has_war_targets_label = True
             self.save()
-            self._delete_obsolete_war_targets(token, character_contacts, wt_label_id)
+            self._delete_current_war_targets(token, character_contacts, wt_label_id)
         else:
             logger.debug("%s: Does not have war target label", self)
             self.has_war_targets_label = False
@@ -397,7 +397,11 @@ class SyncedCharacter(_SyncBaseModel):
         logger.info(f"WT Label ID = {wt_label_id}")
         return wt_label_id
 
-    def _delete_obsolete_war_targets(self, token, character_contacts, wt_label_id):
+    def _delete_current_war_targets(self, token, character_contacts, wt_label_id):
+        """Delete current war targets.
+
+        This ensures outdated WTs are removed. All current WTs will be added again later.
+        """
         ids_to_delete = [
             contact_id
             for contact_id, contact in character_contacts.items()
@@ -422,7 +426,7 @@ class SyncedCharacter(_SyncBaseModel):
         )
         if STANDINGSSYNC_ADD_WAR_TARGETS and wt_label_id:
             logger.info("%s: Writing alliance contacts and war targets", self)
-            self._esi_update(
+            self._esi_post_contacts(
                 character_id=self.character_id,
                 token=token,
                 contacts_by_standing=self.manager.contacts.exclude(
@@ -430,26 +434,23 @@ class SyncedCharacter(_SyncBaseModel):
                 )
                 .filter(is_war_target=False)
                 .grouped_by_standing(),
-                esi_method=esi.client.Contacts.post_characters_character_id_contacts,
             )
-            self._esi_update(
+            self._esi_post_contacts(
                 character_id=self.character_id,
                 token=token,
                 contacts_by_standing=self.manager.contacts.filter(
                     is_war_target=True
                 ).grouped_by_standing(),
-                esi_method=esi.client.Contacts.post_characters_character_id_contacts,
                 label_ids=[wt_label_id],
             )
         else:
             logger.info("%s: Writing alliance contacts", self)
-            self._esi_update(
+            self._esi_post_contacts(
                 character_id=self.character_id,
                 token=token,
                 contacts_by_standing=self.manager.contacts.exclude(
                     eve_entity_id=self.character_id
                 ).grouped_by_standing(),
-                esi_method=esi.client.Contacts.post_characters_character_id_contacts,
             )
 
     def _update_character_contracts(self, token, character_contacts, wt_label_id):
@@ -459,22 +460,20 @@ class SyncedCharacter(_SyncBaseModel):
             contacts_by_standing = contacts.filter(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
-            self._esi_update(
+            self._esi_put_contacts(
                 character_id=self.character_id,
                 token=token,
                 contacts_by_standing=contacts_by_standing,
-                esi_method=esi.client.Contacts.put_characters_character_id_contacts,
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
             logger.info("%s: Add new war target contacts", self)
             contacts_by_standing = contacts.exclude(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
-            self._esi_update(
+            self._esi_post_contacts(
                 character_id=self.character_id,
                 token=token,
                 contacts_by_standing=contacts_by_standing,
-                esi_method=esi.client.Contacts.post_characters_character_id_contacts,
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
@@ -485,6 +484,7 @@ class SyncedCharacter(_SyncBaseModel):
 
     @staticmethod
     def _esi_delete_contacts(character_id: int, token: Token, contact_ids: list):
+        """Delete character contacts on ESI."""
         max_items = 20
         contact_ids_chunks = chunks(contact_ids, max_items)
         for contact_ids_chunk in contact_ids_chunks:
@@ -494,6 +494,40 @@ class SyncedCharacter(_SyncBaseModel):
                 contact_ids=contact_ids_chunk,
             ).results()
 
+    @classmethod
+    def _esi_post_contacts(
+        cls,
+        character_id: int,
+        token: Token,
+        contacts_by_standing: dict,
+        label_ids: list = None,
+    ):
+        """Add new character contracts on ESI."""
+        cls._esi_update(
+            character_id=character_id,
+            token=token,
+            contacts_by_standing=contacts_by_standing,
+            esi_method=esi.client.Contacts.post_characters_character_id_contacts,
+            label_ids=label_ids,
+        )
+
+    @classmethod
+    def _esi_put_contacts(
+        cls,
+        character_id: int,
+        token: Token,
+        contacts_by_standing: dict,
+        label_ids: list = None,
+    ):
+        """Update existing character contracts on ESI."""
+        cls._esi_update(
+            character_id=character_id,
+            token=token,
+            contacts_by_standing=contacts_by_standing,
+            esi_method=esi.client.Contacts.put_characters_character_id_contacts,
+            label_ids=label_ids,
+        )
+
     @staticmethod
     def _esi_update(
         character_id: int,
@@ -501,21 +535,24 @@ class SyncedCharacter(_SyncBaseModel):
         contacts_by_standing: dict,
         esi_method,
         label_ids: list = None,
-        max_items: int = 100,
     ):
+        """Update character contracts on ESI."""
+        max_items = 100
         for standing in contacts_by_standing:
             contact_ids_chunks = chunks(
                 [contact.eve_entity_id for contact in contacts_by_standing[standing]],
                 max_items,
             )
             for contact_ids_chunk in contact_ids_chunks:
-                esi_method(
-                    token=token.valid_access_token(),
-                    character_id=character_id,
-                    contact_ids=contact_ids_chunk,
-                    standing=standing,
-                    label_ids=label_ids if label_ids else [],
-                ).results()
+                params = {
+                    "token": token.valid_access_token(),
+                    "character_id": character_id,
+                    "contact_ids": contact_ids_chunk,
+                    "standing": standing,
+                }
+                if label_ids is not None:
+                    params["label_ids"] = label_ids
+                esi_method(**params).results()
 
     @staticmethod
     def get_esi_scopes() -> list:

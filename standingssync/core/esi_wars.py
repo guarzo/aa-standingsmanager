@@ -1,3 +1,5 @@
+"""Wrapper for handling access to wars on ESI."""
+
 from typing import Set
 
 from allianceauth.services.hooks import get_extension_logger
@@ -46,6 +48,7 @@ def fetch_war_ids() -> Set[int]:
 
 
 def fetch_war(war_id: int) -> dict:
-    logger.info("Retrieving war details for ID %s", war_id)
+    """Fetch details about a war from ESI."""
+    logger.info("%: Retrieving war", war_id)
     war_info = esi.client.Wars.get_wars_war_id(war_id=war_id).results(ignore_cache=True)
     return war_info

@@ -1,4 +1,4 @@
-"""API for handling access to contacts on ESI."""
+"""Wrapper for handling access to contacts on ESI."""
 
 from typing import Optional
 

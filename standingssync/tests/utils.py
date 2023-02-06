@@ -11,7 +11,9 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from app_utils.esi_testing import BravadoOperationStub
+from app_utils.esi_testing import BravadoOperationStub, build_http_error
+
+from standingssync.models import EveContact
 
 
 def create_esi_contact(eve_entity: EveEntity, standing: int = 5.0) -> dict:
@@ -194,7 +196,7 @@ class EsiContact:
         ALLIANCE = "alliance"
 
     contact_id: int
-    contact_type: str
+    contact_type: ContactType
     standing: float
     label_ids: FrozenSet[int] = field(default_factory=frozenset)
 
@@ -237,6 +239,21 @@ class EsiContact:
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
             standing=standing,
+            label_ids=label_ids,
+        )
+
+    @classmethod
+    def from_eve_contact(cls, eve_contact: EveContact, label_ids=None) -> "EsiContact":
+        """Create new instance from an EveContact object."""
+        contact_type_map = {
+            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
+            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
+            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
+        }
+        return cls(
+            contact_id=eve_contact.eve_entity.id,
+            contact_type=contact_type_map[eve_contact.eve_entity.category],
+            standing=eve_contact.standing,
             label_ids=label_ids,
         )
 
@@ -329,27 +346,47 @@ class EsiCharacterContactsStub:
                 standing=standing,
                 label_ids=label_ids,
             )
-        return BravadoOperationStub([])
+        return BravadoOperationStub(contact_ids)
 
     def _esi_put_characters_character_id_contacts(
         self, character_id, contact_ids, standing, token, label_ids=None
     ):
+        try:
+            character_contacts = self._contacts[character_id]
+        except KeyError:
+            raise build_http_error(404, "unknown character") from None
         self._check_label_ids_valid(character_id, label_ids)
+        updated_contact_ids = []
         for contact_id in contact_ids:
-            self._contacts[character_id][contact_id].standing = standing
-            if label_ids:
-                if not self._contacts[character_id][contact_id].label_ids:
-                    self._contacts[character_id][contact_id].label_ids = label_ids
-                else:
-                    self._contacts[character_id][contact_id].label_ids += label_ids
-        return BravadoOperationStub([])
+            try:
+                character_contacts[contact_id].standing = standing
+                if label_ids:
+                    if not character_contacts[contact_id].label_ids:
+                        character_contacts[contact_id].label_ids = label_ids
+                    else:
+                        character_contacts[contact_id].label_ids += label_ids
+            except KeyError:
+                pass
+            else:
+                updated_contact_ids.append(contact_id)
+            return BravadoOperationStub(updated_contact_ids)
 
     def _esi_delete_characters_character_id_contacts(
         self, character_id, contact_ids, token
     ):
+        try:
+            character_contacts = self._contacts[character_id]
+        except KeyError:
+            raise build_http_error(404, "unknown character") from None
+        deleted_contacts = []
         for contact_id in contact_ids:
-            del self._contacts[character_id][contact_id]
-        return BravadoOperationStub([])
+            try:
+                del character_contacts[contact_id]
+            except KeyError:
+                pass
+            else:
+                deleted_contacts.append(contact_id)
+        return BravadoOperationStub(deleted_contacts)
 
     def _check_label_ids_valid(self, character_id, label_ids):
         if label_ids:

@@ -49,6 +49,6 @@ def fetch_war_ids() -> Set[int]:
 
 def fetch_war(war_id: int) -> dict:
     """Fetch details about a war from ESI."""
-    logger.info("%: Retrieving war", war_id)
+    logger.info("%d: Retrieving war", war_id)
     war_info = esi.client.Wars.get_wars_war_id(war_id=war_id).results(ignore_cache=True)
     return war_info

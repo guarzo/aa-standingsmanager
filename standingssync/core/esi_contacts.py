@@ -1,7 +1,8 @@
 """Wrapper for handling access to contacts on ESI."""
 
-from typing import Optional
+from typing import Dict, Optional
 
+from django.db import models
 from esi.models import Token
 from eveuniverse.models import EveEntity
 
@@ -74,20 +75,34 @@ def determine_character_wt_label_id(token: Token) -> Optional[int]:
 def delete_character_contacts(token: Token, contact_ids: list):
     """Delete character contacts on ESI."""
     max_items = 20
+    deleted_contact_ids = []
     contact_ids_chunks = chunks(contact_ids, max_items)
     for contact_ids_chunk in contact_ids_chunks:
-        esi.client.Contacts.delete_characters_character_id_contacts(
-            token=token.valid_access_token(),
-            character_id=token.character_id,
-            contact_ids=contact_ids_chunk,
-        ).results()
+        deleted_contact_ids += (
+            esi.client.Contacts.delete_characters_character_id_contacts(
+                token=token.valid_access_token(),
+                character_id=token.character_id,
+                contact_ids=contact_ids_chunk,
+            ).results()
+        )
+    result = set(deleted_contact_ids) == set(contact_ids)
+    if not result:
+        logger.warning(
+            "%s: Failed to delete contacts: %s",
+            token.character_name,
+            set(contact_ids) - set(deleted_contact_ids),
+        )
+    return result
 
 
 def add_character_contacts(
-    token: Token, contacts_by_standing: dict, label_ids: list = None
-):
-    """Add new character contacts on ESI."""
-    _update_character_contacts(
+    token: Token, contacts_by_standing: Dict[int, models.Model], label_ids: list = None
+) -> bool:
+    """Add new character contacts on ESI.
+
+    Returns False if not all contacts could be added.
+    """
+    return _update_character_contacts(
         token=token,
         contacts_by_standing=contacts_by_standing,
         esi_method=esi.client.Contacts.post_characters_character_id_contacts,
@@ -97,9 +112,12 @@ def add_character_contacts(
 
 def update_character_contacts(
     token: Token, contacts_by_standing: dict, label_ids: list = None
-):
-    """Update existing character contracts on ESI."""
-    _update_character_contacts(
+) -> bool:
+    """Update existing character contacts on ESI.
+
+    Returns False if not all contacts could be updated.
+    """
+    return _update_character_contacts(
         token=token,
         contacts_by_standing=contacts_by_standing,
         esi_method=esi.client.Contacts.put_characters_character_id_contacts,
@@ -112,9 +130,10 @@ def _update_character_contacts(
     contacts_by_standing: dict,
     esi_method,
     label_ids: list = None,
-):
-    """Delete or update character contracts on ESI."""
+) -> bool:
+    """Add new or update existing character contacts on ESI."""
     max_items = 100
+    updated_contact_ids = []
     for standing in contacts_by_standing:
         contact_ids = sorted(
             [contact.eve_entity_id for contact in contacts_by_standing[standing]]
@@ -128,4 +147,13 @@ def _update_character_contacts(
             }
             if label_ids is not None:
                 params["label_ids"] = label_ids
-            esi_method(**params).results()
+            updated_contact_ids += esi_method(**params).results()
+
+    result = set(updated_contact_ids) == set(contact_ids)
+    if not result:
+        logger.warning(
+            "%s: Failed to add/update contacts: %s",
+            token.character_name,
+            set(contact_ids) - set(updated_contact_ids),
+        )
+    return result

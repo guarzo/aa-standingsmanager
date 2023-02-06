@@ -262,7 +262,7 @@ class SyncedCharacter(_SyncBaseModel):
         if STANDINGSSYNC_REPLACE_CONTACTS:
             self._replace_character_contacts(token, character_contacts, wt_label_id)
         else:
-            self._update_character_contracts(token, character_contacts, wt_label_id)
+            self._update_character_contacts(token, character_contacts, wt_label_id)
 
         self._store_new_version_hash()
         return True
@@ -395,7 +395,7 @@ class SyncedCharacter(_SyncBaseModel):
                 ).grouped_by_standing(),
             )
 
-    def _update_character_contracts(self, token, character_contacts, wt_label_id):
+    def _update_character_contacts(self, token, character_contacts, wt_label_id):
         contacts = self.manager.contacts.filter(is_war_target=True)
         if contacts.exists():
             logger.info("%s: Update existing contacts to war target", self)

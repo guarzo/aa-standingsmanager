@@ -134,7 +134,7 @@ class EveContactFactory(factory.django.DjangoModelFactory):
         model = EveContact
 
     manager = factory.SubFactory(SyncManagerFactory)
-    eve_entity = factory.SubFactory(EveEntityFactory)
+    eve_entity = factory.SubFactory(EveEntityCharacterFactory)
     standing = 5
     is_war_target = False
 

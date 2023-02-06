@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Set
+from typing import Dict, List, Set
 
 from django.db import models, transaction
 from django.db.models import Exists, OuterRef
@@ -15,7 +15,7 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
 class EveContactQuerySet(models.QuerySet):
-    def grouped_by_standing(self) -> dict:
+    def grouped_by_standing(self) -> Dict[int, models.Model]:
         """Group alliance contacts by standing and convert into sorted dict."""
         contacts_by_standing = defaultdict(set)
         for contact in self.all():

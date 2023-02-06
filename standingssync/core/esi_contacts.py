@@ -75,24 +75,13 @@ def determine_character_wt_label_id(token: Token) -> Optional[int]:
 def delete_character_contacts(token: Token, contact_ids: list):
     """Delete character contacts on ESI."""
     max_items = 20
-    deleted_contact_ids = []
     contact_ids_chunks = chunks(contact_ids, max_items)
     for contact_ids_chunk in contact_ids_chunks:
-        deleted_contact_ids += (
-            esi.client.Contacts.delete_characters_character_id_contacts(
-                token=token.valid_access_token(),
-                character_id=token.character_id,
-                contact_ids=contact_ids_chunk,
-            ).results()
-        )
-    result = set(deleted_contact_ids) == set(contact_ids)
-    if not result:
-        logger.warning(
-            "%s: Failed to delete contacts: %s",
-            token.character_name,
-            set(contact_ids) - set(deleted_contact_ids),
-        )
-    return result
+        esi.client.Contacts.delete_characters_character_id_contacts(
+            token=token.valid_access_token(),
+            character_id=token.character_id,
+            contact_ids=contact_ids_chunk,
+        ).results()
 
 
 def add_character_contacts(
@@ -133,11 +122,13 @@ def _update_character_contacts(
 ) -> bool:
     """Add new or update existing character contacts on ESI."""
     max_items = 100
-    updated_contact_ids = []
+    requested_contact_ids = set()
+    updated_contact_ids = set()
     for standing in contacts_by_standing:
         contact_ids = sorted(
             [contact.eve_entity_id for contact in contacts_by_standing[standing]]
         )
+        requested_contact_ids.update(contact_ids)
         for contact_ids_chunk in chunks(contact_ids, max_items):
             params = {
                 "token": token.valid_access_token(),
@@ -147,13 +138,14 @@ def _update_character_contacts(
             }
             if label_ids is not None:
                 params["label_ids"] = label_ids
-            updated_contact_ids += esi_method(**params).results()
+            response = esi_method(**params).results()
+            updated_contact_ids.update(response)
 
-    result = set(updated_contact_ids) == set(contact_ids)
+    result = updated_contact_ids == requested_contact_ids
     if not result:
         logger.warning(
             "%s: Failed to add/update contacts: %s",
             token.character_name,
-            set(contact_ids) - set(updated_contact_ids),
+            requested_contact_ids - updated_contact_ids,
         )
     return result

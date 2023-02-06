@@ -162,23 +162,9 @@ class TestEsiContacts(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_contacts.delete_character_contacts(mock_token, [1003])
+        esi_contacts.delete_character_contacts(mock_token, [1003])
         # then
-        self.assertTrue(result)
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
-
-    def test_should_return_false_when_delete_incomplete(self, mock_esi):
-        # given
-        mock_token = MockToken(1001, "Bruce Wayne")
-        contact_1002 = EsiContact(1002, EsiContact.ContactType.CHARACTER, 5)
-        contact_1003 = EsiContact(1003, EsiContact.ContactType.CHARACTER, 5)
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
-        esi_stub.setup_esi_mock(mock_esi)
-        # when
-        result = esi_contacts.delete_character_contacts(mock_token, [1004])
-        # then
-        self.assertFalse(result)
 
     def test_should_add_contact(self, mock_esi):
         # given

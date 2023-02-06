@@ -378,15 +378,12 @@ class EsiCharacterContactsStub:
             character_contacts = self._contacts[character_id]
         except KeyError:
             raise build_http_error(404, "unknown character") from None
-        deleted_contacts = []
         for contact_id in contact_ids:
             try:
                 del character_contacts[contact_id]
             except KeyError:
                 pass
-            else:
-                deleted_contacts.append(contact_id)
-        return BravadoOperationStub(deleted_contacts)
+        return BravadoOperationStub([])
 
     def _check_label_ids_valid(self, character_id, label_ids):
         if label_ids:

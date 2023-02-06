@@ -8,7 +8,6 @@ from allianceauth.authentication.models import CharacterOwnership
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
-from ..managers import EveWarManager
 from ..models import EveWar
 from .factories import (
     EveContactFactory,
@@ -19,6 +18,7 @@ from .factories import (
 )
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
+ESI_WARS_PATH = "standingssync.core.esi_wars"
 MANAGERS_PATH = "standingssync.managers"
 MODELS_PATH = "standingssync.models"
 
@@ -129,7 +129,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         # then
         self.assertSetEqual({obj.id for obj in result}, {2})
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_create_full_war_object_from_esi_1(self, mock_esi):
         # given
         declared = now() - dt.timedelta(days=5)
@@ -174,7 +174,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.retracted, retracted)
         self.assertEqual(war.started, started)
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_create_full_war_object_from_esi_2(self, mock_esi):
         # given
         declared = now() - dt.timedelta(days=5)
@@ -217,7 +217,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertIsNone(war.retracted)
         self.assertEqual(war.started, started)
 
-    # @patch(MANAGERS_PATH + ".esi")
+    # @patch(ESI_WARS_PATH + ".esi")
     # def test_should_not_create_object_from_esi_for_finished_war(self, mock_esi):
     #     # given
     #     declared = now() - dt.timedelta(days=5)
@@ -251,7 +251,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
     #     # then
     #     self.assertFalse(EveWar.objects.filter(id=1).exists())
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_update_existing_war_from_esi(self, mock_esi):
         # given
         finished = now() + dt.timedelta(days=1)
@@ -296,8 +296,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
 
 
 class TestEveWarManager2(NoSocketsTestCase):
-    @patch(MANAGERS_PATH + ".STANDINGSSYNC_SPECIAL_WAR_IDS", [3, 4])
-    @patch(MODELS_PATH + ".EveWar.objects.fetch_war_ids_from_esi")
+    @patch(MANAGERS_PATH + ".esi_wars.fetch_war_ids")
     def test_should_return_relevant_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
@@ -305,26 +304,7 @@ class TestEveWarManager2(NoSocketsTestCase):
         # when
         result = EveWar.objects.calc_relevant_war_ids()
         # then
-        self.assertSetEqual(result, {1, 2, 3, 4})
-
-    @patch(MANAGERS_PATH + ".STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID", 4)
-    @patch(MANAGERS_PATH + ".esi")
-    def test_should_fetch_war_ids_with_paging(self, mock_esi):
-        def esi_get_wars(max_war_id=None):
-            if max_war_id:
-                war_ids = [war_id for war_id in esi_war_ids if war_id < max_war_id]
-            else:
-                war_ids = esi_war_ids
-            return BravadoOperationStub(sorted(war_ids, reverse=True)[:page_size])
-
-        # given
-        esi_war_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-        page_size = 3
-        mock_esi.client.Wars.get_wars.side_effect = esi_get_wars
-        # when
-        result = EveWarManager.fetch_war_ids_from_esi(max_items=3)
-        # then
-        self.assertSetEqual(result, {4, 5, 6, 7, 8})
+        self.assertSetEqual(result, {1, 2})
 
 
 class TestEveWarManagerActiveWars(NoSocketsTestCase):

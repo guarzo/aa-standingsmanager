@@ -9,11 +9,7 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
-from .app_settings import (
-    STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID,
-    STANDINGSSYNC_SPECIAL_WAR_IDS,
-)
-from .providers import esi
+from .core import esi_wars
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -82,7 +78,7 @@ class EveWarManagerBase(models.Manager):
         from .models import EveEntity
 
         logger.info("Retrieving war details for ID %s", id)
-        war_info = esi.client.Wars.get_wars_war_id(war_id=id).results(ignore_cache=True)
+        war_info = esi_wars.fetch_war(war_id=id)
         aggressor, _ = EveEntity.objects.get_or_create(
             id=self._extract_id_from_war_participant(war_info["aggressor"])
         )
@@ -122,39 +118,10 @@ class EveWarManagerBase(models.Manager):
     def calc_relevant_war_ids(self) -> Set[int]:
         """Determine IDs from unfinished and new wars."""
         logger.info("Fetching wars from ESI")
-        war_ids = self.fetch_war_ids_from_esi()
-        war_ids = war_ids.union(set(STANDINGSSYNC_SPECIAL_WAR_IDS))
+        war_ids = esi_wars.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))
         war_ids = set(war_ids)
         return war_ids.difference(finished_war_ids)
-
-    @staticmethod
-    def fetch_war_ids_from_esi(max_items: int = 2000) -> Set[int]:
-        """Fetch IDs for new and unfinished wars from ESI.
-
-        Will ignore older wars which are known to be already finished.
-        """
-        logger.info("Fetching war IDs from ESI")
-        war_ids = []
-        war_ids_page = esi.client.Wars.get_wars().results(ignore_cache=True)
-        while True:
-            war_ids += war_ids_page
-            if (
-                len(war_ids_page) < max_items
-                or min(war_ids_page) < STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
-            ):
-                break
-            max_war_id = min(war_ids)
-            war_ids_page = esi.client.Wars.get_wars(max_war_id=max_war_id).results(
-                ignore_cache=True
-            )
-        return set(
-            [
-                war_id
-                for war_id in war_ids
-                if war_id >= STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
-            ]
-        )
 
 
 EveWarManager = EveWarManagerBase.from_queryset(EveWarQuerySet)

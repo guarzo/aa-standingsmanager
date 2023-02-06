@@ -21,12 +21,13 @@ from .utils import (
     create_esi_contact,
 )
 
+ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 MODELS_PATH = "standingssync.models"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(MODELS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
-@patch(MODELS_PATH + ".esi")
+@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
+@patch(ESI_CONTACTS_PATH + ".esi")
 class TestIntegration(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     def test_should_sync_manager_and_character_no_wt(self, mock_esi):

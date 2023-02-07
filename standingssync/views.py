@@ -233,7 +233,7 @@ def add_character(request, token):
                 request, "Could not find character {}".format(token_char.character_name)
             )
         else:
-            eff_standing = sync_manager.get_effective_standing(
+            eff_standing = sync_manager.effective_standing_with_character(
                 character_ownership.character
             )
             if eff_standing < STANDINGSSYNC_CHAR_MIN_STANDING:

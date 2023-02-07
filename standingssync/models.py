@@ -56,11 +56,7 @@ class SyncManager(_SyncBaseModel):
     )
 
     def __str__(self):
-        if self.character_ownership is not None:
-            character_name = self.character_ownership.character.character_name
-        else:
-            character_name = "None"
-        return "{} ({})".format(self.alliance.alliance_name, character_name)
+        return str(self.alliance)
 
     @property
     def character_alliance_id(self) -> int:
@@ -71,27 +67,23 @@ class SyncManager(_SyncBaseModel):
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_MANAGER_SYNC)
         return self.last_update_at > deadline
 
-    def get_effective_standing(self, character: EveCharacter) -> float:
-        """return the effective standing with this alliance"""
+    def effective_standing_with_character(self, character: EveCharacter) -> float:
+        """Effective standing of the alliance with a character."""
 
-        contact_found = None
         try:
-            contact_found = self.contacts.get(eve_entity_id=character.character_id)
+            return self.contacts.get(eve_entity_id=character.character_id).standing
         except EveContact.DoesNotExist:
+            pass
+        try:
+            return self.contacts.get(eve_entity_id=character.corporation_id).standing
+        except EveContact.DoesNotExist:
+            pass
+        if character.alliance_id:
             try:
-                contact_found = self.contacts.get(
-                    eve_entity_id=character.corporation_id
-                )
+                return self.contacts.get(eve_entity_id=character.alliance_id).standing
             except EveContact.DoesNotExist:
-                if character.alliance_id:
-                    try:
-                        contact_found = self.contacts.get(
-                            eve_entity_id=character.alliance_id
-                        )
-                    except EveContact.DoesNotExist:
-                        pass
-
-        return contact_found.standing if contact_found is not None else 0.0
+                pass
+        return 0.0
 
     def update_from_esi(self, force_sync: bool = False) -> str:
         """Update this sync manager from ESi
@@ -329,7 +321,7 @@ class SyncedCharacter(_SyncBaseModel):
         self.delete()
 
     def _has_character_standing(self) -> bool:
-        character_eff_standing = self.manager.get_effective_standing(
+        character_eff_standing = self.manager.effective_standing_with_character(
             self.character_ownership.character
         )
         if character_eff_standing < STANDINGSSYNC_CHAR_MIN_STANDING:

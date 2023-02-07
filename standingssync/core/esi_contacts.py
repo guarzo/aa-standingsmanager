@@ -1,6 +1,6 @@
 """Wrapper for handling access to contacts on ESI."""
 
-from typing import Dict, Optional
+from typing import Dict, List
 
 from django.db import models
 from esi.models import Token
@@ -11,7 +11,6 @@ from app_utils.helpers import chunks
 from app_utils.logging import LoggerAddTag
 
 from standingssync import __title__
-from standingssync.app_settings import STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
 from standingssync.providers import esi
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -53,23 +52,29 @@ def fetch_character_contacts(token: Token) -> Dict[int, dict]:
     return character_contacts
 
 
-def determine_character_wt_label_id(token: Token) -> Optional[int]:
-    """Determine ID of the war target label for character contacts."""
+def fetch_character_contact_labels(token: Token) -> List[dict]:
+    """Fetch contact labels for character from ESI."""
     logger.info("%s: Fetching current labels", token.character_name)
-    labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
+    labels = esi.client.Contacts.get_characters_character_id_contacts_labels(
         character_id=token.character_id, token=token.valid_access_token()
     ).results()
-    for row in labels_raw:
-        if (
-            row.get("label_name").lower()
-            == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower()
-        ):
-            wt_label_id = row.get("label_id")
-            break
-    else:
-        wt_label_id = None
-    logger.info(f"WT Label ID = {wt_label_id}")
-    return wt_label_id
+    return labels
+
+
+# def determine_character_wt_label_id(token: Token) -> Optional[int]:
+#     """Determine ID of the war target label for character contacts."""
+#     labels_raw = fetch_character_contact_labels(token)
+#     for row in labels_raw:
+#         if (
+#             row.get("label_name").lower()
+#             == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower()
+#         ):
+#             wt_label_id = row.get("label_id")
+#             break
+#     else:
+#         wt_label_id = None
+#     logger.info(f"WT Label ID = {wt_label_id}")
+#     return wt_label_id
 
 
 def delete_character_contacts(token: Token, contact_ids: list):

@@ -1,8 +1,6 @@
 """Utility functions and classes for tests"""
 import copy
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import FrozenSet, List, Set
+from typing import List, Set
 
 from eveuniverse.models import EveEntity
 
@@ -13,7 +11,7 @@ from allianceauth.eveonline.models import (
 )
 from app_utils.esi_testing import BravadoOperationStub, build_http_error
 
-from standingssync.models import EveContact
+from standingssync.core.character_contacts import EsiContact
 
 
 def create_esi_contact(eve_entity: EveEntity, standing: int = 5.0) -> dict:
@@ -170,91 +168,6 @@ def auth_to_eve_entities():
                 "name": obj.character_name,
                 "category": EveEntity.CATEGORY_CHARACTER,
             },
-        )
-
-
-@dataclass(frozen=True)
-class EsiContactLabel:
-    id: int
-    name: str
-
-    def __post_init__(self):
-        object.__setattr__(self, "id", int(self.id))
-        object.__setattr__(self, "name", str(self.name))
-
-    def to_dict(self) -> dict:
-        return {self.id: self.name}
-
-
-@dataclass(unsafe_hash=True)
-class EsiContact:
-    """A contact in the ESI character contacts stub."""
-
-    class ContactType(str, Enum):
-        CHARACTER = "character"
-        CORPORATION = "corporation"
-        ALLIANCE = "alliance"
-
-    contact_id: int
-    contact_type: ContactType
-    standing: float
-    label_ids: FrozenSet[int] = field(default_factory=frozenset)
-
-    def __setattr__(self, prop, val):
-        if prop == "contact_id":
-            val = int(val)
-        if prop == "standing":
-            val = float(val)
-        if prop == "label_ids":
-            if not val:
-                val = []
-            val = self._clean_label_ids(val)
-        if prop == "contact_type":
-            if val not in self.ContactType:
-                raise ValueError(f"Invalid contact_type: {val}")
-        super().__setattr__(prop, val)
-
-    def _clean_label_ids(self, label_ids):
-        return frozenset([int(obj) for obj in label_ids])
-
-    def to_esi_dict(self) -> dict:
-        return {
-            "contact_id": self.contact_id,
-            "contact_type": self.ContactType(self.contact_type),
-            "standing": self.standing,
-            "label_ids": list(self.label_ids),
-        }
-
-    @classmethod
-    def from_eve_entity(
-        cls, eve_entity: EveEntity, standing: float, label_ids=None
-    ) -> "EsiContact":
-        """Create new instance from an EveEntity object."""
-        contact_type_map = {
-            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
-            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
-            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
-        }
-        return cls(
-            contact_id=eve_entity.id,
-            contact_type=contact_type_map[eve_entity.category],
-            standing=standing,
-            label_ids=label_ids,
-        )
-
-    @classmethod
-    def from_eve_contact(cls, eve_contact: EveContact, label_ids=None) -> "EsiContact":
-        """Create new instance from an EveContact object."""
-        contact_type_map = {
-            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
-            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
-            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
-        }
-        return cls(
-            contact_id=eve_contact.eve_entity.id,
-            contact_type=contact_type_map[eve_contact.eve_entity.category],
-            standing=eve_contact.standing,
-            label_ids=label_ids,
         )
 
 

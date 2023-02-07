@@ -14,6 +14,8 @@ from app_utils.testing import (
     create_user_from_evecharacter,
 )
 
+from standingssync.core.character_contacts import EsiContact, EsiContactLabel
+
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
     EveContactFactory,
@@ -25,13 +27,7 @@ from .factories import (
     SyncManagerFactory,
     UserMainSyncerFactory,
 )
-from .utils import (
-    ALLIANCE_CONTACTS,
-    EsiCharacterContactsStub,
-    EsiContact,
-    EsiContactLabel,
-    LoadTestDataMixin,
-)
+from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixin
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 MODELS_PATH = "standingssync.models"

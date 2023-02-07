@@ -24,7 +24,7 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC,
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
-from .core import esi_contacts
+from .core import character_contacts, esi_contacts
 from .managers import EveContactManager, EveWarManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -229,8 +229,13 @@ class SyncedCharacter(models.Model):
         if not self._has_character_standing():
             return False
 
-        character_contacts = esi_contacts.fetch_character_contacts(token)
-        wt_label_id = esi_contacts.determine_character_wt_label_id(token)
+        contacts = esi_contacts.fetch_character_contacts(token)
+        labels = esi_contacts.fetch_character_contact_labels(token)
+        current_contacts = character_contacts.CharacterContactsClone.from_esi_dicts(
+            character_id=self.character_id, contacts=contacts, labels=labels
+        )
+
+        wt_label_id = current_contacts.war_target_label_id()
         if wt_label_id:
             logger.debug("%s: Has war target label", self)
             self.has_war_targets_label = True
@@ -240,10 +245,26 @@ class SyncedCharacter(models.Model):
             self.has_war_targets_label = False
             self.save()
 
+        # new contacts
+        new_contacts = character_contacts.CharacterContactsClone.from_esi_dicts(
+            character_id=self.character_id, labels=labels
+        )
+        new_contacts.add_eve_contacts(
+            self.manager.contacts.exclude(eve_entity_id=self.character_id).filter(
+                is_war_target=False
+            )
+        )
+        if STANDINGSSYNC_ADD_WAR_TARGETS:
+            new_contacts.add_eve_contacts(
+                self.manager.contacts.filter(is_war_target=True),
+                label_ids=[wt_label_id] if wt_label_id else None,
+            )
+
         if STANDINGSSYNC_REPLACE_CONTACTS:
-            self._replace_character_contacts(token, character_contacts, wt_label_id)
+            self._replace_character_contacts(token, new_contacts)
         else:
-            self._update_character_contacts(token, character_contacts, wt_label_id)
+            ...
+            # self._update_character_contacts(token, contacts_clone)
 
         self._store_new_version_hash()
         return True
@@ -327,10 +348,15 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _replace_character_contacts(self, token, character_contacts, wt_label_id):
+    def _replace_character_contacts(
+        self,
+        token: Token,
+        current_contacts: character_contacts.CharacterContactsClone,
+        new_contacts: character_contacts.CharacterContactsClone,
+    ):
         logger.info("%s: Deleting current contacts", self)
         esi_contacts.delete_character_contacts(
-            token=token, contact_ids=list(character_contacts.keys())
+            token=token, contact_ids=current_contacts.contact_ids()
         )
         logger.info("%s: Adding alliance contacts", self)
         esi_contacts.add_character_contacts(
@@ -342,6 +368,7 @@ class SyncedCharacter(models.Model):
             .grouped_by_standing(),
         )
         if STANDINGSSYNC_ADD_WAR_TARGETS:
+            wt_label_id = new_contacts.war_target_label_id()
             logger.info("%s: Adding war targets", self)
             esi_contacts.add_character_contacts(
                 token=token,

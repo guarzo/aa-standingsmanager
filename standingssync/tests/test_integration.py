@@ -6,6 +6,8 @@ from eveuniverse.models import EveEntity
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase
 
+from standingssync.core.character_contacts import EsiContact, EsiContactLabel
+
 from ..tasks import run_manager_sync
 from .factories import (
     EveEntityAllianceFactory,
@@ -14,12 +16,7 @@ from .factories import (
     SyncedCharacterFactory,
     SyncManagerFactory,
 )
-from .utils import (
-    EsiCharacterContactsStub,
-    EsiContact,
-    EsiContactLabel,
-    create_esi_contact,
-)
+from .utils import EsiCharacterContactsStub, create_esi_contact
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 MODELS_PATH = "standingssync.models"

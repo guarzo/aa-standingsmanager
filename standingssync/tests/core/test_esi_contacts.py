@@ -6,7 +6,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core import esi_contacts
 
-from ..factories import EveContactFactory
+from ..factories import EsiLabelDictFactory, EveContactFactory
 from ..utils import EsiCharacterContactsStub, EsiContact
 
 MODULE_PATH = "standingssync.core.esi_contacts"
@@ -95,6 +95,25 @@ class TestEsiContacts(NoSocketsTestCase):
             },
         }
         self.assertDictEqual(expected, result)
+
+    def test_should_return_contact_labels(self, mock_esi):
+        # given
+        esi_labels = [EsiLabelDictFactory(), EsiLabelDictFactory()]
+        endpoints = [
+            EsiEndpoint(
+                "Contacts",
+                "get_characters_character_id_contacts_labels",
+                "character_id",
+                needs_token=True,
+                data={"1001": esi_labels},
+            ),
+        ]
+        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
+        mock_token = MockToken(1001, "Bruce Wayne")
+        # when
+        result = esi_contacts.fetch_character_contact_labels(token=mock_token)
+        # then
+        self.assertListEqual(result, esi_labels)
 
     def test_should_return_wt_label_id(self, mock_esi):
         # given

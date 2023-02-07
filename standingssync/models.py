@@ -30,30 +30,17 @@ from .managers import EveContactManager, EveWarManager
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
-class _SyncBaseModel(models.Model):
-    """Base for sync models"""
-
-    version_hash = models.CharField(max_length=32, default="")
-    last_update_at = models.DateTimeField(null=True, default=None)
-
-    class Meta:
-        abstract = True
-
-    @property
-    def is_sync_fresh(self) -> bool:
-        raise NotImplementedError()
-
-
-class SyncManager(_SyncBaseModel):
+class SyncManager(models.Model):
     """An object for managing syncing of contacts for an alliance"""
 
+    character_ownership = models.OneToOneField(
+        CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
+    )  # alliance contacts are fetched from this character
     alliance = models.OneToOneField(
         EveAllianceInfo, on_delete=models.CASCADE, primary_key=True, related_name="+"
     )
-    # alliance contacts are fetched from this character
-    character_ownership = models.OneToOneField(
-        CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
-    )
+    last_update_at = models.DateTimeField(null=True, default=None)
+    version_hash = models.CharField(max_length=32, default="")
 
     def __str__(self):
         return str(self.alliance)
@@ -172,16 +159,18 @@ class SyncManager(_SyncBaseModel):
         return ["esi-alliances.read_contacts.v1"]
 
 
-class SyncedCharacter(_SyncBaseModel):
+class SyncedCharacter(models.Model):
     """A character that has his personal contacts synced with an alliance"""
 
     character_ownership = models.OneToOneField(
         CharacterOwnership, on_delete=models.CASCADE, primary_key=True
     )
+    has_war_targets_label = models.BooleanField(default=None, null=True)
+    last_update_at = models.DateTimeField(null=True, default=None)
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
-    has_war_targets_label = models.BooleanField(default=None, null=True)
+    version_hash = models.CharField(max_length=32, default="")
 
     def __str__(self):
         try:

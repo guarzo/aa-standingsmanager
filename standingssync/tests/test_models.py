@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import Set
 from unittest.mock import patch
 
 from django.utils.timezone import now
@@ -18,6 +19,7 @@ from .factories import (
     EveContactFactory,
     EveContactWarTargetFactory,
     EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -373,42 +375,322 @@ class TestSyncManager2(NoSocketsTestCase):
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_CONTACTS_PATH + ".esi")
 class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
-    CHARACTER_CONTACTS = [
+    CHARACTER_CONTACTS = {
         EsiContact(1014, EsiContact.ContactType.CHARACTER, standing=10.0),
         EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
         EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-    ]
+    }
+    ALLIANCE_CONTACTS_W_WTS = {
+        EsiContact(
+            1014,
+            EsiContact.ContactType.CHARACTER,
+            standing=-10.0,
+            label_ids=[1],
+        ),
+        EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
+        EsiContact(
+            3013, EsiContact.ContactType.ALLIANCE, standing=-10.0, label_ids=[1]
+        ),
+        EsiContact(1016, EsiContact.ContactType.CHARACTER, standing=10.0),
+        EsiContact(2013, EsiContact.ContactType.CORPORATION, standing=5.0),
+        EsiContact(2012, EsiContact.ContactType.CORPORATION, standing=-5.0),
+        EsiContact(1005, EsiContact.ContactType.CHARACTER, standing=-10.0),
+        EsiContact(1013, EsiContact.ContactType.CHARACTER, standing=-5.0),
+        EsiContact(3014, EsiContact.ContactType.ALLIANCE, standing=5.0),
+        EsiContact(2015, EsiContact.ContactType.CORPORATION, standing=10.0),
+        EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=-10.0),
+        EsiContact(2014, EsiContact.ContactType.CORPORATION, standing=0.0),
+        EsiContact(3015, EsiContact.ContactType.ALLIANCE, standing=10.0),
+        EsiContact(1012, EsiContact.ContactType.CHARACTER, standing=-10.0),
+        EsiContact(1015, EsiContact.ContactType.CHARACTER, standing=5.0),
+        EsiContact(1004, EsiContact.ContactType.CHARACTER, standing=10.0),
+        EsiContact(3012, EsiContact.ContactType.ALLIANCE, standing=-5.0),
+    }
+    ALLIANCE_WT_CONTACT_IDS = {1014, 3013}
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
 
         # 1 user with 1 alt character
-        cls.user_1, _ = create_user_from_evecharacter(
+        cls.user, _ = create_user_from_evecharacter(
             cls.character_1.character_id,
             permissions=["standingssync.add_syncedcharacter"],
         )
         cls.alt_ownership_2 = add_character_to_user(
-            cls.user_1,
+            cls.user,
             character=cls.character_2,
             scopes=SyncedCharacter.get_esi_scopes(),
         )
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
+
+    def setUp(self) -> None:
+        self.maxDiff = None
+        self.sync_manager = SyncManagerFactory(user=self.user, version_hash="new")
         # add contacts to sync manager
         for contact in ALLIANCE_CONTACTS:
             EveContactFactory(
-                manager=cls.sync_manager,
+                manager=self.sync_manager,
                 eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
                 standing=contact["standing"],
             )
-        # set to contacts as war targets
-        cls.sync_manager.contacts.filter(eve_entity_id__in=[1014, 3013]).update(
-            is_war_target=True, standing=-10.0
+        self.sync_character_2 = SyncedCharacterFactory(
+            character_ownership=self.alt_ownership_2, manager=self.sync_manager
         )
-        cls.alliance_contacts = [
-            cls.eve_contact_2_esi_contact(obj)
-            for obj in cls.sync_manager.contacts.all()
-        ]
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_do_nothing_if_no_update_needed(self, mock_esi):
+        # given
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_ownership.character.character_id,
+            self.CHARACTER_CONTACTS,
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        self.sync_character_2.version_hash = self.sync_manager.version_hash
+        self.sync_character_2.save()
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertIsNone(result)
+        self.assertIsNotNone(self.sync_character_2.last_update_at)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_replace_contacts_for_character_w_standing_and_neutrals_not_allowed(
+        self, mock_esi
+    ):
+        # given
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id, self.CHARACTER_CONTACTS
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        self.assertIsNotNone(self.sync_character_2.last_update_at)
+        new_character_contacts = esi_character_contacts.contacts(
+            self.sync_character_2.character_id
+        )
+        expected = self.contacts_to_esi_contacts(
+            self.sync_manager.contacts.exclude(
+                eve_entity_id=self.sync_character_2.character_id
+            )
+        )
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.0)
+    def test_should_replace_contacts_for_character_wo_standing_and_neutrals_allowed(
+        self, mock_esi
+    ):
+        # given
+        alt_ownership_3 = add_character_to_user(
+            self.user,
+            character=self.character_3,
+            scopes=SyncedCharacter.get_esi_scopes(),
+        )
+        sync_character = SyncedCharacterFactory(
+            character_ownership=alt_ownership_3, manager=self.sync_manager
+        )
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            sync_character.character_id, self.CHARACTER_CONTACTS
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = sync_character.update()
+        # then
+        sync_character.refresh_from_db()
+        self.assertTrue(result)
+        new_character_contacts = esi_character_contacts.contacts(
+            sync_character.character_id
+        )
+
+        expected = self.contacts_to_esi_contacts(
+            self.sync_manager.contacts.exclude(
+                eve_entity_id=sync_character.character_id
+            )
+        )
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_replace_all_contacts_and_add_war_targets(self, mock_esi):
+        # given
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_labels(
+            self.sync_character_2.character_id, [EsiContactLabel(1, "war targets")]
+        )
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id, self.CHARACTER_CONTACTS
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # set contacts as war targets
+        self.sync_manager.contacts.filter(
+            eve_entity_id__in=self.ALLIANCE_WT_CONTACT_IDS
+        ).update(is_war_target=True, standing=-10.0)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        new_character_contacts = esi_character_contacts.contacts(
+            self.sync_character_2.character_id
+        )
+        expected = self.ALLIANCE_CONTACTS_W_WTS
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_update_contacts_wo_war_targets(self, mock_esi):
+        # given
+        other_contact = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), standing=5.0
+        )
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id,
+            self.CHARACTER_CONTACTS | {other_contact},
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        self.assertIsNotNone(self.sync_character_2.last_update_at)
+        new_character_contacts = esi_character_contacts.contacts(
+            self.sync_character_2.character_id
+        )
+        expected = self.contacts_to_esi_contacts(
+            self.sync_manager.contacts.exclude(
+                eve_entity_id=self.sync_character_2.character_id
+            )
+        ) | {other_contact}
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_update_w_war_targets(self, mock_esi):
+        # given
+        other_contact = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), standing=5.0
+        )
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id,
+            self.CHARACTER_CONTACTS | {other_contact},
+        )
+        esi_character_contacts.setup_labels(
+            self.sync_character_2.character_id, [EsiContactLabel(1, "war targets")]
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # set contacts as war targets
+        self.sync_manager.contacts.filter(
+            eve_entity_id__in=self.ALLIANCE_WT_CONTACT_IDS
+        ).update(is_war_target=True, standing=-10.0)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        new_character_contacts = esi_character_contacts.contacts(
+            self.sync_character_2.character_id
+        )
+        expected = self.ALLIANCE_CONTACTS_W_WTS | {other_contact}
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_update_and_remote_obsolete_wts(self, mock_esi):
+        # given
+        other_contact = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), standing=5.0
+        )
+        wt_label = EsiContactLabel(1, "war targets")
+        obsolete_wt = EsiContact.from_eve_entity(
+            EveEntityAllianceFactory(), standing=-10, label_ids=[wt_label.id]
+        )
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_labels(
+            self.sync_character_2.character_id, [wt_label]
+        )
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id,
+            self.CHARACTER_CONTACTS | {other_contact, obsolete_wt},
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # set contacts as war targets
+        self.sync_manager.contacts.filter(
+            eve_entity_id__in=self.ALLIANCE_WT_CONTACT_IDS
+        ).update(is_war_target=True, standing=-10.0)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        new_character_contacts = esi_character_contacts.contacts(
+            self.sync_character_2.character_id
+        )
+        expected = self.ALLIANCE_CONTACTS_W_WTS | {other_contact}
+        self.assertSetEqual(new_character_contacts, expected)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_record_if_character_has_wt_label(self, mock_esi):
+        # given
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_labels(
+            self.sync_character_2.character_id, [EsiContactLabel(1, "war targets")]
+        )
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id, self.CHARACTER_CONTACTS
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        self.assertTrue(self.sync_character_2.has_war_targets_label)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_record_if_character_does_not_have_wt_label(self, mock_esi):
+        # given
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            self.sync_character_2.character_id, self.CHARACTER_CONTACTS
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = self.sync_character_2.update()
+        # then
+        self.sync_character_2.refresh_from_db()
+        self.assertTrue(result)
+        self.assertFalse(self.sync_character_2.has_war_targets_label)
+
+    @classmethod
+    def contacts_to_esi_contacts(cls, contacts_qs) -> Set[EsiContact]:
+        """Current manager contacts as set.
+
+        This makes comparing results easier.
+        """
+        return {cls.eve_contact_2_esi_contact(obj) for obj in contacts_qs}
 
     @staticmethod
     def eve_contact_2_esi_contact(eve_contact):
@@ -423,288 +705,6 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
             standing=eve_contact.standing,
         )
 
-    def setUp(self) -> None:
-        self.maxDiff = None
-        self.synced_character_2 = SyncedCharacterFactory(
-            character_ownership=self.alt_ownership_2, manager=self.sync_manager
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_do_nothing_if_no_update_needed(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_ownership.character.character_id,
-            self.CHARACTER_CONTACTS,
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        self.synced_character_2.version_hash = self.sync_manager.version_hash
-        self.synced_character_2.save()
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertIsNone(result)
-        self.assertIsNotNone(self.synced_character_2.last_update_at)
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_replace_all_contacts_1(self, mock_esi):
-        """run normal sync for a character which has blue standing"""
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        self.assertIsNotNone(self.synced_character_2.last_update_at)
-        alliance_contacts_2 = {
-            obj
-            for obj in self.alliance_contacts
-            if obj.contact_id != self.synced_character_2.character_id
-        }
-        self.assertSetEqual(
-            set(esi_character_contacts.contacts(self.synced_character_2.character_id)),
-            alliance_contacts_2,
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.0)
-    def test_should_replace_all_contacts_2(self, mock_esi):
-        """run normal sync for a character which has no standing and allow neutrals"""
-        # given
-        alt_ownership_3 = add_character_to_user(
-            self.user_1,
-            character=self.character_3,
-            scopes=SyncedCharacter.get_esi_scopes(),
-        )
-        synced_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership_3, manager=self.sync_manager
-        )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = synced_character.update()
-        # then
-        synced_character.refresh_from_db()
-        self.assertTrue(result)
-        self.assertSetEqual(
-            set(esi_character_contacts.contacts(synced_character.character_id)),
-            set(self.alliance_contacts),
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_replace_all_contacts_and_add_war_targets(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_labels(
-            self.synced_character_2.character_id, [EsiContactLabel(1, "war targets")]
-        )
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        result = set(
-            esi_character_contacts.contacts(self.synced_character_2.character_id)
-        )
-        expected = {
-            EsiContact(
-                1014,
-                EsiContact.ContactType.CHARACTER,
-                standing=-10.0,
-                label_ids=[1],
-            ),
-            EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-            EsiContact(
-                3013, EsiContact.ContactType.ALLIANCE, standing=-10.0, label_ids=[1]
-            ),
-            EsiContact(1016, EsiContact.ContactType.CHARACTER, standing=10.0),
-            EsiContact(2013, EsiContact.ContactType.CORPORATION, standing=5.0),
-            EsiContact(2012, EsiContact.ContactType.CORPORATION, standing=-5.0),
-            EsiContact(1005, EsiContact.ContactType.CHARACTER, standing=-10.0),
-            EsiContact(1013, EsiContact.ContactType.CHARACTER, standing=-5.0),
-            EsiContact(3014, EsiContact.ContactType.ALLIANCE, standing=5.0),
-            EsiContact(2015, EsiContact.ContactType.CORPORATION, standing=10.0),
-            EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=-10.0),
-            EsiContact(2014, EsiContact.ContactType.CORPORATION, standing=0.0),
-            EsiContact(3015, EsiContact.ContactType.ALLIANCE, standing=10.0),
-            EsiContact(1012, EsiContact.ContactType.CHARACTER, standing=-10.0),
-            EsiContact(1015, EsiContact.ContactType.CHARACTER, standing=5.0),
-            EsiContact(1004, EsiContact.ContactType.CHARACTER, standing=10.0),
-            EsiContact(3012, EsiContact.ContactType.ALLIANCE, standing=-5.0),
-        }
-        self.assertSetEqual(result, expected)
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_update_war_targets_only_1(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        expected = {
-            EsiContact(1014, EsiContact.ContactType.CHARACTER, standing=-10.0),
-            EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
-            EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-            EsiContact(3013, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-        }
-        self.assertSetEqual(
-            set(esi_character_contacts.contacts(self.synced_character_2.character_id)),
-            expected,
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_update_war_targets_only_2(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        war_target_label = EsiContactLabel(99, "war targets")
-        esi_character_contacts.setup_labels(
-            self.synced_character_2.character_id,
-            [war_target_label, EsiContactLabel(1, "other")],
-        )
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        expected = {
-            EsiContact(
-                1014,
-                EsiContact.ContactType.CHARACTER,
-                standing=-10.0,
-                label_ids=[war_target_label.id],
-            ),
-            EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
-            EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-            EsiContact(
-                3013,
-                EsiContact.ContactType.ALLIANCE,
-                standing=-10.0,
-                label_ids=[war_target_label.id],
-            ),
-        }
-        self.assertSetEqual(
-            set(esi_character_contacts.contacts(self.synced_character_2.character_id)),
-            expected,
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_remove_outdated_war_targets_with_label(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_labels(
-            self.synced_character_2.character_id, [EsiContactLabel(1, "war targets")]
-        )
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id,
-            [
-                EsiContact(
-                    1011,
-                    EsiContact.ContactType.CHARACTER,
-                    standing=-10.0,
-                    label_ids=[1],
-                ),
-                EsiContact(1014, EsiContact.ContactType.CHARACTER, standing=10.0),
-                EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
-                EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-            ],
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        expected = {
-            EsiContact(
-                1014,
-                EsiContact.ContactType.CHARACTER,
-                standing=-10.0,
-                label_ids=[1],
-            ),
-            EsiContact(2011, EsiContact.ContactType.CORPORATION, standing=5.0),
-            EsiContact(3011, EsiContact.ContactType.ALLIANCE, standing=-10.0),
-            EsiContact(
-                3013, EsiContact.ContactType.ALLIANCE, standing=-10.0, label_ids=[1]
-            ),
-        }
-        self.assertSetEqual(
-            set(esi_character_contacts.contacts(self.synced_character_2.character_id)),
-            expected,
-        )
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_record_if_character_has_wt_label(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_labels(
-            self.synced_character_2.character_id, [EsiContactLabel(1, "war targets")]
-        )
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        self.assertTrue(self.synced_character_2.has_war_targets_label)
-
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_record_if_character_does_not_have_wt_label(self, mock_esi):
-        # given
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            self.synced_character_2.character_id, self.CHARACTER_CONTACTS
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = self.synced_character_2.update()
-        # then
-        self.synced_character_2.refresh_from_db()
-        self.assertTrue(result)
-        self.assertFalse(self.synced_character_2.has_war_targets_label)
-
 
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_delete_when_insufficient_permission(self):
@@ -714,16 +714,14 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
         )
         sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        synced_character = SyncedCharacterFactory(
+        sync_character = SyncedCharacterFactory(
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = synced_character.update()
+        result = sync_character.update()
         # then
         self.assertFalse(result)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced_character.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
     def test_should_delete_when_no_valid_token_found(self):
         # given
@@ -735,16 +733,14 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             user, character=self.character_2
         )  # token has wrong scope and will therefore not be found
         sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        synced_character = SyncedCharacterFactory(
+        sync_character = SyncedCharacterFactory(
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = synced_character.update()
+        result = sync_character.update()
         # then
         self.assertFalse(result)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced_character.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
     @patch(MODELS_PATH + ".Token")
     def test_should_delete_when_token_is_invalid(self, mock_Token):
@@ -758,16 +754,14 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
         )
         sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        synced_character = SyncedCharacterFactory(
+        sync_character = SyncedCharacterFactory(
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = synced_character.update()
+        result = sync_character.update()
         # then
         self.assertFalse(result)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced_character.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
     @patch(MODELS_PATH + ".Token")
     def test_should_delete_when_token_is_expired(self, mock_Token):
@@ -781,16 +775,14 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
         )
         sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        synced_character = SyncedCharacterFactory(
+        sync_character = SyncedCharacterFactory(
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = synced_character.update()
+        result = sync_character.update()
         # then
         self.assertFalse(result)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced_character.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1)
     def test_should_delete_when_character_has_no_standing(self):
@@ -803,21 +795,19 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
         )
         sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        synced_character = SyncedCharacterFactory(
+        sync_character = SyncedCharacterFactory(
             character_ownership=alt_ownership, manager=sync_manager
         )
         EveContactFactory(
             manager=sync_manager,
-            eve_entity=EveEntity.objects.get(id=synced_character.character_id),
+            eve_entity=EveEntity.objects.get(id=sync_character.character_id),
             standing=-10,
         )
         # when
-        result = synced_character.update()
+        result = sync_character.update()
         # then
         self.assertFalse(result)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced_character.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
 
 class TestSyncCharacter2(NoSocketsTestCase):
@@ -844,7 +834,7 @@ class TestSyncCharacter2(NoSocketsTestCase):
         # when
         result = character.update()
         # then
-        self.assertTrue(result)
+        self.assertIsNone(result)
 
     def test_should_abort_sync_when_insufficient_permissions(self):
         # given

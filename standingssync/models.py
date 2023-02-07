@@ -224,7 +224,7 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        logger.info("%s: Updating contacts", self)
+        logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
         if not force_sync and not self._is_update_needed():
@@ -235,7 +235,7 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         if not self.manager.contacts.exists():
             logger.info("%s: No contacts to sync", self)
-            return True
+            return None
         if not self._has_character_standing():
             return False
 
@@ -245,7 +245,6 @@ class SyncedCharacter(_SyncBaseModel):
             logger.debug("%s: Has war target label", self)
             self.has_war_targets_label = True
             self.save()
-            self._delete_current_war_targets(token, character_contacts, wt_label_id)
         else:
             logger.debug("%s: Does not have war target label", self)
             self.has_war_targets_label = False
@@ -338,60 +337,68 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         return True
 
-    def _delete_current_war_targets(self, token, character_contacts, wt_label_id):
-        """Delete current war targets.
-
-        This ensures outdated WTs are removed. All current WTs will be added again later.
-        """
-        ids_to_delete = [
-            contact_id
-            for contact_id, contact in character_contacts.items()
-            if contact["label_ids"] and wt_label_id in contact["label_ids"]
-        ]
-        if ids_to_delete:
-            logger.info("%s: Removing old war target contacts", self)
-            esi_contacts.delete_character_contacts(
-                token=token, contact_ids=ids_to_delete
-            )
-            for contact_id in ids_to_delete:
-                del character_contacts[contact_id]
-
     def _replace_character_contacts(self, token, character_contacts, wt_label_id):
         logger.info("%s: Deleting current contacts", self)
         esi_contacts.delete_character_contacts(
             token=token, contact_ids=list(character_contacts.keys())
         )
-        if STANDINGSSYNC_ADD_WAR_TARGETS and wt_label_id:
-            logger.info("%s: Writing alliance contacts and war targets", self)
-            esi_contacts.add_character_contacts(
-                token=token,
-                contacts_by_standing=self.manager.contacts.exclude(
-                    eve_entity_id=self.character_id
-                )
-                .filter(is_war_target=False)
-                .grouped_by_standing(),
+        logger.info("%s: Adding alliance contacts", self)
+        esi_contacts.add_character_contacts(
+            token=token,
+            contacts_by_standing=self.manager.contacts.exclude(
+                eve_entity_id=self.character_id
             )
+            .filter(is_war_target=False)
+            .grouped_by_standing(),
+        )
+        if STANDINGSSYNC_ADD_WAR_TARGETS:
+            logger.info("%s: Adding war targets", self)
             esi_contacts.add_character_contacts(
                 token=token,
                 contacts_by_standing=self.manager.contacts.filter(
                     is_war_target=True
                 ).grouped_by_standing(),
-                label_ids=[wt_label_id],
-            )
-        else:
-            logger.info("%s: Writing alliance contacts", self)
-            esi_contacts.add_character_contacts(
-                token=token,
-                contacts_by_standing=self.manager.contacts.exclude(
-                    eve_entity_id=self.character_id
-                ).grouped_by_standing(),
+                label_ids=[wt_label_id] if wt_label_id else None,
             )
 
     def _update_character_contacts(self, token, character_contacts, wt_label_id):
-        contacts = self.manager.contacts.filter(is_war_target=True)
-        if contacts.exists():
+        qs_war_targets = self.manager.contacts.filter(is_war_target=True)
+
+        # Handle outdated WTs
+        character_wt_contacts = {
+            contact_id
+            for contact_id, contact in character_contacts.items()
+            if contact.get("label_ids") and wt_label_id in contact["label_ids"]
+        }
+        current_wt_contacts = set(
+            qs_war_targets.values_list("eve_entity_id", flat=True)
+        )
+        obsolete_wt_contacts = character_wt_contacts - current_wt_contacts
+        if obsolete_wt_contacts:
+            logger.info("%s: Remove obsolete WT contacts", self)
+            esi_contacts.delete_character_contacts(token, obsolete_wt_contacts)
+
+        qs_non_war_targets = self.manager.contacts.filter(is_war_target=False)
+        logger.info("%s: Update existing contacts", self)
+        contacts_by_standing = qs_non_war_targets.filter(
+            eve_entity_id__in=character_contacts.keys()
+        ).grouped_by_standing()
+        esi_contacts.update_character_contacts(
+            token=token, contacts_by_standing=contacts_by_standing
+        )
+        logger.info("%s: Add new contacts", self)
+        contacts_by_standing = (
+            qs_non_war_targets.exclude(eve_entity_id__in=character_contacts.keys())
+            .exclude(eve_entity_id=self.character_id)
+            .grouped_by_standing()
+        )
+        esi_contacts.add_character_contacts(
+            token=token, contacts_by_standing=contacts_by_standing
+        )
+
+        if STANDINGSSYNC_ADD_WAR_TARGETS and qs_war_targets.exists():
             logger.info("%s: Update existing contacts to war target", self)
-            contacts_by_standing = contacts.filter(
+            contacts_by_standing = qs_war_targets.filter(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
             esi_contacts.update_character_contacts(
@@ -400,7 +407,7 @@ class SyncedCharacter(_SyncBaseModel):
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
             logger.info("%s: Add new war target contacts", self)
-            contacts_by_standing = contacts.exclude(
+            contacts_by_standing = qs_war_targets.exclude(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
             esi_contacts.add_character_contacts(

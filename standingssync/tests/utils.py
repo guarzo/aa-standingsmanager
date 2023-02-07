@@ -2,7 +2,7 @@
 import copy
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import FrozenSet, List
+from typing import FrozenSet, List, Set
 
 from eveuniverse.models import EveEntity
 
@@ -36,16 +36,16 @@ ALLIANCE_CONTACTS = [
     {"contact_id": 1014, "contact_type": "character", "standing": 0.0},
     {"contact_id": 1015, "contact_type": "character", "standing": 5.0},
     {"contact_id": 1016, "contact_type": "character", "standing": 10.0},
-    {"contact_id": 3011, "contact_type": "alliance", "standing": -10.0},
-    {"contact_id": 3012, "contact_type": "alliance", "standing": -5.0},
-    {"contact_id": 3013, "contact_type": "alliance", "standing": 0.0},
-    {"contact_id": 3014, "contact_type": "alliance", "standing": 5.0},
-    {"contact_id": 3015, "contact_type": "alliance", "standing": 10.0},
     {"contact_id": 2011, "contact_type": "corporation", "standing": -10.0},
     {"contact_id": 2012, "contact_type": "corporation", "standing": -5.0},
     {"contact_id": 2014, "contact_type": "corporation", "standing": 0.0},
     {"contact_id": 2013, "contact_type": "corporation", "standing": 5.0},
     {"contact_id": 2015, "contact_type": "corporation", "standing": 10.0},
+    {"contact_id": 3011, "contact_type": "alliance", "standing": -10.0},
+    {"contact_id": 3012, "contact_type": "alliance", "standing": -5.0},
+    {"contact_id": 3013, "contact_type": "alliance", "standing": 0.0},
+    {"contact_id": 3014, "contact_type": "alliance", "standing": 5.0},
+    {"contact_id": 3015, "contact_type": "alliance", "standing": 10.0},
 ]
 
 
@@ -279,8 +279,8 @@ class EsiCharacterContactsStub:
     def setup_labels(self, character_id: int, labels: List[EsiContact]):
         self._labels[character_id] = {obj.id: obj.name for obj in labels}
 
-    def contacts(self, character_id: int) -> dict:
-        return self._contacts[character_id].values()
+    def contacts(self, character_id: int) -> Set[EsiContact]:
+        return set(self._contacts[character_id].values())
 
     def character_contact(self, character_id: int, contact_id: int) -> EsiContact:
         return self._contacts[character_id][contact_id]
@@ -308,9 +308,10 @@ class EsiCharacterContactsStub:
 
     def _esi_get_characters_character_id_contacts(self, character_id, token, page=None):
         if character_id in self._contacts:
-            contacts = [
-                obj.to_esi_dict() for obj in self._contacts[character_id].values()
-            ]
+            contacts = sorted(
+                [obj.to_esi_dict() for obj in self._contacts[character_id].values()],
+                key=lambda obj: obj["contact_id"],
+            )
         else:
             contacts = []
         return BravadoOperationStub(contacts)
@@ -319,10 +320,13 @@ class EsiCharacterContactsStub:
         self, character_id, token, page=None
     ):
         if character_id in self._labels:
-            labels = [
-                {"label_id": k, "label_name": v}
-                for k, v in self._labels[character_id].items()
-            ]
+            labels = sorted(
+                [
+                    {"label_id": k, "label_name": v}
+                    for k, v in self._labels[character_id].items()
+                ],
+                key=lambda obj: obj["label_id"],
+            )
         else:
             labels = []
         return BravadoOperationStub(labels)

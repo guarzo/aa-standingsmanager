@@ -29,6 +29,7 @@ MODELS_PATH = "standingssync.models"
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_CONTACTS_PATH + ".esi")
 class TestIntegration(NoSocketsTestCase):
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     def test_should_sync_manager_and_character_no_wt(self, mock_esi):
         # given
@@ -60,6 +61,7 @@ class TestIntegration(NoSocketsTestCase):
             sync_character.character.character_id, character_contacts.keys()
         )
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_sync_manager_and_character_with_wt_as_defender(self, mock_esi):
         # given
@@ -86,9 +88,7 @@ class TestIntegration(NoSocketsTestCase):
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = set(
-            esi_character_contacts.contacts(sync_character.character.character_id)
-        )
+        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
             EsiContact.from_eve_entity(some_alliance_contact, standing=5),
             EsiContact(
@@ -138,9 +138,7 @@ class TestIntegration(NoSocketsTestCase):
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = set(
-            esi_character_contacts.contacts(sync_character.character.character_id)
-        )
+        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
             EsiContact.from_eve_entity(some_alliance_contact, standing=5),
             EsiContact(
@@ -182,6 +180,7 @@ class TestIntegration(NoSocketsTestCase):
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_esi_mock(mock_esi)
+        esi_character_contacts.setup_labels(character.id, [war_target_label])
         esi_character_contacts.setup_contacts(
             character.id,
             [
@@ -189,14 +188,12 @@ class TestIntegration(NoSocketsTestCase):
                 EsiContact.from_eve_entity(some_character_contact, standing=10),
             ],
         )
-        esi_character_contacts.setup_labels(character.id, [war_target_label])
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = set(
-            esi_character_contacts.contacts(sync_character.character.character_id)
-        )
+        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
+            EsiContact.from_eve_entity(alliance, standing=10),
             EsiContact.from_eve_entity(
                 war.defender, standing=-10, label_ids=[war_target_label.id]
             ),
@@ -204,5 +201,6 @@ class TestIntegration(NoSocketsTestCase):
                 ally, standing=-10, label_ids=[war_target_label.id]
             ),
             EsiContact.from_eve_entity(some_character_contact, standing=10),
+            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
         }
         self.assertSetEqual(result, expected)

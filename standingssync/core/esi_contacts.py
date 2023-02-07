@@ -26,7 +26,7 @@ def eve_entity_to_dict(eve_entity: EveEntity, standing: float) -> dict:
     }
 
 
-def fetch_alliance_contacts(alliance_id: int, token: Token) -> dict:
+def fetch_alliance_contacts(alliance_id: int, token: Token) -> Dict[int, dict]:
     """Fetch alliance contacts from ESI."""
     contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
         token=token.valid_access_token(), alliance_id=alliance_id
@@ -41,7 +41,7 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> dict:
     return contacts
 
 
-def fetch_character_contacts(token: Token) -> dict:
+def fetch_character_contacts(token: Token) -> Dict[int, dict]:
     """Fetch character contacts from ESI."""
     logger.info("%s: Fetching current contacts", token.character_name)
     character_contacts_raw = esi.client.Contacts.get_characters_character_id_contacts(
@@ -75,7 +75,7 @@ def determine_character_wt_label_id(token: Token) -> Optional[int]:
 def delete_character_contacts(token: Token, contact_ids: list):
     """Delete character contacts on ESI."""
     max_items = 20
-    contact_ids_chunks = chunks(contact_ids, max_items)
+    contact_ids_chunks = chunks(list(contact_ids), max_items)
     for contact_ids_chunk in contact_ids_chunks:
         esi.client.Contacts.delete_characters_character_id_contacts(
             token=token.valid_access_token(),

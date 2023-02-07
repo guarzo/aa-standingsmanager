@@ -170,7 +170,8 @@ class SyncedCharacter(models.Model):
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
-    version_hash = models.CharField(max_length=32, default="")
+    version_hash_manager = models.CharField(max_length=32, default="")
+    version_hash_character = models.CharField(max_length=32, default="")
 
     def __str__(self):
         try:
@@ -259,7 +260,7 @@ class SyncedCharacter(models.Model):
         return True
 
     def _is_update_needed(self) -> bool:
-        if self.manager.version_hash != self.version_hash:
+        if self.manager.version_hash != self.version_hash_manager:
             return True
         logger.info("%s: contacts of this char are up-to-date, no sync required", self)
         self.last_update_at = now()
@@ -406,7 +407,7 @@ class SyncedCharacter(models.Model):
             )
 
     def _store_new_version_hash(self):
-        self.version_hash = self.manager.version_hash
+        self.version_hash_manager = self.manager.version_hash
         self.last_update_at = now()
         self.save()
 

@@ -1,8 +1,7 @@
 """Wrapper for handling access to contacts on ESI."""
 
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
-from django.db import models
 from esi.models import Token
 from eveuniverse.models import EveEntity
 
@@ -90,7 +89,9 @@ def delete_character_contacts(token: Token, contact_ids: list):
 
 
 def add_character_contacts(
-    token: Token, contacts_by_standing: Dict[int, models.Model], label_ids: list = None
+    token: Token,
+    contacts_by_standing: Dict[float, Iterable[int]],
+    label_ids: list = None,
 ) -> bool:
     """Add new character contacts on ESI.
 
@@ -105,7 +106,9 @@ def add_character_contacts(
 
 
 def update_character_contacts(
-    token: Token, contacts_by_standing: dict, label_ids: list = None
+    token: Token,
+    contacts_by_standing: Dict[float, Iterable[int]],
+    label_ids: list = None,
 ) -> bool:
     """Update existing character contacts on ESI.
 
@@ -121,7 +124,7 @@ def update_character_contacts(
 
 def _update_character_contacts(
     token: Token,
-    contacts_by_standing: dict,
+    contacts_by_standing: Dict[float, Iterable[int]],
     esi_method,
     label_ids: list = None,
 ) -> bool:
@@ -130,9 +133,7 @@ def _update_character_contacts(
     requested_contact_ids = set()
     updated_contact_ids = set()
     for standing in contacts_by_standing:
-        contact_ids = sorted(
-            [contact.eve_entity_id for contact in contacts_by_standing[standing]]
-        )
+        contact_ids = sorted(list(contacts_by_standing[standing]))
         requested_contact_ids.update(contact_ids)
         for contact_ids_chunk in chunks(contact_ids, max_items):
             params = {

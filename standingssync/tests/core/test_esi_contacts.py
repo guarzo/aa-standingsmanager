@@ -6,7 +6,7 @@ from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core import esi_contacts
 
-from ..factories import EsiLabelDictFactory, EveContactFactory
+from ..factories import EsiLabelDictFactory, EveEntityCharacterFactory
 from ..utils import EsiCharacterContactsStub, EsiContact
 
 MODULE_PATH = "standingssync.core.esi_contacts"
@@ -115,63 +115,6 @@ class TestEsiContacts(NoSocketsTestCase):
         # then
         self.assertListEqual(result, esi_labels)
 
-    def test_should_return_wt_label_id(self, mock_esi):
-        # given
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts_labels",
-                "character_id",
-                needs_token=True,
-                data={"1001": [{"label_id": 123, "label_name": "war target"}]},
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
-        # when
-        with patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET"):
-            result = esi_contacts.determine_character_wt_label_id(token=mock_token)
-        # then
-        self.assertEqual(result, 123)
-
-    def test_should_return_not_return_wt_label_id_1(self, mock_esi):
-        # given
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts_labels",
-                "character_id",
-                needs_token=True,
-                data={"1001": [{"label_id": 123, "label_name": "xyz"}]},
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
-        # when
-        with patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET"):
-            result = esi_contacts.determine_character_wt_label_id(token=mock_token)
-        # then
-        self.assertIsNone(result)
-
-    def test_should_return_not_return_wt_label_id_2(self, mock_esi):
-        # given
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts_labels",
-                "character_id",
-                needs_token=True,
-                data={"1001": []},
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
-        # when
-        with patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET"):
-            result = esi_contacts.determine_character_wt_label_id(token=mock_token)
-        # then
-        self.assertIsNone(result)
-
     def test_should_delete_contacts(self, mock_esi):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
@@ -188,35 +131,34 @@ class TestEsiContacts(NoSocketsTestCase):
     def test_should_add_contact(self, mock_esi):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
-        contact = EveContactFactory()
+        contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)
         esi_stub = EsiCharacterContactsStub()
         esi_stub.setup_contacts(1001, [])
         esi_stub.setup_esi_mock(mock_esi)
         # when
         result = esi_contacts.add_character_contacts(
-            mock_token, {contact.standing: [contact]}
+            mock_token, {contact.standing: [contact.contact_id]}
         )
         # then
         self.assertTrue(result)
-        self.assertSetEqual(
-            set(esi_stub.contacts(1001)), {EsiContact.from_eve_contact(contact)}
-        )
+        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
 
     def test_should_update_contact(self, mock_esi):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
-        contact = EveContactFactory(standing=-5)
-        old_esi_contact = EsiContact.from_eve_contact(contact)
-        old_esi_contact.standing = 10
+        contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=-5)
+        old_esi_contact = EsiContact(
+            contact_id=contact.contact_id,
+            contact_type=contact.contact_type,
+            standing=10,
+        )
         esi_stub = EsiCharacterContactsStub()
         esi_stub.setup_contacts(1001, [old_esi_contact])
         esi_stub.setup_esi_mock(mock_esi)
         # when
         result = esi_contacts.update_character_contacts(
-            mock_token, {contact.standing: [contact]}
+            mock_token, {contact.standing: [contact.contact_id]}
         )
         # then
         self.assertTrue(result)
-        self.assertSetEqual(
-            set(esi_stub.contacts(1001)), {EsiContact.from_eve_contact(contact)}
-        )
+        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})

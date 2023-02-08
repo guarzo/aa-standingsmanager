@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, FrozenSet, List, NamedTuple, Optional, Set
 
-from django.db import models
 from eveuniverse.models import EveEntity
 
 from standingssync.app_settings import STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
@@ -67,7 +66,7 @@ class EsiContact:
     def to_esi_dict(self) -> dict:
         obj = {
             "contact_id": self.contact_id,
-            "contact_type": self.ContactType(self.contact_type),
+            "contact_type": self.ContactType(self.contact_type).value,
             "standing": self.standing,
         }
         if self.label_ids:
@@ -103,9 +102,7 @@ class EsiContact:
         )
 
     @classmethod
-    def from_eve_contact(
-        cls, eve_contact: models.Model, label_ids=None
-    ) -> "EsiContact":
+    def from_eve_contact(cls, eve_contact: object, label_ids=None) -> "EsiContact":
         """Create new instance from an EveContact object."""
         contact_type_map = {
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
@@ -140,9 +137,7 @@ class CharacterContactsClone:
                     raise ValueError(f"Invalid label_id: {label_id}")
         self._contacts[contact.contact_id] = deepcopy(contact)
 
-    def add_eve_contacts(
-        self, contacts: List[models.Model], label_ids: List[int] = None
-    ):
+    def add_eve_contacts(self, contacts: List[object], label_ids: List[int] = None):
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
@@ -161,12 +156,14 @@ class CharacterContactsClone:
         """Set of all contact IDs."""
         return set(self._contacts.keys())
 
-    def contacts_for_esi_update(self) -> dict:
+    def contacts_for_esi_update(self) -> Dict[FrozenSet, Dict[float, Set[int]]]:
         contacts_grouped = dict()
         for contact in self._contacts.values():
             if contact.label_ids not in contacts_grouped:
                 contacts_grouped[contact.label_ids] = defaultdict(set)
-            contacts_grouped[contact.label_ids][contact.standing].add(contact)
+            contacts_grouped[contact.label_ids][contact.standing].add(
+                contact.contact_id
+            )
         return contacts_grouped
         # return dict(sorted(contacts_by_standing.items()))
 

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core.esi_contacts import EsiContact, EsiContactsClone
+from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
 
 from ..factories import EsiContactFactory, EsiContactLabelFactory, EveContactFactory
 
@@ -112,9 +112,9 @@ class TestEsiContact(NoSocketsTestCase):
 class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when
-        obj = EsiContactsClone()
+        obj = EsiContactsContainer()
         # then
-        self.assertIsInstance(obj, EsiContactsClone)
+        self.assertIsInstance(obj, EsiContactsContainer)
 
     def test_should_create_from_contacts_dict(self):
         # given
@@ -122,7 +122,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         contact_2 = EsiContactFactory()
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         # when
-        obj = EsiContactsClone.from_esi_dicts(esi_contacts)
+        obj = EsiContactsContainer.from_esi_dicts(esi_contacts)
         # then
         expected = {contact_1, contact_2}
         self.assertSetEqual(obj.contacts(), expected)
@@ -136,7 +136,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
         # when
-        obj = EsiContactsClone.from_esi_dicts(esi_contacts, esi_labels)
+        obj = EsiContactsContainer.from_esi_dicts(esi_contacts, esi_labels)
         # then
         expected = {contact_1, contact_2}
         self.assertSetEqual(obj.contacts(), expected)
@@ -147,7 +147,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         contact_2 = EsiContactFactory()
         esi_contacts = [contact_1, contact_2]
         # when
-        obj = EsiContactsClone.from_esi_contacts(esi_contacts)
+        obj = EsiContactsContainer.from_esi_contacts(esi_contacts)
         # then
         expected = {contact_1, contact_2}
         self.assertSetEqual(obj.contacts(), expected)
@@ -161,33 +161,44 @@ class TestEsiContactsClone(NoSocketsTestCase):
         esi_contacts = [contact_1, contact_2]
         esi_labels = [label_1, label_2]
         # when
-        obj = EsiContactsClone.from_esi_contacts(esi_contacts, esi_labels)
+        obj = EsiContactsContainer.from_esi_contacts(esi_contacts, esi_labels)
         # then
         expected = {contact_1, contact_2}
         self.assertSetEqual(obj.contacts(), expected)
 
-    def test_should_abort_when_encountering_invalid_label(self):
+    def test_should_return_contacts_by_id(self):
+        # given
+        c1 = EsiContactFactory()
+        c2 = EsiContactFactory()
+        contacts = EsiContactsContainer.from_esi_contacts([c1, c2])
+        # when
+        result = contacts.contact_by_id(c1.contact_id)
+        # then
+        self.assertEqual(result, c1)
+
+    def test_should_remove_unknown_label_ids(self):
         # given
         label_1 = EsiContactLabelFactory()
         label_2 = EsiContactLabelFactory()
-        esi_labels = [label_1.to_esi_dict()]
-        obj = EsiContactsClone.from_esi_dicts(labels=esi_labels)
-        contact = EsiContactFactory(label_ids=[label_2.id])
-        # when/then
-        with self.assertRaises(ValueError):
-            obj.add_contact(contact)
+        contacts = EsiContactsContainer.from_esi_contacts(labels=[label_1])
+        contact_1 = EsiContactFactory(label_ids=[label_1.id, label_2.id])
+        # when
+        contacts.add_contact(contact_1)
+        # then
+        contact_1a = contacts.contact_by_id(contact_1.contact_id)
+        self.assertEqual(contact_1a.label_ids, frozenset([label_1.id]))
 
     def test_should_return_labels(self):
         # given
         labels = {EsiContactLabelFactory(), EsiContactLabelFactory()}
-        obj = EsiContactsClone.from_esi_contacts(labels=labels)
+        obj = EsiContactsContainer.from_esi_contacts(labels=labels)
         # when/then
         self.assertSetEqual(labels, obj.labels())
 
     def test_should_return_contacts(self):
         # given
         contacts = {EsiContactFactory(), EsiContactFactory()}
-        obj = EsiContactsClone.from_esi_contacts(contacts)
+        obj = EsiContactsContainer.from_esi_contacts(contacts)
         # when/then
         self.assertSetEqual(contacts, obj.contacts())
 
@@ -196,7 +207,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         contact_1 = EsiContactFactory()
         contact_2 = EsiContactFactory()
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
-        obj = EsiContactsClone.from_esi_dicts(esi_contacts)
+        obj = EsiContactsContainer.from_esi_dicts(esi_contacts)
         # when
         obj.remove_contact(contact_2.contact_id)
         # then
@@ -211,7 +222,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         contact_2 = EsiContactFactory(contact_id=12, label_ids=[label_1.id, label_2.id])
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
-        obj = EsiContactsClone.from_esi_dicts(esi_contacts, esi_labels)
+        obj = EsiContactsContainer.from_esi_dicts(esi_contacts, esi_labels)
         # when/then
         self.assertListEqual(obj.contacts_to_esi_dicts(), esi_contacts)
         self.assertListEqual(obj.labels_to_esi_dicts(), esi_labels)
@@ -224,8 +235,8 @@ class TestEsiContactsClone(NoSocketsTestCase):
         contact_2 = EsiContactFactory(label_ids=[label_1.id, label_2.id])
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
-        obj_1 = EsiContactsClone.from_esi_dicts(esi_contacts, esi_labels)
-        obj_2 = EsiContactsClone.from_esi_dicts(esi_contacts, esi_labels)
+        obj_1 = EsiContactsContainer.from_esi_dicts(esi_contacts, esi_labels)
+        obj_2 = EsiContactsContainer.from_esi_dicts(esi_contacts, esi_labels)
         # when/then
         self.assertEqual(obj_1.version_hash(), obj_2.version_hash())
 
@@ -233,7 +244,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # given
         label_1 = EsiContactLabelFactory(name="war target")
         label_2 = EsiContactLabelFactory()
-        obj = EsiContactsClone.from_esi_contacts(labels=[label_1, label_2])
+        obj = EsiContactsContainer.from_esi_contacts(labels=[label_1, label_2])
         # when
         result = obj.war_target_label_id()
         # then
@@ -243,7 +254,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # given
         label_1 = EsiContactLabelFactory(name="alpha")
         label_2 = EsiContactLabelFactory(name="bravo")
-        obj = EsiContactsClone.from_esi_contacts(labels=[label_1, label_2])
+        obj = EsiContactsContainer.from_esi_contacts(labels=[label_1, label_2])
         # when
         result = obj.war_target_label_id()
         # then
@@ -255,7 +266,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         other_label = EsiContactLabelFactory()
         other_contact = EsiContactFactory(label_ids=[other_label.id])
         war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
-        obj = EsiContactsClone.from_esi_contacts(
+        obj = EsiContactsContainer.from_esi_contacts(
             contacts=[other_contact, war_target], labels=[wt_label, other_label]
         )
         # when
@@ -265,7 +276,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_add_eve_contacts(self):
         # given
-        obj = EsiContactsClone()
+        obj = EsiContactsContainer()
         contact_1 = EveContactFactory()
         contact_2 = EveContactFactory()
         # when
@@ -280,7 +291,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_add_eve_contacts_w_labels(self):
         # given
         label = EsiContactLabelFactory()
-        obj = EsiContactsClone()
+        obj = EsiContactsContainer()
         obj.add_label(label)
         label_ids = [label.id]
         contact_1 = EveContactFactory()
@@ -303,8 +314,8 @@ class TestEsiContactsCloneComparisons(NoSocketsTestCase):
         c3 = EsiContactFactory()
         c4 = EsiContactFactory(standing=5)
         c4a = c4.clone(standing=-10)
-        a = EsiContactsClone.from_esi_contacts([c1, c2, c4])
-        b = EsiContactsClone.from_esi_contacts([c1, c3, c4a])
+        a = EsiContactsContainer.from_esi_contacts([c1, c2, c4])
+        b = EsiContactsContainer.from_esi_contacts([c1, c3, c4a])
         # when
         added, removed, changed = a.contacts_difference(b)
         # then

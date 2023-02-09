@@ -136,8 +136,8 @@ class EsiContact:
 
 
 @dataclass
-class EsiContactsClone:
-    """Clone of ESI contacts for a character, corporation or alliance.
+class EsiContactsContainer:
+    """Container for ESI contacts wth their labels.
 
     This is needed to calculate the version hash after an update.
     The ESI contacts endpoint can not be used for this,
@@ -156,12 +156,14 @@ class EsiContactsClone:
         self._labels[label.id] = deepcopy(label)
 
     def add_contact(self, contact: EsiContact):
-        """Add contact."""
+        """Add contact to container. Unknown label IDs will be removed."""
         if contact.label_ids:
-            for label_id in contact.label_ids:
-                if label_id not in self._labels:
-                    raise ValueError(f"Invalid label_id: {label_id}")
-        self._contacts[contact.contact_id] = contact.clone()
+            label_ids = {
+                label_id for label_id in contact.label_ids if label_id in self._labels
+            }
+        else:
+            label_ids = []
+        self._contacts[contact.contact_id] = contact.clone(label_ids=label_ids)
 
     def add_eve_contacts(self, contacts: List[object], label_ids: List[int] = None):
         for contact in contacts:
@@ -173,6 +175,10 @@ class EsiContactsClone:
             del self._contacts[contact_id]
         except KeyError:
             raise RuntimeError(f"Contact with ID {contact_id} not found") from None
+
+    def contact_by_id(self, contact_id: int) -> EsiContact:
+        """Returns contact by it's ID."""
+        return self._contacts[contact_id]
 
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
@@ -195,7 +201,7 @@ class EsiContactsClone:
         return contacts
 
     def contacts_difference(
-        self, other: "EsiContactsClone"
+        self, other: "EsiContactsContainer"
     ) -> Tuple[Set[EsiContact], Set[EsiContact], Set[EsiContact]]:
         """Identify which contacts have been added, removed or changed."""
         current_contact_ids = set(self._contacts.keys())
@@ -247,7 +253,7 @@ class EsiContactsClone:
         cls,
         contacts: Iterable[EsiContact] = None,
         labels: Iterable[EsiContactLabel] = None,
-    ) -> "EsiContactsClone":
+    ) -> "EsiContactsContainer":
         """Create new object from Esi contacts."""
         obj = cls()
         if labels:
@@ -263,7 +269,7 @@ class EsiContactsClone:
         cls,
         contacts: Iterable[dict] = None,
         labels: Iterable[dict] = None,
-    ) -> "EsiContactsClone":
+    ) -> "EsiContactsContainer":
         """Create new object from ESI contacts and labels."""
         obj = cls()
         if labels:

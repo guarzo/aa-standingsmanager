@@ -24,7 +24,7 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
 from .core import esi_api
-from .core.esi_contacts import EsiContact, EsiContactsClone
+from .core.esi_contacts import EsiContact, EsiContactsContainer
 from .helpers import store_json
 from .managers import EveContactManager, EveWarManager
 
@@ -92,7 +92,7 @@ class SyncManager(models.Model):
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
         contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        current_contacts = EsiContactsClone.from_esi_contacts(contacts)
+        current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
         war_target_ids = self._add_war_targets(current_contacts)
         new_version_hash = current_contacts.version_hash()
         if force_sync or new_version_hash != self.version_hash:
@@ -114,7 +114,7 @@ class SyncManager(models.Model):
         )
         return token
 
-    def _add_war_targets(self, contacts: EsiContactsClone) -> Set[int]:
+    def _add_war_targets(self, contacts: EsiContactsContainer) -> Set[int]:
         """Add war targets to contacts (if enabled).
 
         Returns contact IDs of war targets.
@@ -128,7 +128,7 @@ class SyncManager(models.Model):
 
     def _save_new_contacts(
         self,
-        current_contacts: EsiContactsClone,
+        current_contacts: EsiContactsContainer,
         war_target_ids: Set[int],
         new_version_hash: str,
     ):
@@ -247,7 +247,7 @@ class SyncedCharacter(models.Model):
             return None
 
         # new contacts
-        new_contacts = EsiContactsClone.from_esi_contacts(
+        new_contacts = EsiContactsContainer.from_esi_contacts(
             labels=current_contacts.labels()
         )
         new_contacts.add_eve_contacts(
@@ -283,6 +283,16 @@ class SyncedCharacter(models.Model):
             logger.info("%s: Deleting outdated war targets", self)
             esi_api.delete_character_contacts(token, outdated_war_targets)
 
+        if (
+            STANDINGSSYNC_REPLACE_CONTACTS and not added and not removed and not changed
+        ) or (
+            not STANDINGSSYNC_REPLACE_CONTACTS
+            and not added
+            and not removed
+            and not outdated_war_targets
+        ):
+            logger.info("%s: Actually, no updates where necessary", self)
+
         self._store_new_version_hash(new_contacts.version_hash())
         if settings.DEBUG:
             store_json(new_contacts._to_dict(), "new_contacts")
@@ -299,7 +309,7 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _is_update_needed(self, current_contacts: EsiContactsClone) -> bool:
+    def _is_update_needed(self, current_contacts: EsiContactsContainer) -> bool:
         """Determine if contacts have to be updated."""
         if self.version_hash_manager != self.manager.version_hash:
             logger.info("%s: manager contacts have changed. Update needed.", self)
@@ -372,10 +382,10 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _fetch_current_contacts(self, token: Token) -> EsiContactsClone:
+    def _fetch_current_contacts(self, token: Token) -> EsiContactsContainer:
         contacts = esi_api.fetch_character_contacts(token)
         labels = esi_api.fetch_character_contact_labels(token)
-        current_contacts = EsiContactsClone.from_esi_contacts(contacts, labels)
+        current_contacts = EsiContactsContainer.from_esi_contacts(contacts, labels)
         if settings.DEBUG:
             store_json(current_contacts._to_dict(), "current_contacts")
             logger.debug(

@@ -118,8 +118,13 @@ class EsiContact:
 
 
 @dataclass
-class CharacterContactsClone:
-    """Clone of the ESI contacts of a character."""
+class EsiContactsClone:
+    """Clone of ESI contacts for a character.
+
+    This is needed to calculate the version hash after an update.
+    The ESI contacts endpoint can not be used for this,
+    because it is cached for several minutes.
+    """
 
     character_id: int
     _contacts: Dict[int, EsiContact] = field(default_factory=dict, repr=False)

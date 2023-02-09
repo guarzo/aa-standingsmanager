@@ -9,7 +9,7 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
-from .core import esi_wars
+from .core import esi_wrapper
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -78,7 +78,7 @@ class EveWarManagerBase(models.Manager):
         from .models import EveEntity
 
         logger.info("Retrieving war details for ID %s", id)
-        war_info = esi_wars.fetch_war(war_id=id)
+        war_info = esi_wrapper.fetch_war(war_id=id)
         aggressor, _ = EveEntity.objects.get_or_create(
             id=self._extract_id_from_war_participant(war_info["aggressor"])
         )
@@ -118,7 +118,7 @@ class EveWarManagerBase(models.Manager):
     def calc_relevant_war_ids(self) -> Set[int]:
         """Determine IDs from unfinished and new wars."""
         logger.info("Fetching wars from ESI")
-        war_ids = esi_wars.fetch_war_ids()
+        war_ids = esi_wrapper.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))
         war_ids = set(war_ids)
         return war_ids.difference(finished_war_ids)

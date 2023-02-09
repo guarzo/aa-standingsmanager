@@ -29,7 +29,7 @@ from .factories import (  # EveEntityCharacterFactory,
 from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixin
 
 CHARACTER_CONTACTS_PATH = "standingssync.core.character_contacts"
-ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
+ESI_CONTACTS_PATH = "standingssync.core.esi_wrapper"
 MODELS_PATH = "standingssync.models"
 
 

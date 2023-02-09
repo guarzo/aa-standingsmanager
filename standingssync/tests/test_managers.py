@@ -18,7 +18,7 @@ from .factories import (
 )
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
-ESI_WARS_PATH = "standingssync.core.esi_wars"
+ESI_WARS_PATH = "standingssync.core.esi_wrapper"
 MANAGERS_PATH = "standingssync.managers"
 MODELS_PATH = "standingssync.models"
 
@@ -296,7 +296,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
 
 
 class TestEveWarManager2(NoSocketsTestCase):
-    @patch(MANAGERS_PATH + ".esi_wars.fetch_war_ids")
+    @patch(MANAGERS_PATH + ".esi_wrapper.fetch_war_ids")
     def test_should_return_relevant_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}

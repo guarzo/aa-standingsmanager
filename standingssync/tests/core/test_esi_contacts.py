@@ -4,12 +4,12 @@ from unittest.mock import patch
 from app_utils.esi_testing import EsiClientStub, EsiEndpoint
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core import esi_contacts
+from standingssync.core import esi_wrapper
 
 from ..factories import EsiLabelDictFactory, EveEntityCharacterFactory
 from ..utils import EsiCharacterContactsStub, EsiContact
 
-MODULE_PATH = "standingssync.core.esi_contacts"
+MODULE_PATH = "standingssync.core.esi_wrapper"
 
 
 @dataclass
@@ -45,9 +45,7 @@ class TestEsiContacts(NoSocketsTestCase):
         mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
         mock_token = MockToken(1001, "Bruce Wayne")
         # when
-        result = esi_contacts.fetch_alliance_contacts(
-            alliance_id=3001, token=mock_token
-        )
+        result = esi_wrapper.fetch_alliance_contacts(alliance_id=3001, token=mock_token)
         # then
         expected = {
             1001: {
@@ -85,7 +83,7 @@ class TestEsiContacts(NoSocketsTestCase):
         mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
         mock_token = MockToken(1001, "Bruce Wayne")
         # when
-        result = esi_contacts.fetch_character_contacts(token=mock_token)
+        result = esi_wrapper.fetch_character_contacts(token=mock_token)
         # then
         expected = {
             2001: {
@@ -111,7 +109,7 @@ class TestEsiContacts(NoSocketsTestCase):
         mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
         mock_token = MockToken(1001, "Bruce Wayne")
         # when
-        result = esi_contacts.fetch_character_contact_labels(token=mock_token)
+        result = esi_wrapper.fetch_character_contact_labels(token=mock_token)
         # then
         self.assertListEqual(result, esi_labels)
 
@@ -124,7 +122,7 @@ class TestEsiContacts(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        esi_contacts.delete_character_contacts(mock_token, [1003])
+        esi_wrapper.delete_character_contacts(mock_token, [1003])
         # then
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
 
@@ -136,7 +134,7 @@ class TestEsiContacts(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_contacts.add_character_contacts(
+        result = esi_wrapper.add_character_contacts(
             mock_token, {contact.standing: [contact.contact_id]}
         )
         # then
@@ -156,7 +154,7 @@ class TestEsiContacts(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [old_esi_contact])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_contacts.update_character_contacts(
+        result = esi_wrapper.update_character_contacts(
             mock_token, {contact.standing: [contact.contact_id]}
         )
         # then

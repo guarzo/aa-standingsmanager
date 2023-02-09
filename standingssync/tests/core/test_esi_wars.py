@@ -3,9 +3,9 @@ from unittest.mock import patch
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core import esi_wars
+from standingssync.core import esi_wrapper
 
-MODULE_PATH = "standingssync.core.esi_wars"
+MODULE_PATH = "standingssync.core.esi_wrapper"
 
 
 class TestEsiWars(NoSocketsTestCase):
@@ -26,6 +26,6 @@ class TestEsiWars(NoSocketsTestCase):
         mock_esi.client.Wars.get_wars.side_effect = esi_get_wars
         # when
         with patch(MODULE_PATH + ".FETCH_WARS_MAX_ITEMS", 3):
-            result = esi_wars.fetch_war_ids()
+            result = esi_wrapper.fetch_war_ids()
         # then
         self.assertSetEqual(result, {1, 2, 4, 5, 6, 7, 8})

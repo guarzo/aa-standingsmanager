@@ -19,7 +19,7 @@ from .factories import (
 from .utils import EsiCharacterContactsStub, create_esi_contact
 
 CHARACTER_CONTACTS_PATH = "standingssync.core.character_contacts"
-ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
+ESI_CONTACTS_PATH = "standingssync.core.esi_wrapper"
 MODELS_PATH = "standingssync.models"
 
 

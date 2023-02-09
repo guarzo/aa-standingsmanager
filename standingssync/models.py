@@ -371,8 +371,8 @@ class SyncedCharacter(models.Model):
     def _fetch_current_contacts(self, token: Token):
         contacts = esi_api.fetch_character_contacts(token)
         labels = esi_api.fetch_character_contact_labels(token)
-        current_contacts = EsiContactsClone.from_esi_dicts(
-            character_id=self.character_id, contacts=contacts.values(), labels=labels
+        current_contacts = EsiContactsClone.from_esi_contacts(
+            character_id=self.character_id, contacts=contacts, labels=labels
         )
         if settings.DEBUG:
             store_json(current_contacts._to_dict(), "current_contacts")

@@ -5,9 +5,10 @@ from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoi
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core import esi_api
+from standingssync.core.esi_contacts import EsiContact
 
-from ..factories import EsiLabelDictFactory, EveEntityCharacterFactory
-from ..utils import EsiCharacterContactsStub, EsiContact
+from ..factories import EsiContactLabelFactory, EveEntityCharacterFactory
+from ..utils import EsiCharacterContactsStub
 
 MODULE_PATH = "standingssync.core.esi_api"
 
@@ -77,25 +78,20 @@ class TestEsiContactsApi(NoSocketsTestCase):
         # when
         result = esi_api.fetch_character_contacts(token=mock_token)
         # then
-        expected = {
-            2001: {
-                "contact_id": 2001,
-                "contact_type": "corporation",
-                "standing": 9.9,
-            },
-        }
-        self.assertDictEqual(expected, result)
+        expected = {EsiContact(2001, EsiContact.ContactType.CORPORATION, 9.9)}
+        self.assertSetEqual(expected, result)
 
     def test_should_return_contact_labels(self, mock_esi):
         # given
-        esi_labels = [EsiLabelDictFactory(), EsiLabelDictFactory()]
+        label_1 = EsiContactLabelFactory()
+        label_2 = EsiContactLabelFactory()
         endpoints = [
             EsiEndpoint(
                 "Contacts",
                 "get_characters_character_id_contacts_labels",
                 "character_id",
                 needs_token=True,
-                data={"1001": esi_labels},
+                data={"1001": [label_1.to_esi_dict(), label_2.to_esi_dict()]},
             ),
         ]
         mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
@@ -103,7 +99,8 @@ class TestEsiContactsApi(NoSocketsTestCase):
         # when
         result = esi_api.fetch_character_contact_labels(token=mock_token)
         # then
-        self.assertListEqual(result, esi_labels)
+        expected = {label_1, label_2}
+        self.assertSetEqual(result, expected)
 
     def test_should_delete_contacts(self, mock_esi):
         # given

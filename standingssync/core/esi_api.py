@@ -1,9 +1,8 @@
 """Wrapper for handling all access to the ESI API."""
 
-from typing import Dict, Iterable, List, Set
+from typing import Dict, Iterable, Set
 
 from esi.models import Token
-from eveuniverse.models import EveEntity
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import chunks
@@ -16,22 +15,13 @@ from standingssync.app_settings import (
 )
 from standingssync.providers import esi
 
-from .esi_contacts import EsiContact
+from .esi_contacts import EsiContact, EsiContactLabel
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 FETCH_WARS_MAX_ITEMS = 2000
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
-
-
-def eve_entity_to_dict(eve_entity: EveEntity, standing: float) -> dict:
-    """Convert EveEntity to ESI contact dict."""
-    return {
-        "contact_id": eve_entity.id,
-        "contact_type": eve_entity.category,
-        "standing": standing,
-    }
 
 
 def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
@@ -51,24 +41,25 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     return set(contacts.values())
 
 
-def fetch_character_contacts(token: Token) -> Dict[int, dict]:
+def fetch_character_contacts(token: Token) -> Set[EsiContact]:
     """Fetch character contacts from ESI."""
     logger.info("%s: Fetching current contacts", token.character_name)
     character_contacts_raw = esi.client.Contacts.get_characters_character_id_contacts(
         token=token.valid_access_token(), character_id=token.character_id
     ).results()
     character_contacts = {
-        contact["contact_id"]: contact for contact in character_contacts_raw
+        EsiContact.from_esi_dict(contact) for contact in character_contacts_raw
     }
     return character_contacts
 
 
-def fetch_character_contact_labels(token: Token) -> List[dict]:
+def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     """Fetch contact labels for character from ESI."""
     logger.info("%s: Fetching current labels", token.character_name)
-    labels = esi.client.Contacts.get_characters_character_id_contacts_labels(
+    labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
         character_id=token.character_id, token=token.valid_access_token()
     ).results()
+    labels = {EsiContactLabel.from_esi_dict(label) for label in labels_raw}
     return labels
 
 

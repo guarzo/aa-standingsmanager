@@ -25,7 +25,8 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC,
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
-from .core import character_contacts, esi_wrapper
+from .core import esi_wrapper
+from .core.esi_contacts import EsiContactsClone
 from .helpers import store_json
 from .managers import EveContactManager, EveWarManager
 
@@ -235,7 +236,7 @@ class SyncedCharacter(models.Model):
             return None
 
         # new contacts
-        new_contacts = character_contacts.EsiContactsClone.from_esi_dicts(
+        new_contacts = EsiContactsClone.from_esi_dicts(
             character_id=self.character_id, labels=labels
         )
         new_contacts.add_eve_contacts(
@@ -370,7 +371,7 @@ class SyncedCharacter(models.Model):
     def _fetch_current_contacts(self, token: Token):
         contacts = esi_wrapper.fetch_character_contacts(token)
         labels = esi_wrapper.fetch_character_contact_labels(token)
-        current_contacts = character_contacts.EsiContactsClone.from_esi_dicts(
+        current_contacts = EsiContactsClone.from_esi_dicts(
             character_id=self.character_id, contacts=contacts.values(), labels=labels
         )
         if settings.DEBUG:

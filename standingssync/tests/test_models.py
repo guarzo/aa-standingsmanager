@@ -14,7 +14,7 @@ from app_utils.testing import (
     create_user_from_evecharacter,
 )
 
-from standingssync.core.character_contacts import EsiContact, EsiContactLabel
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (  # EveEntityCharacterFactory,
@@ -28,8 +28,8 @@ from .factories import (  # EveEntityCharacterFactory,
 )
 from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixin
 
-CHARACTER_CONTACTS_PATH = "standingssync.core.character_contacts"
-ESI_CONTACTS_PATH = "standingssync.core.esi_wrapper"
+ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
+ESI_WRAPPER_PATH = "standingssync.core.esi_wrapper"
 MODELS_PATH = "standingssync.models"
 
 
@@ -124,7 +124,7 @@ class TestGetEffectiveStanding(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
 
 
-@patch(ESI_CONTACTS_PATH + ".esi")
+@patch(ESI_WRAPPER_PATH + ".esi")
 class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
@@ -224,7 +224,7 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
 
 
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-@patch(ESI_CONTACTS_PATH + ".esi")
+@patch(ESI_WRAPPER_PATH + ".esi")
 class TestSyncManager2(NoSocketsTestCase):
     @staticmethod
     def _war_target_contact_ids() -> Set[int]:
@@ -355,8 +355,8 @@ class TestSyncManager2(NoSocketsTestCase):
         self.assertEqual(sync_manager.contacts.count(), 0)
 
 
-@patch(CHARACTER_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
-@patch(ESI_CONTACTS_PATH + ".esi")
+@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
+@patch(ESI_WRAPPER_PATH + ".esi")
 class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
     CHARACTER_CONTACTS = {
         EsiContact(1014, EsiContact.ContactType.CHARACTER, standing=10.0),

@@ -11,7 +11,7 @@ from allianceauth.eveonline.models import (
 )
 from app_utils.esi_testing import BravadoOperationStub, build_http_error
 
-from standingssync.core.character_contacts import EsiContact
+from standingssync.core.esi_contacts import EsiContact
 
 
 def create_esi_contact(eve_entity: EveEntity, standing: int = 5.0) -> dict:

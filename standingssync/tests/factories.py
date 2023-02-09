@@ -13,7 +13,7 @@ from app_utils.testdata_factories import (
     UserMainFactory,
 )
 
-from standingssync.core.character_contacts import EsiContact, EsiContactLabel
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
 

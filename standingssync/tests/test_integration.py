@@ -6,7 +6,7 @@ from eveuniverse.models import EveEntity
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core.character_contacts import EsiContact, EsiContactLabel
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 
 from ..tasks import run_manager_sync
 from .factories import (
@@ -18,14 +18,14 @@ from .factories import (
 )
 from .utils import EsiCharacterContactsStub, create_esi_contact
 
-CHARACTER_CONTACTS_PATH = "standingssync.core.character_contacts"
-ESI_CONTACTS_PATH = "standingssync.core.esi_wrapper"
+ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
+ESI_WRAPPER_PATH = "standingssync.core.esi_wrapper"
 MODELS_PATH = "standingssync.models"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(CHARACTER_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
-@patch(ESI_CONTACTS_PATH + ".esi")
+@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
+@patch(ESI_WRAPPER_PATH + ".esi")
 class TestIntegration(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)

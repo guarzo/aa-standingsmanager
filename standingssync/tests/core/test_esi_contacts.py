@@ -1,162 +1,176 @@
-from dataclasses import dataclass
 from unittest.mock import patch
 
-from app_utils.esi_testing import EsiClientStub, EsiEndpoint
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core import esi_wrapper
+from standingssync.core.esi_contacts import EsiContact, EsiContactsClone
 
-from ..factories import EsiLabelDictFactory, EveEntityCharacterFactory
-from ..utils import EsiCharacterContactsStub, EsiContact
+from ..factories import EsiContactFactory, EsiContactLabelFactory, EveContactFactory
 
-MODULE_PATH = "standingssync.core.esi_wrapper"
-
-
-@dataclass
-class MockToken:
-    character_id: int
-    character_name: str
-
-    def valid_access_token(self):
-        return "DUMMY-TOKEN"
+MODULE_PATH = "standingssync.core.esi_contacts"
 
 
-@patch(MODULE_PATH + ".esi")
-class TestEsiContacts(NoSocketsTestCase):
-    def test_should_return_alliance_contacts(self, mock_esi):
-        # given
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_alliances_alliance_id_contacts",
-                "alliance_id",
-                needs_token=True,
-                data={
-                    "3001": [
-                        {
-                            "contact_id": 1001,
-                            "contact_type": "character",
-                            "standing": 9.9,
-                        }
-                    ]
-                },
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
+class TestEsiContactsClone(NoSocketsTestCase):
+    def test_should_create_empty(self):
         # when
-        result = esi_wrapper.fetch_alliance_contacts(alliance_id=3001, token=mock_token)
+        obj = EsiContactsClone(1001)
+        # then
+        self.assertEqual(obj.character_id, 1001)
+
+    def test_should_create_from_contacts_dict(self):
+        # given
+        contact_1 = EsiContactFactory()
+        contact_2 = EsiContactFactory()
+        esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
+        # when
+        obj = EsiContactsClone.from_esi_dicts(1001, esi_contacts)
+        # then
+        self.assertEqual(obj.character_id, 1001)
+        expected = {contact_1, contact_2}
+        self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_create_from_contacts_dict_w_labels(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        contact_1 = EsiContactFactory(label_ids=[label_1.id])
+        label_2 = EsiContactLabelFactory()
+        contact_2 = EsiContactFactory(label_ids=[label_1.id, label_2.id])
+        esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        # when
+        obj = EsiContactsClone.from_esi_dicts(1001, esi_contacts, esi_labels)
+        # then
+        self.assertEqual(obj.character_id, 1001)
+        expected = {contact_1, contact_2}
+        self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_abort_when_encountering_invalid_label(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        label_2 = EsiContactLabelFactory()
+        esi_labels = [label_1.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, labels=esi_labels)
+        contact = EsiContactFactory(label_ids=[label_2.id])
+        # when/then
+        with self.assertRaises(ValueError):
+            obj.add_contact(contact)
+
+    def test_should_remove_contact(self):
+        # given
+        contact_1 = EsiContactFactory()
+        contact_2 = EsiContactFactory()
+        esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, esi_contacts)
+        # when
+        obj.remove_contact(contact_2.contact_id)
+        # then
+        self.assertEqual(obj.character_id, 1001)
+        expected = {contact_1}
+        self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_convert_to_esi_dict(self):
+        # given
+        label_1 = EsiContactLabelFactory(id=1)
+        contact_1 = EsiContactFactory(contact_id=11, label_ids=[label_1.id])
+        label_2 = EsiContactLabelFactory(id=2)
+        contact_2 = EsiContactFactory(contact_id=12, label_ids=[label_1.id, label_2.id])
+        esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, esi_contacts, esi_labels)
+        # when/then
+        self.assertListEqual(obj.contacts_to_esi_dicts(), esi_contacts)
+        self.assertListEqual(obj.labels_to_esi_dicts(), esi_labels)
+
+    def test_should_generate_version_hash(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        contact_1 = EsiContactFactory(label_ids=[label_1.id])
+        label_2 = EsiContactLabelFactory()
+        contact_2 = EsiContactFactory(label_ids=[label_1.id, label_2.id])
+        esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        obj_1 = EsiContactsClone.from_esi_dicts(1001, esi_contacts, esi_labels)
+        obj_2 = EsiContactsClone.from_esi_dicts(1001, esi_contacts, esi_labels)
+        # when/then
+        self.assertEqual(obj_1.version_hash(), obj_2.version_hash())
+
+    @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
+    def test_should_find_war_target_id(self):
+        # given
+        label_1 = EsiContactLabelFactory(name="war target")
+        label_2 = EsiContactLabelFactory()
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, labels=esi_labels)
+        # when
+        result = obj.war_target_label_id()
+        # then
+        self.assertEqual(result, label_1.id)
+
+    @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
+    def test_should_not_find_war_target_id(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        label_2 = EsiContactLabelFactory()
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, labels=esi_labels)
+        # when
+        result = obj.war_target_label_id()
+        # then
+        self.assertIsNone(result)
+
+    def test_should_add_eve_contacts(self):
+        # given
+        obj = EsiContactsClone(1001)
+        contact_1 = EveContactFactory()
+        contact_2 = EveContactFactory()
+        # when
+        obj.add_eve_contacts([contact_1, contact_2])
         # then
         expected = {
-            1001: {
-                "contact_id": 1001,
-                "contact_type": "character",
-                "standing": 9.9,
-            },
-            3001: {
-                "contact_id": 3001,
-                "contact_type": "alliance",
-                "standing": 10,
-            },
+            EsiContact.from_eve_contact(contact_1),
+            EsiContact.from_eve_contact(contact_2),
         }
-        self.assertDictEqual(expected, result)
+        self.assertSetEqual(obj.contacts(), expected)
 
-    def test_should_return_character_contacts(self, mock_esi):
+    def test_should_add_eve_contacts_w_labels(self):
         # given
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts",
-                "character_id",
-                needs_token=True,
-                data={
-                    "1001": [
-                        {
-                            "contact_id": 2001,
-                            "contact_type": "corporation",
-                            "standing": 9.9,
-                        }
-                    ]
-                },
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
+        label = EsiContactLabelFactory()
+        obj = EsiContactsClone(1001)
+        obj.add_label(label)
+        label_ids = [label.id]
+        contact_1 = EveContactFactory()
+        contact_2 = EveContactFactory()
         # when
-        result = esi_wrapper.fetch_character_contacts(token=mock_token)
+        obj.add_eve_contacts([contact_1, contact_2], label_ids=label_ids)
         # then
         expected = {
-            2001: {
-                "contact_id": 2001,
-                "contact_type": "corporation",
-                "standing": 9.9,
-            },
+            EsiContact.from_eve_contact(contact_1, label_ids=label_ids),
+            EsiContact.from_eve_contact(contact_2, label_ids),
         }
-        self.assertDictEqual(expected, result)
+        self.assertSetEqual(obj.contacts(), expected)
 
-    def test_should_return_contact_labels(self, mock_esi):
+    def test_should_convert_contacts_for_esi_update(self):
         # given
-        esi_labels = [EsiLabelDictFactory(), EsiLabelDictFactory()]
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts_labels",
-                "character_id",
-                needs_token=True,
-                data={"1001": esi_labels},
-            ),
+        label_1 = EsiContactLabelFactory(id=1)
+        contact_1 = EsiContactFactory(contact_id=11, label_ids=[label_1.id])
+        label_2 = EsiContactLabelFactory(id=2)
+        contact_2 = EsiContactFactory(contact_id=12, label_ids=[label_1.id, label_2.id])
+        contact_3 = EsiContactFactory(contact_id=13, standing=2.0)
+        contact_4 = EsiContactFactory(contact_id=14, standing=2.0)
+        esi_contacts = [
+            contact_1.to_esi_dict(),
+            contact_2.to_esi_dict(),
+            contact_3.to_esi_dict(),
+            contact_4.to_esi_dict(),
         ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
-        mock_token = MockToken(1001, "Bruce Wayne")
+        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
+        obj = EsiContactsClone.from_esi_dicts(1001, esi_contacts, esi_labels)
         # when
-        result = esi_wrapper.fetch_character_contact_labels(token=mock_token)
+        result = obj.contacts_for_esi_update()
+        self.maxDiff = None
         # then
-        self.assertListEqual(result, esi_labels)
-
-    def test_should_delete_contacts(self, mock_esi):
-        # given
-        mock_token = MockToken(1001, "Bruce Wayne")
-        contact_1002 = EsiContact(1002, EsiContact.ContactType.CHARACTER, 5)
-        contact_1003 = EsiContact(1003, EsiContact.ContactType.CHARACTER, 5)
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
-        esi_stub.setup_esi_mock(mock_esi)
-        # when
-        esi_wrapper.delete_character_contacts(mock_token, [1003])
-        # then
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
-
-    def test_should_add_contact(self, mock_esi):
-        # given
-        mock_token = MockToken(1001, "Bruce Wayne")
-        contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [])
-        esi_stub.setup_esi_mock(mock_esi)
-        # when
-        result = esi_wrapper.add_character_contacts(
-            mock_token, {contact.standing: [contact.contact_id]}
-        )
-        # then
-        self.assertTrue(result)
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
-
-    def test_should_update_contact(self, mock_esi):
-        # given
-        mock_token = MockToken(1001, "Bruce Wayne")
-        contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=-5)
-        old_esi_contact = EsiContact(
-            contact_id=contact.contact_id,
-            contact_type=contact.contact_type,
-            standing=10,
-        )
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [old_esi_contact])
-        esi_stub.setup_esi_mock(mock_esi)
-        # when
-        result = esi_wrapper.update_character_contacts(
-            mock_token, {contact.standing: [contact.contact_id]}
-        )
-        # then
-        self.assertTrue(result)
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
+        expected = {
+            frozenset({1}): {contact_1.standing: {contact_1.contact_id}},
+            frozenset({1, 2}): {contact_2.standing: {contact_2.contact_id}},
+            frozenset(): {2.0: {contact_3.contact_id, contact_4.contact_id}},
+        }
+        self.assertEqual(expected, result)

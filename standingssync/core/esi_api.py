@@ -76,24 +76,18 @@ def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
         ).results()
 
 
-def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> bool:
-    """Add new contacts on ESI for a character.
-
-    Returns False if not all contacts could be added.
-    """
-    return _update_character_contacts(
+def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
+    """Add new contacts on ESI for a character."""
+    _update_character_contacts(
         token=token,
         contacts=contacts,
         esi_method=esi.client.Contacts.post_characters_character_id_contacts,
     )
 
 
-def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> bool:
-    """Update existing character contacts on ESI.
-
-    Returns False if not all contacts could be updated.
-    """
-    return _update_character_contacts(
+def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
+    """Update existing character contacts on ESI."""
+    _update_character_contacts(
         token=token,
         contacts=contacts,
         esi_method=esi.client.Contacts.put_characters_character_id_contacts,
@@ -102,19 +96,17 @@ def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> b
 
 def _update_character_contacts(
     token: Token, contacts: Iterable[EsiContact], esi_method: Callable
-) -> bool:
-    result = True
+) -> None:
     for (
         label_ids,
         contacts_by_standing,
     ) in EsiContact.group_for_esi_update(contacts).items():
-        result &= _update_character_contacts_esi(
+        _update_character_contacts_esi(
             token=token,
             contacts_by_standing=contacts_by_standing,
             esi_method=esi_method,
             label_ids=list(label_ids) if label_ids else None,
         )
-    return result
 
 
 def _update_character_contacts_esi(
@@ -122,14 +114,11 @@ def _update_character_contacts_esi(
     contacts_by_standing: Dict[float, Iterable[int]],
     esi_method: Callable,
     label_ids: list = None,
-) -> bool:
+) -> None:
     """Add new or update existing character contacts on ESI."""
     max_items = 100
-    requested_contact_ids = set()
-    updated_contact_ids = set()
     for standing in contacts_by_standing:
         contact_ids = sorted(list(contacts_by_standing[standing]))
-        requested_contact_ids.update(contact_ids)
         for contact_ids_chunk in chunks(contact_ids, max_items):
             params = {
                 "token": token.valid_access_token(),
@@ -139,17 +128,7 @@ def _update_character_contacts_esi(
             }
             if label_ids is not None:
                 params["label_ids"] = sorted(list(label_ids))
-            response = esi_method(**params).results()
-            updated_contact_ids.update(response)
-
-    result = updated_contact_ids == requested_contact_ids
-    if not result:
-        logger.warning(
-            "%s: Failed to add/update contacts: %s",
-            token.character_name,
-            requested_contact_ids - updated_contact_ids,
-        )
-    return result
+            esi_method(**params).results()
 
 
 def fetch_war_ids() -> Set[int]:

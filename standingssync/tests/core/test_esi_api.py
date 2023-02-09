@@ -123,9 +123,8 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_api.add_character_contacts(mock_token, {contact})
+        esi_api.add_character_contacts(mock_token, {contact})
         # then
-        self.assertTrue(result)
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
 
     def test_should_update_contact(self, mock_esi):
@@ -141,9 +140,8 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [old_esi_contact])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_api.update_character_contacts(mock_token, {contact})
+        esi_api.update_character_contacts(mock_token, {contact})
         # then
-        self.assertTrue(result)
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
 
 

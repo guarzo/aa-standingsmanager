@@ -63,10 +63,11 @@ def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     return labels
 
 
-def delete_character_contacts(token: Token, contact_ids: list):
+def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
     """Delete character contacts on ESI."""
     max_items = 20
-    contact_ids_chunks = chunks(list(contact_ids), max_items)
+    contact_ids = sorted([contact.contact_id for contact in contacts])
+    contact_ids_chunks = chunks(contact_ids, max_items)
     for contact_ids_chunk in contact_ids_chunks:
         esi.client.Contacts.delete_characters_character_id_contacts(
             token=token.valid_access_token(),

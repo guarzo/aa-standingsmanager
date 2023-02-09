@@ -273,7 +273,7 @@ class SyncedCharacter(models.Model):
                 )
             logger.info("%s: Deleting added contacts", self)
             esi_api.delete_character_contacts(
-                token=token, contact_ids=current_contacts.contact_ids()
+                token=token, contact_ids=current_contacts.contacts()
             )
         else:
             ...

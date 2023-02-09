@@ -111,7 +111,7 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        esi_api.delete_character_contacts(mock_token, [1003])
+        esi_api.delete_character_contacts(mock_token, [contact_1003])
         # then
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
 

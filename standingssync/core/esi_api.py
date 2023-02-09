@@ -1,4 +1,4 @@
-"""Wrapper for handling access to ESI."""
+"""Wrapper for handling all access to the ESI API."""
 
 from typing import Dict, Iterable, List, Set
 

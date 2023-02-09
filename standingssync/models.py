@@ -25,7 +25,7 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC,
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
-from .core import esi_wrapper
+from .core import esi_api
 from .core.esi_contacts import EsiContactsClone
 from .helpers import store_json
 from .managers import EveContactManager, EveWarManager
@@ -93,7 +93,7 @@ class SyncManager(models.Model):
         token = self._fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
-        current_contacts = esi_wrapper.fetch_alliance_contacts(
+        current_contacts = esi_api.fetch_alliance_contacts(
             self.alliance.alliance_id, token
         )
         war_target_ids = self._add_war_targets(current_contacts)
@@ -126,7 +126,7 @@ class SyncManager(models.Model):
             return set()
         war_targets = EveWar.objects.war_targets(self.character_alliance_id)
         for war_target in war_targets:
-            contacts[war_target.id] = esi_wrapper.eve_entity_to_dict(war_target, -10.0)
+            contacts[war_target.id] = esi_api.eve_entity_to_dict(war_target, -10.0)
         return {war_target.id for war_target in war_targets}
 
     def _save_new_contacts(self, current_contacts, war_target_ids, new_version_hash):
@@ -262,7 +262,7 @@ class SyncedCharacter(models.Model):
         # update contacts on ESI
         if STANDINGSSYNC_REPLACE_CONTACTS:
             logger.info("%s: Deleting current contacts", self)
-            esi_wrapper.delete_character_contacts(
+            esi_api.delete_character_contacts(
                 token=token, contact_ids=current_contacts.contact_ids()
             )
             logger.info("%s: Adding new contacts", self)
@@ -270,7 +270,7 @@ class SyncedCharacter(models.Model):
                 label_ids,
                 contacts_by_standing,
             ) in new_contacts.contacts_for_esi_update().items():
-                esi_wrapper.add_character_contacts(
+                esi_api.add_character_contacts(
                     token=token,
                     contacts_by_standing=contacts_by_standing,
                     label_ids=list(label_ids) if label_ids else None,
@@ -369,8 +369,8 @@ class SyncedCharacter(models.Model):
         return True
 
     def _fetch_current_contacts(self, token: Token):
-        contacts = esi_wrapper.fetch_character_contacts(token)
-        labels = esi_wrapper.fetch_character_contact_labels(token)
+        contacts = esi_api.fetch_character_contacts(token)
+        labels = esi_api.fetch_character_contact_labels(token)
         current_contacts = EsiContactsClone.from_esi_dicts(
             character_id=self.character_id, contacts=contacts.values(), labels=labels
         )
@@ -397,14 +397,14 @@ class SyncedCharacter(models.Model):
         obsolete_wt_contacts = character_wt_contacts - current_wt_contacts
         if obsolete_wt_contacts:
             logger.info("%s: Remove obsolete WT contacts", self)
-            esi_wrapper.delete_character_contacts(token, obsolete_wt_contacts)
+            esi_api.delete_character_contacts(token, obsolete_wt_contacts)
 
         qs_non_war_targets = self.manager.contacts.filter(is_war_target=False)
         logger.info("%s: Update existing contacts", self)
         contacts_by_standing = qs_non_war_targets.filter(
             eve_entity_id__in=character_contacts.keys()
         ).grouped_by_standing()
-        esi_wrapper.update_character_contacts(
+        esi_api.update_character_contacts(
             token=token, contacts_by_standing=contacts_by_standing
         )
         logger.info("%s: Add new contacts", self)
@@ -413,7 +413,7 @@ class SyncedCharacter(models.Model):
             .exclude(eve_entity_id=self.character_id)
             .grouped_by_standing()
         )
-        esi_wrapper.add_character_contacts(
+        esi_api.add_character_contacts(
             token=token, contacts_by_standing=contacts_by_standing
         )
 
@@ -422,7 +422,7 @@ class SyncedCharacter(models.Model):
             contacts_by_standing = qs_war_targets.filter(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
-            esi_wrapper.update_character_contacts(
+            esi_api.update_character_contacts(
                 token=token,
                 contacts_by_standing=contacts_by_standing,
                 label_ids=[wt_label_id] if wt_label_id else None,
@@ -431,7 +431,7 @@ class SyncedCharacter(models.Model):
             contacts_by_standing = qs_war_targets.exclude(
                 eve_entity_id__in=character_contacts.keys()
             ).grouped_by_standing()
-            esi_wrapper.add_character_contacts(
+            esi_api.add_character_contacts(
                 token=token,
                 contacts_by_standing=contacts_by_standing,
                 label_ids=[wt_label_id] if wt_label_id else None,

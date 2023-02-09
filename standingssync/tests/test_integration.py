@@ -19,13 +19,13 @@ from .factories import (
 from .utils import EsiCharacterContactsStub, create_esi_contact
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
-ESI_WRAPPER_PATH = "standingssync.core.esi_wrapper"
+ESI_API_PATH = "standingssync.core.esi_api"
 MODELS_PATH = "standingssync.models"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
-@patch(ESI_WRAPPER_PATH + ".esi")
+@patch(ESI_API_PATH + ".esi")
 class TestIntegration(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)

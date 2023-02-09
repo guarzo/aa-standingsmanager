@@ -1,7 +1,5 @@
 import datetime as dt
-import hashlib
-import json
-from typing import Dict, Optional, Set
+from typing import Optional, Set
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -93,12 +91,10 @@ class SyncManager(models.Model):
         token = self._fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
-        current_contacts = {
-            obj.contact_id: obj
-            for obj in esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        }
+        contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        current_contacts = EsiContactsClone.from_esi_contacts(contacts)
         war_target_ids = self._add_war_targets(current_contacts)
-        new_version_hash = self._calculate_version_hash(current_contacts)
+        new_version_hash = current_contacts.version_hash()
         if force_sync or new_version_hash != self.version_hash:
             self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
         else:
@@ -118,7 +114,7 @@ class SyncManager(models.Model):
         )
         return token
 
-    def _add_war_targets(self, contacts: Dict[int, EsiContact]) -> Set[int]:
+    def _add_war_targets(self, contacts: EsiContactsClone) -> Set[int]:
         """Add war targets to contacts (if enabled).
 
         Returns contact IDs of war targets.
@@ -127,12 +123,12 @@ class SyncManager(models.Model):
             return set()
         war_targets = EveWar.objects.war_targets(self.character_alliance_id)
         for war_target in war_targets:
-            contacts[war_target.id] = EsiContact.from_eve_entity(war_target, -10.0)
+            contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
         return {war_target.id for war_target in war_targets}
 
     def _save_new_contacts(
         self,
-        current_contacts: Dict[int, EsiContact],
+        current_contacts: EsiContactsClone,
         war_target_ids: Set[int],
         new_version_hash: str,
     ):
@@ -141,11 +137,13 @@ class SyncManager(models.Model):
             contacts = [
                 EveContact(
                     manager=self,
-                    eve_entity=EveEntity.objects.get_or_create(id=contact_id)[0],
+                    eve_entity=EveEntity.objects.get_or_create(id=contact.contact_id)[
+                        0
+                    ],
                     standing=contact.standing,
-                    is_war_target=contact_id in war_target_ids,
+                    is_war_target=contact.contact_id in war_target_ids,
                 )
-                for contact_id, contact in current_contacts.items()
+                for contact in current_contacts.contacts()
             ]
             EveContact.objects.bulk_create(contacts, batch_size=500)
             self.version_hash = new_version_hash
@@ -153,11 +151,6 @@ class SyncManager(models.Model):
             logger.info(
                 "%s: Stored alliance update with %d contacts", self, len(contacts)
             )
-
-    @staticmethod
-    def _calculate_version_hash(contacts: dict) -> str:
-        """Calculate hash for contacts."""
-        return hashlib.md5(json.dumps(contacts).encode("utf-8")).hexdigest()
 
     @classmethod
     def get_esi_scopes(cls) -> list:

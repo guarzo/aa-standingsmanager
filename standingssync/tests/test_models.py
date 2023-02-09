@@ -347,7 +347,7 @@ class TestSyncManager2(NoSocketsTestCase):
             BravadoOperationStub(ALLIANCE_CONTACTS)
         )
         sync_manager = SyncManagerFactory(
-            version_hash="c150cff3ec3938961af731f60eb6ccc2"
+            version_hash="82abdccc0dc29886061cefc34453c30f"
         )
         # when
         sync_manager.update_from_esi()

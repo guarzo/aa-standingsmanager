@@ -17,10 +17,11 @@ from app_utils.testing import (
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
-from .factories import (  # EveEntityCharacterFactory,
+from .factories import (
     EveContactFactory,
     EveContactWarTargetFactory,
     EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -721,6 +722,93 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
             contact_id=eve_contact.eve_entity_id,
             contact_type=map_category_2_type[eve_contact.eve_entity.category],
             standing=eve_contact.standing,
+        )
+
+
+@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
+@patch(ESI_API_PATH + ".esi")
+class TestSyncCharacterEsi2(NoSocketsTestCase):
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_replace_contacts_no_wt(self, mock_esi):
+        # given
+        synced_character = SyncedCharacterFactory()
+        sync_manager = synced_character.manager
+        EveContactFactory(
+            manager=sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=synced_character.character_id),
+            standing=10,
+        )
+        alliance_contact_1 = EveContactFactory(manager=sync_manager)
+        alliance_contact_2 = EveContactFactory(manager=sync_manager, standing=10)
+        character_contact_1 = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), -5
+        )
+        EveContactFactory(
+            manager=sync_manager, standing=-10, is_war_target=True
+        )  # alliance_wt_contact
+        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2)
+        character_contact_2.standing = -5
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            synced_character.character_id, [character_contact_1, character_contact_2]
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = synced_character.update()
+        # then
+        self.assertTrue(result)
+        synced_character.refresh_from_db()
+        self.assertIsNotNone(synced_character.last_update_at)
+        expected = {
+            EsiContact.from_eve_contact(alliance_contact_1),
+            EsiContact.from_eve_contact(alliance_contact_2),
+        }
+        self.assertSetEqual(
+            esi_character_contacts.contacts(synced_character.character_id), expected
+        )
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_replace_contacts_incl_wt(self, mock_esi):
+        # given
+        synced_character = SyncedCharacterFactory()
+        sync_manager = synced_character.manager
+        EveContactFactory(
+            manager=sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=synced_character.character_id),
+            standing=10,
+        )
+        alliance_contact_1 = EveContactFactory(manager=sync_manager)
+        alliance_contact_2 = EveContactFactory(manager=sync_manager, standing=10)
+        alliance_wt_contact = EveContactFactory(
+            manager=sync_manager, standing=-10, is_war_target=True
+        )
+        character_contact_1 = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), -5
+        )
+        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2)
+        character_contact_2.standing = -5
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            synced_character.character_id, [character_contact_1, character_contact_2]
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = synced_character.update()
+        # then
+        self.assertTrue(result)
+        synced_character.refresh_from_db()
+        self.assertIsNotNone(synced_character.last_update_at)
+        expected = {
+            EsiContact.from_eve_contact(alliance_contact_1),
+            EsiContact.from_eve_contact(alliance_contact_2),
+            EsiContact.from_eve_contact(alliance_wt_contact),
+        }
+        self.assertSetEqual(
+            esi_character_contacts.contacts(synced_character.character_id), expected
         )
 
 

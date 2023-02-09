@@ -115,7 +115,7 @@ class TestEsiContactsApi(NoSocketsTestCase):
         # then
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
 
-    def test_should_add_contact(self, mock_esi):
+    def test_should_add_contacts(self, mock_esi):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
         contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)
@@ -123,9 +123,7 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_api.add_character_contacts(
-            mock_token, {contact.standing: [contact.contact_id]}
-        )
+        result = esi_api.add_character_contacts(mock_token, {contact})
         # then
         self.assertTrue(result)
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
@@ -143,9 +141,7 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_stub.setup_contacts(1001, [old_esi_contact])
         esi_stub.setup_esi_mock(mock_esi)
         # when
-        result = esi_api.update_character_contacts(
-            mock_token, {contact.standing: [contact.contact_id]}
-        )
+        result = esi_api.update_character_contacts(mock_token, {contact})
         # then
         self.assertTrue(result)
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})

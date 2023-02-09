@@ -225,7 +225,7 @@ class SyncedCharacter(models.Model):
             logger.info("%s: No contacts to sync", self)
             return None
 
-        current_contacts, labels = self._fetch_current_contacts(token)
+        current_contacts = self._fetch_current_contacts(token)
 
         # check if we need to update
         if force_sync:
@@ -235,8 +235,8 @@ class SyncedCharacter(models.Model):
             return None
 
         # new contacts
-        new_contacts = EsiContactsClone.from_esi_dicts(
-            character_id=self.character_id, labels=labels
+        new_contacts = EsiContactsClone.from_esi_contacts(
+            labels=current_contacts.labels()
         )
         new_contacts.add_eve_contacts(
             self.manager.contacts.exclude(eve_entity_id=self.character_id).filter(
@@ -260,21 +260,16 @@ class SyncedCharacter(models.Model):
 
         # update contacts on ESI
         if STANDINGSSYNC_REPLACE_CONTACTS:
-            # added, removed, changed = current_contacts.contacts_difference(new_contacts)
-            logger.info("%s: Adding missing contacts", self)
-            for (
-                label_ids,
-                contacts_by_standing,
-            ) in new_contacts.contacts_for_esi_update().items():
-                esi_api.add_character_contacts(
-                    token=token,
-                    contacts_by_standing=contacts_by_standing,
-                    label_ids=list(label_ids) if label_ids else None,
-                )
-            logger.info("%s: Deleting added contacts", self)
-            esi_api.delete_character_contacts(
-                token=token, contact_ids=current_contacts.contacts()
-            )
+            added, removed, changed = current_contacts.contacts_difference(new_contacts)
+            if added:
+                logger.info("%s: Adding missing contacts", self)
+                esi_api.add_character_contacts(token, added)
+            if removed:
+                logger.info("%s: Deleting added contacts", self)
+                esi_api.delete_character_contacts(token, removed)
+            if changed:
+                logger.info("%s: Update changed contacts", self)
+                esi_api.update_character_contacts(token, changed)
         else:
             ...
             # self._update_character_contacts(token, contacts_clone)
@@ -368,19 +363,17 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _fetch_current_contacts(self, token: Token):
+    def _fetch_current_contacts(self, token: Token) -> EsiContactsClone:
         contacts = esi_api.fetch_character_contacts(token)
         labels = esi_api.fetch_character_contact_labels(token)
-        current_contacts = EsiContactsClone.from_esi_contacts(
-            character_id=self.character_id, contacts=contacts, labels=labels
-        )
+        current_contacts = EsiContactsClone.from_esi_contacts(contacts, labels)
         if settings.DEBUG:
             store_json(current_contacts._to_dict(), "current_contacts")
             logger.debug(
                 "%s: new version hash: %s", self, current_contacts.version_hash()
             )
             logger.debug("%s: old version hash: %s", self, self.version_hash_character)
-        return current_contacts, labels
+        return current_contacts
 
     def _update_character_contacts(self, token, character_contacts, wt_label_id):
         qs_war_targets = self.manager.contacts.filter(is_war_target=True)

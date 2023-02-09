@@ -31,6 +31,27 @@ class TestEsiContact(NoSocketsTestCase):
         }
         self.assertEqual(expected, result)
 
+    def test_should_create_new_1(self):
+        # when
+        obj = EsiContact(1001, EsiContact.ContactType.CHARACTER, 5.0)
+        # then
+        self.assertEqual(obj.contact_id, 1001)
+        self.assertEqual(obj.contact_type, EsiContact.ContactType.CHARACTER)
+        self.assertEqual(obj.standing, 5.0)
+
+    def test_should_create_new_2(self):
+        # when
+        obj = EsiContact(1001, "character", 5.0)
+        # then
+        self.assertEqual(obj.contact_id, 1001)
+        self.assertEqual(obj.contact_type, EsiContact.ContactType.CHARACTER)
+        self.assertEqual(obj.standing, 5.0)
+
+    def test_should_create_new_3(self):
+        # when/then
+        with self.assertRaises(ValueError):
+            EsiContact(1001, "xyz", 5.0)
+
 
 class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_create_empty(self):
@@ -99,6 +120,20 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # when/then
         with self.assertRaises(ValueError):
             obj.add_contact(contact)
+
+    def test_should_return_labels(self):
+        # given
+        labels = {EsiContactLabelFactory(), EsiContactLabelFactory()}
+        obj = EsiContactsClone.from_esi_contacts(labels=labels)
+        # when/then
+        self.assertSetEqual(labels, obj.labels())
+
+    def test_should_return_contacts(self):
+        # given
+        contacts = {EsiContactFactory(), EsiContactFactory()}
+        obj = EsiContactsClone.from_esi_contacts(contacts)
+        # when/then
+        self.assertSetEqual(contacts, obj.contacts())
 
     def test_should_remove_contact(self):
         # given
@@ -210,4 +245,4 @@ class TestEsiContactsCloneComparisons(NoSocketsTestCase):
         # then
         self.assertSetEqual(added, {c3})
         self.assertSetEqual(removed, {c2})
-        self.assertSetEqual(changed, {c4})
+        self.assertSetEqual(changed, {c4a})

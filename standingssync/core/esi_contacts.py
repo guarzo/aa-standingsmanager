@@ -59,8 +59,9 @@ class EsiContact:
                 val = []
             val = frozenset([int(obj) for obj in val])
         if prop == "contact_type":
-            if val not in self.ContactType:
-                raise ValueError(f"Invalid contact_type: {val}")
+            val = self.ContactType(val)
+            # if val not in self.ContactType:
+            #     raise ValueError(f"Invalid contact_type: {val}")
         super().__setattr__(prop, val)
 
     def to_esi_dict(self) -> dict:
@@ -172,12 +173,12 @@ class EsiContactsClone:
             raise RuntimeError(f"Contact with ID {contact_id} not found") from None
 
     def contacts(self) -> Set[EsiContact]:
-        """Set of all contacts."""
+        """Fetch all contacts."""
         return set(self._contacts.values())
 
-    def contact_ids(self) -> Set[int]:
-        """Set of all contact IDs."""
-        return set(self._contacts.keys())
+    def labels(self) -> Set[EsiContactLabel]:
+        """Fetch all labels."""
+        return set(self._labels.values())
 
     def war_target_label_id(self) -> Optional[int]:
         for label in self._labels.values():
@@ -185,7 +186,9 @@ class EsiContactsClone:
                 return label.id
         return None
 
-    def contacts_difference(self, other: "EsiContactsClone") -> Tuple[set, set, set]:
+    def contacts_difference(
+        self, other: "EsiContactsClone"
+    ) -> Tuple[Set[EsiContact], Set[EsiContact], Set[EsiContact]]:
         """Identify which contacts have been added, removed or changed."""
         current_contact_ids = set(self._contacts.keys())
         other_contact_ids = set(other._contacts.keys())
@@ -199,8 +202,8 @@ class EsiContactsClone:
             for contact_id, contact in other._contacts.items()
             if contact_id in (other_contact_ids - current_contact_ids)
         }
-        raw_difference = set(self._contacts.values()) - set(other._contacts.values())
-        changed = raw_difference - removed
+        added_and_changed = set(other._contacts.values()) - set(self._contacts.values())
+        changed = added_and_changed - added
         return added, removed, changed
 
     def contacts_to_esi_dicts(self) -> List[dict]:
@@ -236,7 +239,7 @@ class EsiContactsClone:
         cls,
         contacts: Iterable[EsiContact] = None,
         labels: Iterable[EsiContactLabel] = None,
-    ):
+    ) -> "EsiContactsClone":
         """Create new object from Esi contacts."""
         obj = cls()
         if labels:
@@ -252,7 +255,7 @@ class EsiContactsClone:
         cls,
         contacts: Iterable[dict] = None,
         labels: Iterable[dict] = None,
-    ):
+    ) -> "EsiContactsClone":
         """Create new object from ESI contacts and labels."""
         obj = cls()
         if labels:

@@ -1,6 +1,6 @@
 """Wrapper for handling all access to the ESI API."""
 
-from typing import Dict, Iterable, Set
+from typing import Callable, Dict, Iterable, Set
 
 from esi.models import Token
 
@@ -76,44 +76,51 @@ def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
         ).results()
 
 
-def add_character_contacts(
-    token: Token,
-    contacts_by_standing: Dict[float, Iterable[int]],
-    label_ids: list = None,
-) -> bool:
-    """Add new character contacts on ESI.
+def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> bool:
+    """Add new contacts on ESI for a character.
 
     Returns False if not all contacts could be added.
     """
     return _update_character_contacts(
         token=token,
-        contacts_by_standing=contacts_by_standing,
+        contacts=contacts,
         esi_method=esi.client.Contacts.post_characters_character_id_contacts,
-        label_ids=label_ids,
     )
 
 
-def update_character_contacts(
-    token: Token,
-    contacts_by_standing: Dict[float, Iterable[int]],
-    label_ids: list = None,
-) -> bool:
+def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> bool:
     """Update existing character contacts on ESI.
 
     Returns False if not all contacts could be updated.
     """
     return _update_character_contacts(
         token=token,
-        contacts_by_standing=contacts_by_standing,
+        contacts=contacts,
         esi_method=esi.client.Contacts.put_characters_character_id_contacts,
-        label_ids=label_ids,
     )
 
 
 def _update_character_contacts(
+    token: Token, contacts: Iterable[EsiContact], esi_method: Callable
+) -> bool:
+    result = True
+    for (
+        label_ids,
+        contacts_by_standing,
+    ) in EsiContact.group_for_esi_update(contacts).items():
+        result &= _update_character_contacts_esi(
+            token=token,
+            contacts_by_standing=contacts_by_standing,
+            esi_method=esi_method,
+            label_ids=list(label_ids) if label_ids else None,
+        )
+    return result
+
+
+def _update_character_contacts_esi(
     token: Token,
     contacts_by_standing: Dict[float, Iterable[int]],
-    esi_method,
+    esi_method: Callable,
     label_ids: list = None,
 ) -> bool:
     """Add new or update existing character contacts on ESI."""

@@ -1,4 +1,3 @@
-from copy import deepcopy
 from unittest.mock import patch
 
 from app_utils.testing import NoSocketsTestCase
@@ -51,6 +50,25 @@ class TestEsiContact(NoSocketsTestCase):
         # when/then
         with self.assertRaises(ValueError):
             EsiContact(1001, "xyz", 5.0)
+
+    def test_should_clone_contact_1(self):
+        # given
+        a = EsiContact(1, "character", 5.0, [1, 2])
+        # when
+        b = a.clone()
+        # then
+        self.assertEqual(a, b)
+
+    def test_should_clone_contact_2(self):
+        # given
+        a = EsiContact(1, "character", 5.0, [1, 2])
+        # when
+        b = a.clone(standing=-10)
+        # then
+        self.assertEqual(b.contact_id, a.contact_id)
+        self.assertEqual(b.contact_type, a.contact_type)
+        self.assertEqual(b.label_ids, a.label_ids)
+        self.assertEqual(b.standing, -10)
 
 
 class TestEsiContactsClone(NoSocketsTestCase):
@@ -236,8 +254,7 @@ class TestEsiContactsCloneComparisons(NoSocketsTestCase):
         c2 = EsiContactFactory()
         c3 = EsiContactFactory()
         c4 = EsiContactFactory(standing=5)
-        c4a = deepcopy(c4)
-        c4a.standing = -10
+        c4a = c4.clone(standing=-10)
         a = EsiContactsClone.from_esi_contacts([c1, c2, c4])
         b = EsiContactsClone.from_esi_contacts([c1, c3, c4a])
         # when

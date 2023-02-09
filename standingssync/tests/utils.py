@@ -261,7 +261,7 @@ class EsiCharacterContactsStub:
                 contact_id=contact_id,
                 contact_type=contact_type_map[eve_entity.category],
                 standing=standing,
-                label_ids=label_ids,
+                label_ids=label_ids if label_ids else [],
             )
         return BravadoOperationStub(contact_ids)
 
@@ -276,17 +276,16 @@ class EsiCharacterContactsStub:
         updated_contact_ids = []
         for contact_id in contact_ids:
             try:
-                character_contacts[contact_id].standing = standing
-                if label_ids:
-                    if not character_contacts[contact_id].label_ids:
-                        character_contacts[contact_id].label_ids = label_ids
-                    else:
-                        character_contacts[contact_id].label_ids += label_ids
+                old_esi_contact = character_contacts[contact_id]
             except KeyError:
-                pass
-            else:
-                updated_contact_ids.append(contact_id)
-            return BravadoOperationStub(updated_contact_ids)
+                continue
+            params = {"standing": standing}
+            if label_ids:
+                params["label_ids"] = list(old_esi_contact.label_ids) + list(label_ids)
+            new_esi_contact = old_esi_contact.clone(**params)
+            character_contacts[contact_id] = new_esi_contact
+            updated_contact_ids.append(contact_id)
+        return BravadoOperationStub(updated_contact_ids)
 
     def _esi_delete_characters_character_id_contacts(
         self, character_id, contact_ids, token

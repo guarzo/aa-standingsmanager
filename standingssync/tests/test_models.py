@@ -748,8 +748,9 @@ class TestSyncCharacterEsi2(NoSocketsTestCase):
         EveContactFactory(
             manager=sync_manager, standing=-10, is_war_target=True
         )  # alliance_wt_contact
-        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2)
-        character_contact_2.standing = -5
+        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
+            standing=-5
+        )
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(
             synced_character.character_id, [character_contact_1, character_contact_2]
@@ -789,8 +790,9 @@ class TestSyncCharacterEsi2(NoSocketsTestCase):
         character_contact_1 = EsiContact.from_eve_entity(
             EveEntityCharacterFactory(), -5
         )
-        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2)
-        character_contact_2.standing = -5
+        character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
+            standing=-5
+        )
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(
             synced_character.character_id, [character_contact_1, character_contact_2]

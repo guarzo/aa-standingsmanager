@@ -2,7 +2,7 @@ import hashlib
 import json
 from collections import defaultdict
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Optional, Set, Tuple
 
@@ -26,9 +26,12 @@ class EsiContactLabel(NamedTuple):
         return cls(id=esi_dict["label_id"], name=esi_dict["label_name"])
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True)
 class EsiContact:
-    """A contact in the ESI character contacts stub."""
+    """A contact in the ESI character contacts stub.
+
+    Immutable.
+    """
 
     class ContactType(str, Enum):
         CHARACTER = "character"
@@ -49,20 +52,22 @@ class EsiContact:
     standing: float
     label_ids: FrozenSet[int] = field(default_factory=frozenset)
 
-    def __setattr__(self, prop, val):
-        if prop == "contact_id":
-            val = int(val)
-        if prop == "standing":
-            val = float(val)
-        if prop == "label_ids":
-            if not val:
-                val = []
-            val = frozenset([int(obj) for obj in val])
-        if prop == "contact_type":
-            val = self.ContactType(val)
-            # if val not in self.ContactType:
-            #     raise ValueError(f"Invalid contact_type: {val}")
-        super().__setattr__(prop, val)
+    def __post_init__(self):
+        object.__setattr__(self, "contact_id", int(self.contact_id))
+        object.__setattr__(self, "contact_type", self.ContactType(self.contact_type))
+        object.__setattr__(self, "standing", float(self.standing))
+        object.__setattr__(self, "label_ids", frozenset(self.label_ids))
+
+    def clone(self, **kwargs) -> "EsiContact":
+        """Clone this object and optional overwrite field values with kwargs."""
+        field_names = [field.name for field in fields(self.__class__)]
+        params = {key: getattr(self, key) for key in field_names}
+        params.update(kwargs)
+        new_obj = self.__class__(**params)
+        return new_obj
+
+    def replace_label_ids(self, label_ids: Iterable[int]):
+        self.label_ids = frozenset(label_ids)
 
     def to_esi_dict(self) -> dict:
         obj = {
@@ -82,7 +87,7 @@ class EsiContact:
                 esi_dict["contact_type"]
             ),
             standing=esi_dict["standing"],
-            label_ids=esi_dict.get("label_ids"),
+            label_ids=esi_dict.get("label_ids", []),
         )
 
     @classmethod
@@ -99,7 +104,7 @@ class EsiContact:
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
             standing=standing,
-            label_ids=label_ids,
+            label_ids=label_ids if label_ids else [],
         )
 
     @classmethod
@@ -114,7 +119,7 @@ class EsiContact:
             contact_id=eve_contact.eve_entity.id,
             contact_type=contact_type_map[eve_contact.eve_entity.category],
             standing=eve_contact.standing,
-            label_ids=label_ids,
+            label_ids=label_ids if label_ids else [],
         )
 
     @staticmethod

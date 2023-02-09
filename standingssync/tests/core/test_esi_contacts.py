@@ -70,6 +70,43 @@ class TestEsiContact(NoSocketsTestCase):
         self.assertEqual(b.label_ids, a.label_ids)
         self.assertEqual(b.standing, -10)
 
+    def test_should_create_from_dict_1(self):
+        # given
+        esi_dict = {"contact_id": 1, "contact_type": "character", "standing": 5.0}
+        # when
+        obj = EsiContact.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(obj, EsiContact(1, "character", 5.0))
+
+    def test_should_create_from_dict_2(self):
+        # given
+        esi_dict = {"contact_id": 1, "contact_type": "corporation", "standing": 5.0}
+        # when
+        obj = EsiContact.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(obj, EsiContact(1, "corporation", 5.0))
+
+    def test_should_create_from_dict_3(self):
+        # given
+        esi_dict = {"contact_id": 1, "contact_type": "alliance", "standing": 5.0}
+        # when
+        obj = EsiContact.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(obj, EsiContact(1, "alliance", 5.0))
+
+    def test_should_create_from_dict_4(self):
+        # given
+        esi_dict = {
+            "contact_id": 1,
+            "contact_type": "alliance",
+            "standing": 5.0,
+            "label_ids": None,
+        }
+        # when
+        obj = EsiContact.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(obj, EsiContact(1, "alliance", 5.0))
+
 
 @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
 class TestEsiContactsClone(NoSocketsTestCase):

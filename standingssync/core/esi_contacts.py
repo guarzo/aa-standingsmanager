@@ -84,7 +84,7 @@ class EsiContact:
                 esi_dict["contact_type"]
             ),
             standing=esi_dict["standing"],
-            label_ids=esi_dict.get("label_ids", []),
+            label_ids=esi_dict.get("label_ids") or [],
         )
 
     @classmethod

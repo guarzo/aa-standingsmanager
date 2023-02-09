@@ -433,7 +433,7 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
         esi_character_contacts.setup_esi_mock(mock_esi)
         self.sync_character_2.version_hash_manager = self.sync_manager.version_hash
         self.sync_character_2.version_hash_character = (
-            "cfdeed17da7a325da107f8ae378f78f6"
+            "b586afe4056a8e8661487e97fa99bfad"
         )
         self.sync_character_2.last_update_at = now()
         self.sync_character_2.save()

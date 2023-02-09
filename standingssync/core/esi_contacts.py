@@ -200,7 +200,11 @@ class EsiContactsClone:
         return data
 
     def version_hash(self) -> str:
-        data = self._to_dict()
+        """Calculate hash for current contacts in order to compare versions.
+
+        Note that has is calculated for contacts only.
+        """
+        data = self.contacts_to_esi_dicts()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod

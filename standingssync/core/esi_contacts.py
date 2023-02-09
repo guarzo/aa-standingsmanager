@@ -28,10 +28,7 @@ class EsiContactLabel(NamedTuple):
 
 @dataclass(frozen=True)
 class EsiContact:
-    """A contact in the ESI character contacts stub.
-
-    Immutable.
-    """
+    """An ESI contact. Immutable."""
 
     class ContactType(str, Enum):
         CHARACTER = "character"
@@ -164,7 +161,7 @@ class EsiContactsClone:
             for label_id in contact.label_ids:
                 if label_id not in self._labels:
                     raise ValueError(f"Invalid label_id: {label_id}")
-        self._contacts[contact.contact_id] = deepcopy(contact)
+        self._contacts[contact.contact_id] = contact.clone()
 
     def add_eve_contacts(self, contacts: List[object], label_ids: List[int] = None):
         for contact in contacts:
@@ -190,6 +187,12 @@ class EsiContactsClone:
             if label.name.lower() == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower():
                 return label.id
         return None
+
+    def war_targets(self) -> Set[EsiContact]:
+        """Current war targets."""
+        war_target_id = self.war_target_label_id()
+        contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
+        return contacts
 
     def contacts_difference(
         self, other: "EsiContactsClone"

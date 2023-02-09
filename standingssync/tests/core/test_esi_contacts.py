@@ -71,6 +71,7 @@ class TestEsiContact(NoSocketsTestCase):
         self.assertEqual(b.standing, -10)
 
 
+@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
 class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when
@@ -191,29 +192,39 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # when/then
         self.assertEqual(obj_1.version_hash(), obj_2.version_hash())
 
-    @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
     def test_should_find_war_target_id(self):
         # given
         label_1 = EsiContactLabelFactory(name="war target")
         label_2 = EsiContactLabelFactory()
-        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
-        obj = EsiContactsClone.from_esi_dicts(labels=esi_labels)
+        obj = EsiContactsClone.from_esi_contacts(labels=[label_1, label_2])
         # when
         result = obj.war_target_label_id()
         # then
         self.assertEqual(result, label_1.id)
 
-    @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
     def test_should_not_find_war_target_id(self):
         # given
-        label_1 = EsiContactLabelFactory()
-        label_2 = EsiContactLabelFactory()
-        esi_labels = [label_1.to_esi_dict(), label_2.to_esi_dict()]
-        obj = EsiContactsClone.from_esi_dicts(labels=esi_labels)
+        label_1 = EsiContactLabelFactory(name="alpha")
+        label_2 = EsiContactLabelFactory(name="bravo")
+        obj = EsiContactsClone.from_esi_contacts(labels=[label_1, label_2])
         # when
         result = obj.war_target_label_id()
         # then
         self.assertIsNone(result)
+
+    def test_should_return_war_targets(self):
+        # given
+        wt_label = EsiContactLabelFactory(name="war target")
+        other_label = EsiContactLabelFactory()
+        other_contact = EsiContactFactory(label_ids=[other_label.id])
+        war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
+        obj = EsiContactsClone.from_esi_contacts(
+            contacts=[other_contact, war_target], labels=[wt_label, other_label]
+        )
+        # when
+        result = obj.war_targets()
+        # then
+        self.assertSetEqual(result, {war_target})
 
     def test_should_add_eve_contacts(self):
         # given

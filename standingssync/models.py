@@ -227,6 +227,18 @@ class SyncedCharacter(models.Model):
 
         current_contacts = self._fetch_current_contacts(token)
 
+        if STANDINGSSYNC_ADD_WAR_TARGETS:
+            # update info about war target label
+            wt_label_id = current_contacts.war_target_label_id()
+            if wt_label_id:
+                logger.debug("%s: Has war target label", self)
+                self.has_war_targets_label = True
+                self.save()
+            else:
+                logger.debug("%s: Does not have war target label", self)
+                self.has_war_targets_label = False
+                self.save()
+
         # check if we need to update
         if force_sync:
             logger.info("%s: Forced update requested.", self)
@@ -244,35 +256,32 @@ class SyncedCharacter(models.Model):
             )
         )
         if STANDINGSSYNC_ADD_WAR_TARGETS:
+            # add war targets
             wt_label_id = current_contacts.war_target_label_id()
-            if wt_label_id:
-                logger.debug("%s: Has war target label", self)
-                self.has_war_targets_label = True
-                self.save()
-            else:
-                logger.debug("%s: Does not have war target label", self)
-                self.has_war_targets_label = False
-                self.save()
             new_contacts.add_eve_contacts(
                 self.manager.contacts.filter(is_war_target=True),
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
         # update contacts on ESI
-        if STANDINGSSYNC_REPLACE_CONTACTS:
-            added, removed, changed = current_contacts.contacts_difference(new_contacts)
-            if added:
-                logger.info("%s: Adding missing contacts", self)
-                esi_api.add_character_contacts(token, added)
-            if removed:
-                logger.info("%s: Deleting added contacts", self)
-                esi_api.delete_character_contacts(token, removed)
-            if changed:
-                logger.info("%s: Update changed contacts", self)
-                esi_api.update_character_contacts(token, changed)
-        else:
-            ...
-            # self._update_character_contacts(token, contacts_clone)
+        added, removed, changed = current_contacts.contacts_difference(new_contacts)
+        if added:
+            logger.info("%s: Adding missing contacts", self)
+            esi_api.add_character_contacts(token, added)
+        if removed and STANDINGSSYNC_REPLACE_CONTACTS:
+            logger.info("%s: Deleting added contacts", self)
+            esi_api.delete_character_contacts(token, removed)
+        if changed:
+            logger.info("%s: Update changed contacts", self)
+            esi_api.update_character_contacts(token, changed)
+
+        if not STANDINGSSYNC_REPLACE_CONTACTS:
+            # delete outdated war targets
+            new_war_targets = new_contacts.war_targets()
+            current_war_targets = current_contacts.war_targets()
+            outdated_war_targets = current_war_targets - new_war_targets
+            logger.info("%s: Deleting outdated war targets", self)
+            esi_api.delete_character_contacts(token, outdated_war_targets)
 
         self._store_new_version_hash(new_contacts.version_hash())
         if settings.DEBUG:
@@ -290,7 +299,7 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _is_update_needed(self, current_contacts) -> bool:
+    def _is_update_needed(self, current_contacts: EsiContactsClone) -> bool:
         """Determine if contacts have to be updated."""
         if self.version_hash_manager != self.manager.version_hash:
             logger.info("%s: manager contacts have changed. Update needed.", self)
@@ -374,61 +383,6 @@ class SyncedCharacter(models.Model):
             )
             logger.debug("%s: old version hash: %s", self, self.version_hash_character)
         return current_contacts
-
-    def _update_character_contacts(self, token, character_contacts, wt_label_id):
-        qs_war_targets = self.manager.contacts.filter(is_war_target=True)
-
-        # Handle outdated WTs
-        character_wt_contacts = {
-            contact_id
-            for contact_id, contact in character_contacts.items()
-            if contact.get("label_ids") and wt_label_id in contact["label_ids"]
-        }
-        current_wt_contacts = set(
-            qs_war_targets.values_list("eve_entity_id", flat=True)
-        )
-        obsolete_wt_contacts = character_wt_contacts - current_wt_contacts
-        if obsolete_wt_contacts:
-            logger.info("%s: Remove obsolete WT contacts", self)
-            esi_api.delete_character_contacts(token, obsolete_wt_contacts)
-
-        qs_non_war_targets = self.manager.contacts.filter(is_war_target=False)
-        logger.info("%s: Update existing contacts", self)
-        contacts_by_standing = qs_non_war_targets.filter(
-            eve_entity_id__in=character_contacts.keys()
-        ).grouped_by_standing()
-        esi_api.update_character_contacts(
-            token=token, contacts_by_standing=contacts_by_standing
-        )
-        logger.info("%s: Add new contacts", self)
-        contacts_by_standing = (
-            qs_non_war_targets.exclude(eve_entity_id__in=character_contacts.keys())
-            .exclude(eve_entity_id=self.character_id)
-            .grouped_by_standing()
-        )
-        esi_api.add_character_contacts(
-            token=token, contacts_by_standing=contacts_by_standing
-        )
-
-        if STANDINGSSYNC_ADD_WAR_TARGETS and qs_war_targets.exists():
-            logger.info("%s: Update existing contacts to war target", self)
-            contacts_by_standing = qs_war_targets.filter(
-                eve_entity_id__in=character_contacts.keys()
-            ).grouped_by_standing()
-            esi_api.update_character_contacts(
-                token=token,
-                contacts_by_standing=contacts_by_standing,
-                label_ids=[wt_label_id] if wt_label_id else None,
-            )
-            logger.info("%s: Add new war target contacts", self)
-            contacts_by_standing = qs_war_targets.exclude(
-                eve_entity_id__in=character_contacts.keys()
-            ).grouped_by_standing()
-            esi_api.add_character_contacts(
-                token=token,
-                contacts_by_standing=contacts_by_standing,
-                label_ids=[wt_label_id] if wt_label_id else None,
-            )
 
     def _store_new_version_hash(self, version_has_character: str):
         self.version_hash_manager = self.manager.version_hash

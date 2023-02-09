@@ -11,7 +11,7 @@ from allianceauth.eveonline.models import (
 )
 from app_utils.esi_testing import BravadoOperationStub, build_http_error
 
-from standingssync.core.esi_contacts import EsiContact
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 
 
 def create_esi_contact(eve_entity: EveEntity, standing: int = 5.0) -> dict:
@@ -185,11 +185,11 @@ class EsiCharacterContactsStub:
         for contact in contacts:
             if contact.label_ids:
                 for label_id in contact.label_ids:
-                    if label_id not in self.labels(character_id).keys():
+                    if label_id not in self._labels[character_id].keys():
                         raise ValueError(f"Invalid label_id: {label_id}")
             self._contacts[character_id][contact.contact_id] = copy.deepcopy(contact)
 
-    def setup_labels(self, character_id: int, labels: List[EsiContact]):
+    def setup_labels(self, character_id: int, labels: List[EsiContactLabel]):
         self._labels[character_id] = {obj.id: obj.name for obj in labels}
 
     def contacts(self, character_id: int) -> Set[EsiContact]:
@@ -198,8 +198,8 @@ class EsiCharacterContactsStub:
     def character_contact(self, character_id: int, contact_id: int) -> EsiContact:
         return self._contacts[character_id][contact_id]
 
-    def labels(self, character_id: int) -> dict:
-        return self._labels[character_id] if character_id in self._labels else dict()
+    def labels(self, character_id: int) -> Set[EsiContactLabel]:
+        return set(self._labels[character_id].values())
 
     def setup_esi_mock(self, mock_esi):
         """Sets the mock for ESI to this object."""
@@ -304,5 +304,5 @@ class EsiCharacterContactsStub:
     def _check_label_ids_valid(self, character_id, label_ids):
         if label_ids:
             for label_id in label_ids:
-                if label_id not in self.labels(character_id).keys():
+                if label_id not in self._labels[character_id].keys():
                     raise ValueError(f"Invalid label_id: {label_id}")

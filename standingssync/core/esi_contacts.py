@@ -134,14 +134,13 @@ class EsiContact:
 
 @dataclass
 class EsiContactsClone:
-    """Clone of ESI contacts for a character.
+    """Clone of ESI contacts for a character, corporation or alliance.
 
     This is needed to calculate the version hash after an update.
     The ESI contacts endpoint can not be used for this,
     because it is cached for several minutes.
     """
 
-    character_id: int
     _contacts: Dict[int, EsiContact] = field(
         default_factory=dict, init=False, repr=False
     )
@@ -219,7 +218,6 @@ class EsiContactsClone:
     def _to_dict(self) -> dict:
         """Convert obj into a dictionary."""
         data = {
-            "character_id": self.character_id,
             "contacts": self.contacts_to_esi_dicts(),
             "labels": self.labels_to_esi_dicts(),
         }
@@ -236,28 +234,27 @@ class EsiContactsClone:
     @classmethod
     def from_esi_contacts(
         cls,
-        character_id: int,
-        contacts: Iterable[EsiContact],
+        contacts: Iterable[EsiContact] = None,
         labels: Iterable[EsiContactLabel] = None,
     ):
         """Create new object from Esi contacts."""
-        obj = cls(character_id)
+        obj = cls()
         if labels:
             for label in labels:
                 obj.add_label(label)
-        for contact in contacts:
-            obj.add_contact(contact)
+        if contacts:
+            for contact in contacts:
+                obj.add_contact(contact)
         return obj
 
     @classmethod
     def from_esi_dicts(
         cls,
-        character_id: int,
         contacts: Iterable[dict] = None,
         labels: Iterable[dict] = None,
     ):
         """Create new object from ESI contacts and labels."""
-        obj = cls(character_id)
+        obj = cls()
         if labels:
             for label in labels:
                 obj.add_label(EsiContactLabel.from_esi_dict(label))

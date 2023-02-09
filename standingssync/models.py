@@ -1,7 +1,7 @@
 import datetime as dt
 import hashlib
 import json
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -26,7 +26,7 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
 from .core import esi_api
-from .core.esi_contacts import EsiContactsClone
+from .core.esi_contacts import EsiContact, EsiContactsClone
 from .helpers import store_json
 from .managers import EveContactManager, EveWarManager
 
@@ -93,9 +93,10 @@ class SyncManager(models.Model):
         token = self._fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
-        current_contacts = esi_api.fetch_alliance_contacts(
-            self.alliance.alliance_id, token
-        )
+        current_contacts = {
+            obj.contact_id: obj
+            for obj in esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        }
         war_target_ids = self._add_war_targets(current_contacts)
         new_version_hash = self._calculate_version_hash(current_contacts)
         if force_sync or new_version_hash != self.version_hash:
@@ -117,7 +118,7 @@ class SyncManager(models.Model):
         )
         return token
 
-    def _add_war_targets(self, contacts: dict) -> Set[int]:
+    def _add_war_targets(self, contacts: Dict[int, EsiContact]) -> Set[int]:
         """Add war targets to contacts (if enabled).
 
         Returns contact IDs of war targets.
@@ -126,17 +127,22 @@ class SyncManager(models.Model):
             return set()
         war_targets = EveWar.objects.war_targets(self.character_alliance_id)
         for war_target in war_targets:
-            contacts[war_target.id] = esi_api.eve_entity_to_dict(war_target, -10.0)
+            contacts[war_target.id] = EsiContact.from_eve_entity(war_target, -10.0)
         return {war_target.id for war_target in war_targets}
 
-    def _save_new_contacts(self, current_contacts, war_target_ids, new_version_hash):
+    def _save_new_contacts(
+        self,
+        current_contacts: Dict[int, EsiContact],
+        war_target_ids: Set[int],
+        new_version_hash: str,
+    ):
         with transaction.atomic():
             self.contacts.all().delete()
             contacts = [
                 EveContact(
                     manager=self,
                     eve_entity=EveEntity.objects.get_or_create(id=contact_id)[0],
-                    standing=contact["standing"],
+                    standing=contact.standing,
                     is_war_target=contact_id in war_target_ids,
                 )
                 for contact_id, contact in current_contacts.items()

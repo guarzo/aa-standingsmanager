@@ -48,18 +48,10 @@ class TestEsiContactsApi(NoSocketsTestCase):
         result = esi_api.fetch_alliance_contacts(alliance_id=3001, token=mock_token)
         # then
         expected = {
-            1001: {
-                "contact_id": 1001,
-                "contact_type": "character",
-                "standing": 9.9,
-            },
-            3001: {
-                "contact_id": 3001,
-                "contact_type": "alliance",
-                "standing": 10,
-            },
+            EsiContact(1001, EsiContact.ContactType.CHARACTER, 9.9),
+            EsiContact(3001, EsiContact.ContactType.ALLIANCE, 10),
         }
-        self.assertDictEqual(expected, result)
+        self.assertSetEqual(expected, result)
 
     def test_should_return_character_contacts(self, mock_esi):
         # given

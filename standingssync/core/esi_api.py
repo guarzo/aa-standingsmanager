@@ -16,6 +16,8 @@ from standingssync.app_settings import (
 )
 from standingssync.providers import esi
 
+from .esi_contacts import EsiContact
+
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 FETCH_WARS_MAX_ITEMS = 2000
@@ -32,19 +34,21 @@ def eve_entity_to_dict(eve_entity: EveEntity, standing: float) -> dict:
     }
 
 
-def fetch_alliance_contacts(alliance_id: int, token: Token) -> Dict[int, dict]:
+def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     """Fetch alliance contacts from ESI."""
     contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
         token=token.valid_access_token(), alliance_id=alliance_id
     ).results()
-    contacts = {int(row["contact_id"]): row for row in contacts_raw}
-    # add the sync alliance with max standing to contacts
-    contacts[alliance_id] = {
-        "contact_id": alliance_id,
-        "contact_type": "alliance",
-        "standing": 10,
+    contacts = {
+        int(row["contact_id"]): EsiContact.from_esi_dict(row) for row in contacts_raw
     }
-    return contacts
+    # add the sync alliance with max standing to contacts
+    contacts[alliance_id] = EsiContact(
+        contact_id=alliance_id,
+        contact_type=EsiContact.ContactType.ALLIANCE,
+        standing=10,
+    )
+    return set(contacts.values())
 
 
 def fetch_character_contacts(token: Token) -> Dict[int, dict]:

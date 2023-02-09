@@ -261,11 +261,8 @@ class SyncedCharacter(models.Model):
 
         # update contacts on ESI
         if STANDINGSSYNC_REPLACE_CONTACTS:
-            logger.info("%s: Deleting current contacts", self)
-            esi_api.delete_character_contacts(
-                token=token, contact_ids=current_contacts.contact_ids()
-            )
-            logger.info("%s: Adding new contacts", self)
+            # added, removed, changed = current_contacts.contacts_difference(new_contacts)
+            logger.info("%s: Adding missing contacts", self)
             for (
                 label_ids,
                 contacts_by_standing,
@@ -275,6 +272,10 @@ class SyncedCharacter(models.Model):
                     contacts_by_standing=contacts_by_standing,
                     label_ids=list(label_ids) if label_ids else None,
                 )
+            logger.info("%s: Deleting added contacts", self)
+            esi_api.delete_character_contacts(
+                token=token, contact_ids=current_contacts.contact_ids()
+            )
         else:
             ...
             # self._update_character_contacts(token, contacts_clone)

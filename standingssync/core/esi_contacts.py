@@ -4,7 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, List, NamedTuple, Optional, Set
+from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
@@ -116,6 +116,21 @@ class EsiContact:
             label_ids=label_ids,
         )
 
+    @staticmethod
+    def group_for_esi_update(
+        contacts: List["EsiContact"],
+    ) -> Dict[FrozenSet, Dict[float, Set[int]]]:
+        """Group contacts for ESI update."""
+        contacts_grouped = dict()
+        for contact in contacts:
+            if contact.label_ids not in contacts_grouped:
+                contacts_grouped[contact.label_ids] = defaultdict(set)
+            contacts_grouped[contact.label_ids][contact.standing].add(
+                contact.contact_id
+            )
+        return contacts_grouped
+        # return dict(sorted(contacts_by_standing.items()))
+
 
 @dataclass
 class EsiContactsClone:
@@ -127,8 +142,12 @@ class EsiContactsClone:
     """
 
     character_id: int
-    _contacts: Dict[int, EsiContact] = field(default_factory=dict, repr=False)
-    _labels: Dict[int, EsiContactLabel] = field(default_factory=dict, repr=False)
+    _contacts: Dict[int, EsiContact] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _labels: Dict[int, EsiContactLabel] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def add_label(self, label: EsiContactLabel):
         """Add contact label."""
@@ -161,22 +180,29 @@ class EsiContactsClone:
         """Set of all contact IDs."""
         return set(self._contacts.keys())
 
-    def contacts_for_esi_update(self) -> Dict[FrozenSet, Dict[float, Set[int]]]:
-        contacts_grouped = dict()
-        for contact in self._contacts.values():
-            if contact.label_ids not in contacts_grouped:
-                contacts_grouped[contact.label_ids] = defaultdict(set)
-            contacts_grouped[contact.label_ids][contact.standing].add(
-                contact.contact_id
-            )
-        return contacts_grouped
-        # return dict(sorted(contacts_by_standing.items()))
-
     def war_target_label_id(self) -> Optional[int]:
         for label in self._labels.values():
             if label.name.lower() == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower():
                 return label.id
         return None
+
+    def contacts_difference(self, other: "EsiContactsClone") -> Tuple[set, set, set]:
+        """Identify which contacts have been added, removed or changed."""
+        current_contact_ids = set(self._contacts.keys())
+        other_contact_ids = set(other._contacts.keys())
+        removed = {
+            contact
+            for contact_id, contact in self._contacts.items()
+            if contact_id in (current_contact_ids - other_contact_ids)
+        }
+        added = {
+            contact
+            for contact_id, contact in other._contacts.items()
+            if contact_id in (other_contact_ids - current_contact_ids)
+        }
+        raw_difference = set(self._contacts.values()) - set(other._contacts.values())
+        changed = raw_difference - removed
+        return added, removed, changed
 
     def contacts_to_esi_dicts(self) -> List[dict]:
         return [
@@ -208,8 +234,27 @@ class EsiContactsClone:
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod
+    def from_esi_contacts(
+        cls,
+        character_id: int,
+        contacts: Iterable[EsiContact],
+        labels: Iterable[EsiContactLabel] = None,
+    ):
+        """Create new object from Esi contacts."""
+        obj = cls(character_id)
+        if labels:
+            for label in labels:
+                obj.add_label(label)
+        for contact in contacts:
+            obj.add_contact(contact)
+        return obj
+
+    @classmethod
     def from_esi_dicts(
-        cls, character_id: int, contacts: List[dict] = None, labels: List[dict] = None
+        cls,
+        character_id: int,
+        contacts: Iterable[dict] = None,
+        labels: Iterable[dict] = None,
     ):
         """Create new object from ESI contacts and labels."""
         obj = cls(character_id)

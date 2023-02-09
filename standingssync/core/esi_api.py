@@ -68,22 +68,6 @@ def fetch_character_contact_labels(token: Token) -> List[dict]:
     return labels
 
 
-# def determine_character_wt_label_id(token: Token) -> Optional[int]:
-#     """Determine ID of the war target label for character contacts."""
-#     labels_raw = fetch_character_contact_labels(token)
-#     for row in labels_raw:
-#         if (
-#             row.get("label_name").lower()
-#             == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower()
-#         ):
-#             wt_label_id = row.get("label_id")
-#             break
-#     else:
-#         wt_label_id = None
-#     logger.info(f"WT Label ID = {wt_label_id}")
-#     return wt_label_id
-
-
 def delete_character_contacts(token: Token, contact_ids: list):
     """Delete character contacts on ESI."""
     max_items = 20

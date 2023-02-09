@@ -144,9 +144,8 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         sync_manager = SyncManagerFactory(user=self.user)
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
-            result = sync_manager.update_from_esi()
+            sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
         sync_manager.refresh_from_db()
         expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
         expected_contact_ids.add(self.character_1.alliance_id)
@@ -175,9 +174,8 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         )
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
-            result = sync_manager.update_from_esi()
+            sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
         sync_manager.refresh_from_db()
         expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
         expected_contact_ids.add(self.character_1.alliance_id)
@@ -229,7 +227,7 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
 @patch(ESI_CONTACTS_PATH + ".esi")
 class TestSyncManager2(NoSocketsTestCase):
     @staticmethod
-    def _fetch_war_targets():
+    def _war_target_contact_ids() -> Set[int]:
         return set(
             EveContact.objects.filter(is_war_target=True).values_list(
                 "eve_entity_id", flat=True
@@ -266,11 +264,9 @@ class TestSyncManager2(NoSocketsTestCase):
             aggressor=EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         )
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), {war.defender.id})
+        self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id})
 
     def test_should_add_war_target_contact_as_aggressor_2(self, mock_esi):
         # given
@@ -284,11 +280,9 @@ class TestSyncManager2(NoSocketsTestCase):
             allies=[ally],
         )
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), {war.defender.id, ally.id})
+        self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id, ally.id})
 
     def test_should_add_war_target_contact_as_defender(self, mock_esi):
         # given
@@ -300,11 +294,9 @@ class TestSyncManager2(NoSocketsTestCase):
             defender=EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         )
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), {war.aggressor.id})
+        self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
 
     def test_should_add_war_target_contact_as_ally(self, mock_esi):
         # given
@@ -316,11 +308,9 @@ class TestSyncManager2(NoSocketsTestCase):
             allies=[EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)]
         )
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), {war.aggressor.id})
+        self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
 
     def test_should_not_add_war_target_contact_from_unrelated_war(self, mock_esi):
         # given
@@ -331,11 +321,9 @@ class TestSyncManager2(NoSocketsTestCase):
         EveWarFactory()
         EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), set())
+        self.assertSetEqual(self._war_target_contact_ids(), set())
 
     def test_remove_outdated_war_target_contacts(self, mock_esi):
         # given
@@ -349,23 +337,22 @@ class TestSyncManager2(NoSocketsTestCase):
         )
         EveContactWarTargetFactory(manager=sync_manager, eve_entity=war.aggressor)
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
-        sync_manager.refresh_from_db()
-        self.assertSetEqual(self._fetch_war_targets(), set())
+        self.assertSetEqual(self._war_target_contact_ids(), set())
 
     def test_do_nothing_when_contacts_are_unchanged(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub([])
+            BravadoOperationStub(ALLIANCE_CONTACTS)
         )
-        my_version_hash = SyncManager._calculate_version_hash({})
-        sync_manager = SyncManagerFactory(version_hash=my_version_hash)
+        sync_manager = SyncManagerFactory(
+            version_hash="c150cff3ec3938961af731f60eb6ccc2"
+        )
         # when
-        result = sync_manager.update_from_esi()
+        sync_manager.update_from_esi()
         # then
-        self.assertTrue(result)
+        self.assertEqual(sync_manager.contacts.count(), 0)
 
 
 @patch(CHARACTER_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
@@ -445,20 +432,20 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         self.sync_character_2.version_hash_manager = self.sync_manager.version_hash
+        self.sync_character_2.version_hash_character = (
+            "cfdeed17da7a325da107f8ae378f78f6"
+        )
+        self.sync_character_2.last_update_at = now()
         self.sync_character_2.save()
         # when
         result = self.sync_character_2.update()
         # then
-        self.sync_character_2.refresh_from_db()
         self.assertIsNone(result)
-        self.assertIsNotNone(self.sync_character_2.last_update_at)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_replace_contacts_for_character_w_standing_and_neutrals_not_allowed(
-        self, mock_esi
-    ):
+    def test_should_replace_contacts_for_character_w_standing(self, mock_esi):
         # given
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(
@@ -468,9 +455,10 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
         # when
         result = self.sync_character_2.update()
         # then
-        self.sync_character_2.refresh_from_db()
         self.assertTrue(result)
+        self.sync_character_2.refresh_from_db()
         self.assertIsNotNone(self.sync_character_2.last_update_at)
+        self.assertIsNotNone(self.sync_character_2.version_hash_character)
         new_character_contacts = esi_character_contacts.contacts(
             self.sync_character_2.character_id
         )
@@ -484,9 +472,7 @@ class TestSyncCharacterEsi(LoadTestDataMixin, NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.0)
-    def test_should_replace_contacts_for_character_wo_standing_and_neutrals_allowed(
-        self, mock_esi
-    ):
+    def test_should_replace_contacts_for_character_wo_standing(self, mock_esi):
         # given
         alt_ownership_3 = add_character_to_user(
             self.user,

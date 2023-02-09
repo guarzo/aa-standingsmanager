@@ -143,7 +143,7 @@ def _update_character_contacts(
                 "standing": standing,
             }
             if label_ids is not None:
-                params["label_ids"] = label_ids
+                params["label_ids"] = sorted(list(label_ids))
             response = esi_method(**params).results()
             updated_contact_ids.update(response)
 

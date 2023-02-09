@@ -22,7 +22,6 @@ def run_regular_sync():
     if not is_esi_online():
         logger.warning("ESI is not online. aborting")
         return
-
     update_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
     for sync_manager_pk in SyncManager.objects.values_list("pk", flat=True):
         run_manager_sync.apply_async(
@@ -36,19 +35,13 @@ def run_manager_sync(manager_pk: int, force_sync: bool = False):
 
     Args:
     - manage_pk: primary key of sync manager to run sync for
-    - force_sync: will ignore version_hash if set to true
+    - force_sync: will force update of manager and characters even if not needed
     """
     sync_manager = SyncManager.objects.get(pk=manager_pk)
-    new_version_hash = sync_manager.update_from_esi(force_sync)
+    sync_manager.update_from_esi(force_sync)
     EveEntity.objects.bulk_update_new_esi()
-
-    if force_sync:
-        alts_need_syncing = sync_manager.synced_characters.values_list("pk", flat=True)
-    else:
-        alts_need_syncing = sync_manager.synced_characters.exclude(
-            version_hash_manager=new_version_hash
-        ).values_list("pk", flat=True)
-    for character_pk in alts_need_syncing:
+    sync_characters = sync_manager.synced_characters.values_list("pk", flat=True)
+    for character_pk in sync_characters:
         run_character_sync.apply_async(
             kwargs={"sync_char_pk": character_pk, "force_sync": force_sync},
             priority=DEFAULT_TASK_PRIORITY,
@@ -61,7 +54,7 @@ def run_character_sync(sync_char_pk: int, force_sync: bool = False):
 
     Args:
     - sync_char_pk: primary key of sync character to run sync for
-    - force_sync: will ignore version_hash if set to true
+    - force_sync: force update even if not needed
     """
     synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
     synced_character.update(force_sync)
@@ -69,6 +62,7 @@ def run_character_sync(sync_char_pk: int, force_sync: bool = False):
 
 @shared_task
 def update_all_wars():
+    """Update known wars from ESI."""
     relevant_war_ids = EveWar.objects.calc_relevant_war_ids()
     logger.info("Fetching details for %s wars from ESI", len(relevant_war_ids))
     for war_id in relevant_war_ids:
@@ -78,4 +72,5 @@ def update_all_wars():
 
 @shared_task
 def update_war(war_id: int):
+    """Update a specific known war from ESI."""
     EveWar.objects.update_or_create_from_esi(war_id)

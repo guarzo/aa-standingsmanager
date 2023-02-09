@@ -185,12 +185,17 @@ class CharacterContactsClone:
             for obj in sorted(self._labels.values(), key=lambda o: o.id)
         ]
 
-    def version_hash(self) -> str:
+    def _to_dict(self) -> dict:
+        """Convert obj into a dictionary."""
         data = {
             "character_id": self.character_id,
             "contacts": self.contacts_to_esi_dicts(),
             "labels": self.labels_to_esi_dicts(),
         }
+        return data
+
+    def version_hash(self) -> str:
+        data = self._to_dict()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod

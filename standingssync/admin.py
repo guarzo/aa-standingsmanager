@@ -111,18 +111,16 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     list_display = (
         "_user",
         "_character_name",
-        "version_hash_manager",
-        "_sync_ok",
+        "is_sync_fresh",
         "last_update_at",
         "manager",
     )
     list_filter = (
-        "version_hash_manager",
+        "manager",
         "last_update_at",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
-        ("manager", admin.RelatedOnlyFieldListFilter),
     )
-    actions = ["start_sync_contacts"]
+    actions = ["normal_sync_characters", "force_sync_characters"]
     list_display_links = None
 
     def get_queryset(self, request):
@@ -137,10 +135,6 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.display(boolean=True)
-    def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_fresh
-
     @admin.display(ordering="character_ownership__user")
     def _user(self, obj):
         return obj.character_ownership.user
@@ -149,13 +143,25 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _character_name(self, obj):
         return obj.__str__()
 
-    @admin.display(description="Sync selected characters")
-    def start_sync_contacts(self, request, queryset):
+    @admin.display(description="Start normal update of selected synced characters")
+    def normal_sync_characters(self, request, queryset):
+        names = list()
+        for obj in queryset:
+            tasks.run_character_sync.delay(sync_char_pk=obj.pk, force_sync=False)
+            names.append(str(obj))
+        self.message_user(
+            request, "Started normal syncing for: {}".format(", ".join(names))
+        )
+
+    @admin.display(description="Start forced update of selected synced characters")
+    def force_sync_characters(self, request, queryset):
         names = list()
         for obj in queryset:
             tasks.run_character_sync.delay(sync_char_pk=obj.pk, force_sync=True)
             names.append(str(obj))
-        self.message_user(request, "Started syncing for: {}".format(", ".join(names)))
+        self.message_user(
+            request, "Started forced syncing for: {}".format(", ".join(names))
+        )
 
 
 @admin.register(SyncManager)
@@ -166,8 +172,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
         "_synced_characters_count",
         "_user",
         "_character_name",
-        "version_hash",
-        "_sync_ok",
+        "is_sync_fresh",
         "last_update_at",
     )
     list_display_links = None
@@ -180,10 +185,6 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
-
-    @admin.display(boolean=True)
-    def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_fresh
 
     @admin.display(ordering="character_ownership__user__username")
     def _user(self, obj):
@@ -203,7 +204,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def _synced_characters_count(self, obj):
         return "{:,}".format(obj.synced_characters.count())
 
-    @admin.display(description="Sync selected managers")
+    @admin.display(description="Force update of selected managers")
     def start_sync_managers(self, request, queryset):
         names = list()
         for obj in queryset:

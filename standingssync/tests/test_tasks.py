@@ -32,8 +32,8 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_start_all_tasks(self, mock_update_all_wars, mock_run_manager_sync):
         # given
         sync_manager = SyncManagerFactory(user=self.user_1, version_hash="new")
+        # when
         with patch(TASKS_PATH + ".is_esi_online", lambda: True):
-            # when
             tasks.run_regular_sync()
         # then
         self.assertTrue(mock_update_all_wars.apply_async.called)
@@ -43,9 +43,8 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
     def test_abort_when_esi_if_offline(
         self, mock_update_all_wars, mock_run_manager_sync
     ):
-        # given
+        # when
         with patch(TASKS_PATH + ".is_esi_online", lambda: False):
-            # when
             tasks.run_regular_sync()
         # then
         self.assertFalse(mock_update_all_wars.apply_async.called)

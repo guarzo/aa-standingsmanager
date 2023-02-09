@@ -1,8 +1,9 @@
 import datetime as dt
 import hashlib
 import json
-from typing import Optional
+from typing import Optional, Set
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
@@ -25,6 +26,7 @@ from .app_settings import (
     STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
 )
 from .core import character_contacts, esi_contacts
+from .helpers import store_json
 from .managers import EveContactManager, EveWarManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -90,8 +92,17 @@ class SyncManager(models.Model):
         token = self._fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
-        new_version_hash = self._perform_update_from_esi(token, force_sync)
-        return new_version_hash
+        current_contacts = esi_contacts.fetch_alliance_contacts(
+            self.alliance.alliance_id, token
+        )
+        war_target_ids = self._add_war_targets(current_contacts)
+        new_version_hash = self._calculate_version_hash(current_contacts)
+        if force_sync or new_version_hash != self.version_hash:
+            self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
+        else:
+            logger.info("%s: Alliance contacts are unchanged.", self)
+        self.last_update_at = now()
+        self.save()
 
     def _fetch_token(self) -> Token:
         token = (
@@ -105,39 +116,7 @@ class SyncManager(models.Model):
         )
         return token
 
-    def _perform_update_from_esi(self, token: Token, force_sync: bool) -> str:
-        """Update alliance contacts incl. war targets."""
-        contacts = esi_contacts.fetch_alliance_contacts(
-            self.alliance.alliance_id, token
-        )
-        war_target_ids = self._add_war_targets(contacts)
-        new_version_hash = self._calculate_version_hash(contacts)
-        if force_sync or new_version_hash != self.version_hash:
-            with transaction.atomic():
-                self.contacts.all().delete()
-                contacts = [
-                    EveContact(
-                        manager=self,
-                        eve_entity=EveEntity.objects.get_or_create(id=contact_id)[0],
-                        standing=contact["standing"],
-                        is_war_target=contact_id in war_target_ids,
-                    )
-                    for contact_id, contact in contacts.items()
-                ]
-                EveContact.objects.bulk_create(contacts, batch_size=500)
-                self.version_hash = new_version_hash
-                self.save()
-                logger.info(
-                    "%s: Stored alliance update with %d contacts", self, len(contacts)
-                )
-        else:
-            logger.info("%s: Alliance contacts are unchanged.", self)
-
-        self.last_update_at = now()
-        self.save()
-        return new_version_hash
-
-    def _add_war_targets(self, contacts: dict):
+    def _add_war_targets(self, contacts: dict) -> Set[int]:
         """Add war targets to contacts (if enabled).
 
         Returns contact IDs of war targets.
@@ -148,6 +127,25 @@ class SyncManager(models.Model):
         for war_target in war_targets:
             contacts[war_target.id] = esi_contacts.eve_entity_to_dict(war_target, -10.0)
         return {war_target.id for war_target in war_targets}
+
+    def _save_new_contacts(self, current_contacts, war_target_ids, new_version_hash):
+        with transaction.atomic():
+            self.contacts.all().delete()
+            contacts = [
+                EveContact(
+                    manager=self,
+                    eve_entity=EveEntity.objects.get_or_create(id=contact_id)[0],
+                    standing=contact["standing"],
+                    is_war_target=contact_id in war_target_ids,
+                )
+                for contact_id, contact in current_contacts.items()
+            ]
+            EveContact.objects.bulk_create(contacts, batch_size=500)
+            self.version_hash = new_version_hash
+            self.save()
+            logger.info(
+                "%s: Stored alliance update with %d contacts", self, len(contacts)
+            )
 
     @staticmethod
     def _calculate_version_hash(contacts: dict) -> str:
@@ -217,8 +215,8 @@ class SyncedCharacter(models.Model):
         logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
-        if not force_sync and not self._is_update_needed():
-            return None
+        if not self._has_character_standing():
+            return False
         token = self._fetch_token()
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
@@ -226,24 +224,15 @@ class SyncedCharacter(models.Model):
         if not self.manager.contacts.exists():
             logger.info("%s: No contacts to sync", self)
             return None
-        if not self._has_character_standing():
-            return False
 
-        contacts = esi_contacts.fetch_character_contacts(token)
-        labels = esi_contacts.fetch_character_contact_labels(token)
-        current_contacts = character_contacts.CharacterContactsClone.from_esi_dicts(
-            character_id=self.character_id, contacts=contacts.values(), labels=labels
-        )
+        current_contacts, labels = self._fetch_current_contacts(token)
 
-        wt_label_id = current_contacts.war_target_label_id()
-        if wt_label_id:
-            logger.debug("%s: Has war target label", self)
-            self.has_war_targets_label = True
-            self.save()
-        else:
-            logger.debug("%s: Does not have war target label", self)
-            self.has_war_targets_label = False
-            self.save()
+        # check if we need to update
+        if force_sync:
+            logger.info("%s: Forced update requested.", self)
+        elif not self._is_update_needed(current_contacts):
+            logger.info("%s: contacts are current; no update required", self)
+            return None
 
         # new contacts
         new_contacts = character_contacts.CharacterContactsClone.from_esi_dicts(
@@ -255,11 +244,21 @@ class SyncedCharacter(models.Model):
             )
         )
         if STANDINGSSYNC_ADD_WAR_TARGETS:
+            wt_label_id = current_contacts.war_target_label_id()
+            if wt_label_id:
+                logger.debug("%s: Has war target label", self)
+                self.has_war_targets_label = True
+                self.save()
+            else:
+                logger.debug("%s: Does not have war target label", self)
+                self.has_war_targets_label = False
+                self.save()
             new_contacts.add_eve_contacts(
                 self.manager.contacts.filter(is_war_target=True),
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
+        # update contacts on ESI
         if STANDINGSSYNC_REPLACE_CONTACTS:
             logger.info("%s: Deleting current contacts", self)
             esi_contacts.delete_character_contacts(
@@ -273,13 +272,15 @@ class SyncedCharacter(models.Model):
                 esi_contacts.add_character_contacts(
                     token=token,
                     contacts_by_standing=contacts_by_standing,
-                    label_ids=label_ids if label_ids else None,
+                    label_ids=list(label_ids) if label_ids else None,
                 )
         else:
             ...
             # self._update_character_contacts(token, contacts_clone)
 
-        self._store_new_version_hash()
+        self._store_new_version_hash(new_contacts.version_hash())
+        if settings.DEBUG:
+            store_json(new_contacts._to_dict(), "new_contacts")
         return True
 
     def _has_owner_permissions(self) -> bool:
@@ -293,12 +294,17 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
-    def _is_update_needed(self) -> bool:
-        if self.manager.version_hash != self.version_hash_manager:
+    def _is_update_needed(self, current_contacts) -> bool:
+        """Determine if contacts have to be updated."""
+        if self.version_hash_manager != self.manager.version_hash:
+            logger.info("%s: manager contacts have changed. Update needed.", self)
             return True
-        logger.info("%s: contacts of this char are up-to-date, no sync required", self)
-        self.last_update_at = now()
-        self.save()
+        if self.version_hash_character != current_contacts.version_hash():
+            logger.info("%s: character contacts have changes. Update needed.", self)
+            return True
+        if not self.is_sync_fresh:
+            logger.info("%s: Data has become stale. Update needed.", self)
+            return True
         return False
 
     def _fetch_token(self) -> Optional[Token]:
@@ -361,6 +367,20 @@ class SyncedCharacter(models.Model):
             return False
         return True
 
+    def _fetch_current_contacts(self, token: Token):
+        contacts = esi_contacts.fetch_character_contacts(token)
+        labels = esi_contacts.fetch_character_contact_labels(token)
+        current_contacts = character_contacts.CharacterContactsClone.from_esi_dicts(
+            character_id=self.character_id, contacts=contacts.values(), labels=labels
+        )
+        if settings.DEBUG:
+            store_json(current_contacts._to_dict(), "current_contacts")
+            logger.debug(
+                "%s: new version hash: %s", self, current_contacts.version_hash()
+            )
+            logger.debug("%s: old version hash: %s", self, self.version_hash_character)
+        return current_contacts, labels
+
     def _update_character_contacts(self, token, character_contacts, wt_label_id):
         qs_war_targets = self.manager.contacts.filter(is_war_target=True)
 
@@ -416,8 +436,9 @@ class SyncedCharacter(models.Model):
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
-    def _store_new_version_hash(self):
+    def _store_new_version_hash(self, version_has_character: str):
         self.version_hash_manager = self.manager.version_hash
+        self.version_hash_character = version_has_character
         self.last_update_at = now()
         self.save()
 

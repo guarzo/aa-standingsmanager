@@ -7,20 +7,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.7.0] - 2023-02-10
+
 ### Added
 
 - Ability to update wars from the admin site
 
 ### Changed
 
-- The update logic has improved:
-  - Replacing contacts will no longer delete and then recreate all contacts. Instead contacts are added, deleted and updated as needed.
+- The sync logic has improved:
+  - Replacing contacts will no longer delete all and then recreate contacts. Instead individual contacts are added, deleted and updated as needed.
   - Characters are now potentially synced every time the manager sync is running, instead of only when alliance contacts / WTs have changed
-  - Synced characters are now also updated when contacts of the character has changed
-  Instead of reporting the latest error on the admin site, most severe errors during manager sync will now result in exceptions which will result in tasks failing. These can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
+  - Synced characters are now also updated when the in-game contacts of the character has changed
+- Instead of reporting the latest error on the admin site, most severe errors during manager sync will now result in exceptions which will result in tasks failing. These can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
 - Update are reported as "fresh" as long as the sync has run successfully before a timeout. The timeout can be configured via settings.
-
-### Fixed
 
 ## [1.6.0] - 2023-01-29
 

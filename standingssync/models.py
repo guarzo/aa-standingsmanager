@@ -20,8 +20,7 @@ from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
-    STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC,
-    STANDINGSSYNC_TIMEOUT_MANAGER_SYNC,
+    STANDINGSSYNC_SYNC_TIMEOUT,
 )
 from .core import esi_api
 from .core.esi_contacts import EsiContact, EsiContactsContainer
@@ -53,7 +52,7 @@ class SyncManager(models.Model):
 
     @property
     def is_sync_fresh(self) -> bool:
-        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_MANAGER_SYNC)
+        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
         return self.last_update_at > deadline
 
     def effective_standing_with_character(self, character: EveCharacter) -> float:
@@ -187,7 +186,7 @@ class SyncedCharacter(models.Model):
     def is_sync_fresh(self) -> bool:
         if not self.last_update_at:
             return False
-        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC)
+        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
         return self.last_update_at > deadline
 
     def get_status_message(self):

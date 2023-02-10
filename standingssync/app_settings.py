@@ -24,15 +24,10 @@ This is an optimization to avoid having to fetch >700K wars from ESI.
 STANDINGSSYNC_REPLACE_CONTACTS = clean_setting("STANDINGSSYNC_REPLACE_CONTACTS", True)
 """When enabled will replace contacts of synced characters with alliance contacts."""
 
-STANDINGSSYNC_TIMEOUT_MANAGER_SYNC = clean_setting(
-    "STANDINGSSYNC_TIMEOUT_MANAGER_SYNC", 300  # 5 hours
-)
-"""Duration in minutes after which the manager sync will be reported as down."""
-
-STANDINGSSYNC_TIMEOUT_CHARACTER_SYNC = clean_setting(
-    "STANDINGSSYNC_TIMEOUT_MANAGER_SYNC", 1440  # 24 hours
-)
-"""Duration in minutes after which the manager sync will be reported as down."""
+STANDINGSSYNC_SYNC_TIMEOUT = clean_setting("STANDINGSSYNC_SYNC_TIMEOUT", 180)  # 3 hours
+"""Duration in minutes after which a delayed sync for managers and characters
+is reported as down.
+"""
 
 STANDINGSSYNC_SPECIAL_WAR_IDS = clean_setting(
     "STANDINGSSYNC_SPECIAL_WAR_IDS",

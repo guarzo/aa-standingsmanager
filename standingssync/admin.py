@@ -19,7 +19,7 @@ class EveContactAdmin(admin.ModelAdmin):
     list_display_links = None
     ordering = ("eve_entity__name",)
     list_select_related = True
-    list_filter = ("eve_entity__category", "is_war_target", "manager")
+    list_filter = ("manager", "eve_entity__category", "is_war_target")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

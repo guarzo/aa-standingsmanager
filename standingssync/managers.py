@@ -1,9 +1,10 @@
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import Dict, Set
 
 from django.db import models, transaction
 from django.db.models import Exists, OuterRef
 from django.utils.timezone import now
+from eveuniverse.models import EveEntity
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
@@ -48,34 +49,30 @@ class EveWarQuerySet(models.QuerySet):
 
 
 class EveWarManagerBase(models.Manager):
-    def war_targets(self, alliance_id: int) -> List[models.Model]:
+    def war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:
         """Return list of current war targets for given alliance as EveEntity objects
         or an empty list if there are None.
         """
-        war_targets = list()
-        active_wars = self.active_wars()
-        # case 1 alliance is aggressor
-        for war in active_wars:
+        war_target_ids = set()
+        for war in self.active_wars():
+            # case 1 alliance is aggressor
             if war.aggressor_id == alliance_id:
-                war_targets.append(war.defender)
+                war_target_ids.add(war.defender_id)
                 if war.allies:
-                    war_targets += list(war.allies.all())
+                    war_target_ids |= set(war.allies.values_list("id", flat=True))
 
-        # case 2 alliance is defender
-        for war in active_wars:
+            # case 2 alliance is defender
             if war.defender_id == alliance_id:
-                war_targets.append(war.aggressor)
+                war_target_ids.add(war.aggressor_id)
 
-        # case 3 alliance is ally
-        for war in active_wars:
+            # case 3 alliance is ally
             if war.allies.filter(id=alliance_id).exists():
-                war_targets.append(war.aggressor)
+                war_target_ids.add(war.aggressor_id)
 
-        return war_targets
+        return EveEntity.objects.filter(id__in=war_target_ids)
 
     def update_or_create_from_esi(self, id: int):
         """Updates existing or creates new objects from ESI with given ID."""
-        from .models import EveEntity
 
         logger.info("Retrieving war details for ID %s", id)
         war_info = esi_api.fetch_war(war_id=id)

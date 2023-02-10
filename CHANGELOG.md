@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Ability to update wars from the admin site
+
 ### Changed
 
-- Instead of reporting the latest error on the admin site, most errors will now result in exceptions which will result in tasks failing. And which can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
-- Sync is now reported as "OK" when the last successful update happened before a timeout. Timeouts for manager and character sync can be configured via settings.
+- The update logic has improved:
+  - Replacing contacts will no longer delete and then recreate all contacts. Instead contacts are added, deleted and updated as needed.
+  - Characters are now potentially synced every time the manager sync is running, instead of only when alliance contacts / WTs have changed
+  - Synced characters are now also updated when contacts of the character has changed
+  Instead of reporting the latest error on the admin site, most severe errors during manager sync will now result in exceptions which will result in tasks failing. These can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
+- Update are reported as "fresh" as long as the sync has run successfully before a timeout. The timeout can be configured via settings.
 
 ### Fixed
 

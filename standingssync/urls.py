@@ -13,4 +13,5 @@ urlpatterns = [
     path(
         "add_alliance_manager", views.add_alliance_manager, name="add_alliance_manager"
     ),
+    path("admin_update_wars", views.admin_update_wars, name="admin_update_wars"),
 ]

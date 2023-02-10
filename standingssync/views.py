@@ -1,3 +1,4 @@
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import redirect, render
 from django.utils.html import format_html
@@ -17,7 +18,7 @@ from .app_settings import (
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
 )
-from .models import SyncedCharacter, SyncManager
+from .models import EveWar, SyncedCharacter, SyncManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -268,3 +269,19 @@ def remove_character(request, alt_pk):
     alt.delete()
     messages_plus.success(request, "Sync deactivated for {}".format(alt_name))
     return redirect("standingssync:index")
+
+
+@login_required
+@staff_member_required
+def admin_update_wars(request):
+    """Start updating eve wars."""
+    wars_count = EveWar.objects.count()
+    tasks.update_all_wars.delay()
+    messages_plus.info(
+        request,
+        (
+            f"Started updating approx. {wars_count:,} wars from ESI in the background. "
+            "This can take a minute."
+        ),
+    )
+    return redirect("admin:standingssync_evewar_changelist")

@@ -34,12 +34,13 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 class SyncManager(models.Model):
     """An object for managing syncing of contacts for an alliance"""
 
-    character_ownership = models.OneToOneField(
-        CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
-    )  # alliance contacts are fetched from this character
     alliance = models.OneToOneField(
         EveAllianceInfo, on_delete=models.CASCADE, primary_key=True, related_name="+"
     )
+    character_ownership = models.OneToOneField(
+        CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
+    )  # alliance contacts are fetched from this character
+
     last_update_at = models.DateTimeField(null=True, default=None)
     version_hash = models.CharField(max_length=32, default="")
 
@@ -73,14 +74,12 @@ class SyncManager(models.Model):
                 pass
         return 0.0
 
-    def update_from_esi(self, force_sync: bool = False) -> str:
+    def update_from_esi(self, force_sync: bool = False) -> None:
         """Update this sync manager from ESi
 
         Args:
         - force_sync: will ignore version_hash if set to true
 
-        Returns:
-        - newest version hash on success (or raises exception on error)
         """
         if self.character_ownership is None:
             raise RuntimeError(f"{self}: Can not sync. No character configured.")
@@ -168,8 +167,6 @@ class SyncedCharacter(models.Model):
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
-    version_hash_manager = models.CharField(max_length=32, default="")
-    version_hash_character = models.CharField(max_length=32, default="")
 
     def __str__(self):
         try:
@@ -198,14 +195,11 @@ class SyncedCharacter(models.Model):
             return "OK"
         return "Sync is outdated."
 
-    def update(self, force_sync: bool = False) -> bool:
+    def update(self) -> bool:
         """updates in-game contacts for given character
 
         Will delete the sync character if necessary,
         e.g. if token is no longer valid or character is no longer blue
-
-        Args:
-        - force_sync: will ignore version_hash if set to true
 
         Returns:
         - False when the sync character was deleted
@@ -238,13 +232,6 @@ class SyncedCharacter(models.Model):
                 logger.debug("%s: Does not have war target label", self)
                 self.has_war_targets_label = False
                 self.save()
-
-        # check if we need to update
-        if force_sync:
-            logger.info("%s: Forced update requested.", self)
-        elif not self._is_update_needed(current_contacts):
-            logger.info("%s: contacts are current; no update required", self)
-            return None
 
         # new contacts
         new_contacts = EsiContactsContainer.from_esi_contacts(
@@ -291,11 +278,13 @@ class SyncedCharacter(models.Model):
             and not removed
             and not outdated_war_targets
         ):
-            logger.info("%s: Actually, no updates where necessary", self)
+            logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
 
-        self._store_new_version_hash(new_contacts.version_hash())
         if settings.DEBUG:
             store_json(new_contacts._to_dict(), "new_contacts")
+
+        self.last_update_at = now()
+        self.save()
         return True
 
     def _has_owner_permissions(self) -> bool:
@@ -308,19 +297,6 @@ class SyncedCharacter(models.Model):
             self._deactivate_sync("you no longer have permission for this service")
             return False
         return True
-
-    def _is_update_needed(self, current_contacts: EsiContactsContainer) -> bool:
-        """Determine if contacts have to be updated."""
-        if self.version_hash_manager != self.manager.version_hash:
-            logger.info("%s: manager contacts have changed. Update needed.", self)
-            return True
-        if self.version_hash_character != current_contacts.version_hash():
-            logger.info("%s: character contacts have changes. Update needed.", self)
-            return True
-        if not self.is_sync_fresh:
-            logger.info("%s: Data has become stale. Update needed.", self)
-            return True
-        return False
 
     def _fetch_token(self) -> Optional[Token]:
         try:
@@ -393,12 +369,6 @@ class SyncedCharacter(models.Model):
             )
             logger.debug("%s: old version hash: %s", self, self.version_hash_character)
         return current_contacts
-
-    def _store_new_version_hash(self, version_has_character: str):
-        self.version_hash_manager = self.manager.version_hash
-        self.version_hash_character = version_has_character
-        self.last_update_at = now()
-        self.save()
 
     @staticmethod
     def get_esi_scopes() -> list:

@@ -627,38 +627,6 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             esi_character_contacts.contacts(synced_character.character_id), expected
         )
 
-    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
-    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
-    def test_should_do_nothing_when_no_update_needed(self, mock_esi):
-        # given
-        synced_character = SyncedCharacterFactory(
-            version_hash_character="38ebb101a7bf222ec95e4d5f302682b7",
-            last_update_at=now(),
-        )
-        sync_manager = synced_character.manager
-        EveContactFactory(
-            manager=sync_manager,
-            eve_entity=EveEntityCharacterFactory(id=synced_character.character_id),
-            standing=10,
-        )
-        alliance_contact = EveContactFactory(manager=sync_manager)
-        character_contact_clone = EsiContact.from_eve_contact(alliance_contact)
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_clone]
-        )
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        # when
-        result = synced_character.update()
-        # then
-        self.assertIsNone(result)
-        synced_character.refresh_from_db()
-        expected = {character_contact_clone}
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
-
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)

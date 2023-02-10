@@ -35,7 +35,7 @@ def run_manager_sync(manager_pk: int, force_sync: bool = False):
 
     Args:
     - manage_pk: primary key of sync manager to run sync for
-    - force_sync: will force update of manager and characters even if not needed
+    - force_sync: will force update of manager even if not needed
     """
     sync_manager = SyncManager.objects.get(pk=manager_pk)
     sync_manager.update_from_esi(force_sync)
@@ -43,21 +43,19 @@ def run_manager_sync(manager_pk: int, force_sync: bool = False):
     sync_characters = sync_manager.synced_characters.values_list("pk", flat=True)
     for character_pk in sync_characters:
         run_character_sync.apply_async(
-            kwargs={"sync_char_pk": character_pk, "force_sync": force_sync},
-            priority=DEFAULT_TASK_PRIORITY,
+            kwargs={"sync_char_pk": character_pk}, priority=DEFAULT_TASK_PRIORITY
         )
 
 
 @shared_task
-def run_character_sync(sync_char_pk: int, force_sync: bool = False):
+def run_character_sync(sync_char_pk: int):
     """updates in-game contacts for given character
 
     Args:
     - sync_char_pk: primary key of sync character to run sync for
-    - force_sync: force update even if not needed
     """
     synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
-    synced_character.update(force_sync)
+    synced_character.update()
 
 
 @shared_task

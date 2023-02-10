@@ -158,7 +158,6 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
         sync_manager.refresh_from_db()
         _, kwargs = mock_run_character_sync.apply_async.call_args
         self.assertEqual(kwargs["kwargs"]["sync_char_pk"], synced_character.pk)
-        self.assertFalse(kwargs["kwargs"]["force_sync"])
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)

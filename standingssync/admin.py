@@ -120,7 +120,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
         "last_update_at",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
     )
-    actions = ["normal_sync_characters", "force_sync_characters"]
+    actions = ["sync_characters"]
     list_display_links = None
 
     def get_queryset(self, request):
@@ -143,24 +143,14 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _character_name(self, obj):
         return obj.__str__()
 
-    @admin.display(description="Start normal update of selected synced characters")
-    def normal_sync_characters(self, request, queryset):
+    @admin.display(description="Start update of selected synced characters")
+    def sync_characters(self, request, queryset):
         names = list()
         for obj in queryset:
-            tasks.run_character_sync.delay(sync_char_pk=obj.pk, force_sync=False)
+            tasks.run_character_sync.delay(obj.pk)
             names.append(str(obj))
         self.message_user(
             request, "Started normal syncing for: {}".format(", ".join(names))
-        )
-
-    @admin.display(description="Start forced update of selected synced characters")
-    def force_sync_characters(self, request, queryset):
-        names = list()
-        for obj in queryset:
-            tasks.run_character_sync.delay(sync_char_pk=obj.pk, force_sync=True)
-            names.append(str(obj))
-        self.message_user(
-            request, "Started forced syncing for: {}".format(", ".join(names))
         )
 
 

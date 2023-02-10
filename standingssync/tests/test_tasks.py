@@ -130,7 +130,7 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
         with self.assertRaises(SyncManager.DoesNotExist):
             tasks.run_manager_sync(99999)
 
-    @patch(MODELS_PATH + ".SyncManager.update_from_esi")
+    @patch(MODELS_PATH + ".SyncManager.run_sync")
     def test_should_abort_when_unexpected_exception_occurs(
         self, mock_update_from_esi, mock_run_character_sync
     ):
@@ -142,7 +142,7 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
             tasks.run_manager_sync(sync_manager.pk)
         # then
 
-    @patch(MODELS_PATH + ".SyncManager.update_from_esi")
+    @patch(MODELS_PATH + ".SyncManager.run_sync")
     def test_should_normally_run_character_sync(
         self, mock_update_from_esi, mock_run_character_sync
     ):

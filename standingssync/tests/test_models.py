@@ -144,7 +144,7 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         sync_manager = SyncManagerFactory(user=self.user)
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
-            sync_manager.update_from_esi()
+            sync_manager.run_sync()
         # then
         sync_manager.refresh_from_db()
         expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
@@ -174,7 +174,7 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         )
         # when
         with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
-            sync_manager.update_from_esi()
+            sync_manager.run_sync()
         # then
         sync_manager.refresh_from_db()
         expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
@@ -196,7 +196,7 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         )
         # when/then
         with self.assertRaises(RuntimeError):
-            sync_manager.update_from_esi()
+            sync_manager.run_sync()
 
     def test_should_abort_when_insufficient_permission(self):
         # given
@@ -207,7 +207,7 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         sync_manager = SyncManagerFactory(user=user)
         # when/then
         with self.assertRaises(RuntimeError):
-            sync_manager.update_from_esi()
+            sync_manager.run_sync()
 
     def test_should_report_error_when_character_has_no_valid_token(self):
         # given
@@ -220,7 +220,7 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         sync_manager = SyncManagerFactory(user=user)
         # when/then
         with self.assertRaises(RuntimeError):
-            sync_manager.update_from_esi()
+            sync_manager.run_sync()
 
 
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
@@ -260,7 +260,7 @@ class TestSyncManager2(NoSocketsTestCase):
             aggressor=EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         )
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id})
 
@@ -276,7 +276,7 @@ class TestSyncManager2(NoSocketsTestCase):
             allies=[ally],
         )
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id, ally.id})
 
@@ -290,7 +290,7 @@ class TestSyncManager2(NoSocketsTestCase):
             defender=EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         )
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
 
@@ -304,7 +304,7 @@ class TestSyncManager2(NoSocketsTestCase):
             allies=[EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)]
         )
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
 
@@ -317,7 +317,7 @@ class TestSyncManager2(NoSocketsTestCase):
         EveWarFactory()
         EveEntityAllianceFactory(id=sync_manager.alliance.alliance_id)
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), set())
 
@@ -333,7 +333,7 @@ class TestSyncManager2(NoSocketsTestCase):
         )
         EveContactWarTargetFactory(manager=sync_manager, eve_entity=war.aggressor)
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertSetEqual(self._war_target_contact_ids(), set())
 
@@ -346,7 +346,7 @@ class TestSyncManager2(NoSocketsTestCase):
             version_hash="82abdccc0dc29886061cefc34453c30f"
         )
         # when
-        sync_manager.update_from_esi()
+        sync_manager.run_sync()
         # then
         self.assertEqual(sync_manager.contacts.count(), 0)
 

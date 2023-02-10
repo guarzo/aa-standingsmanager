@@ -45,8 +45,8 @@ class _SyncBaseModel(models.Model):
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
         return self.last_sync_at > deadline
 
-    def record_successful_update(self):
-        """Record date & time of a successful update."""
+    def record_successful_sync(self):
+        """Record date & time of a successful sync."""
         self.last_sync_at = now()
         self.save()
 
@@ -91,12 +91,11 @@ class SyncManager(_SyncBaseModel):
                 pass
         return 0.0
 
-    def update_from_esi(self, force_sync: bool = False) -> None:
-        """Update this sync manager from ESi
+    def run_sync(self, force_update: bool = False) -> None:
+        """Run sync for this manager.
 
         Args:
-        - force_sync: will ignore version_hash if set to true
-
+        - force_update: when true will always update contacts in database
         """
         if self.character_ownership is None:
             raise RuntimeError(f"{self}: Can not sync. No character configured.")
@@ -111,11 +110,11 @@ class SyncManager(_SyncBaseModel):
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
         war_target_ids = self._add_war_targets(current_contacts)
         new_version_hash = current_contacts.version_hash()
-        if force_sync or new_version_hash != self.version_hash:
+        if force_update or new_version_hash != self.version_hash:
             self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
-        self.record_successful_update()
+        self.record_successful_sync()
 
     def _fetch_token(self) -> Token:
         token = (
@@ -289,7 +288,7 @@ class SyncedCharacter(_SyncBaseModel):
         if settings.DEBUG:
             store_json(new_contacts._to_dict(), "new_contacts")
 
-        self.record_successful_update()
+        self.record_successful_sync()
         return True
 
     def _has_owner_permissions(self) -> bool:

@@ -218,7 +218,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def start_sync_managers(self, request, queryset):
         names = list()
         for obj in queryset:
-            tasks.run_manager_sync.delay(manager_pk=obj.pk, force_sync=True)
+            tasks.run_manager_sync.delay(manager_pk=obj.pk, force_update=True)
             names.append(str(obj))
         text = "Started syncing for: {} ".format(", ".join(names))
         self.message_user(request, text)

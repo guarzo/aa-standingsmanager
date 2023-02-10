@@ -30,15 +30,15 @@ def run_regular_sync():
 
 
 @shared_task
-def run_manager_sync(manager_pk: int, force_sync: bool = False):
+def run_manager_sync(manager_pk: int, force_update: bool = False):
     """updates contacts for given manager and related characters
 
     Args:
     - manage_pk: primary key of sync manager to run sync for
-    - force_sync: will force update of manager even if not needed
+    - force_update: will force update of manager even if not needed
     """
     sync_manager = SyncManager.objects.get(pk=manager_pk)
-    sync_manager.update_from_esi(force_sync)
+    sync_manager.run_sync(force_update)
     EveEntity.objects.bulk_update_new_esi()
     sync_characters = sync_manager.synced_characters.values_list("pk", flat=True)
     for character_pk in sync_characters:

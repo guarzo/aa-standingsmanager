@@ -111,7 +111,8 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     list_display = (
         "_user",
         "_character_name",
-        "is_sync_fresh",
+        "_has_war_targets_label",
+        "_is_fresh",
         "last_update_at",
         "manager",
     )
@@ -143,6 +144,14 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _character_name(self, obj):
         return obj.__str__()
 
+    @admin.display(boolean=True, description="Has WT label")
+    def _has_war_targets_label(self, obj):
+        return obj.has_war_targets_label
+
+    @admin.display(boolean=True)
+    def _is_fresh(self, obj):
+        return obj.is_sync_fresh
+
     @admin.display(description="Start update of selected synced characters")
     def sync_characters(self, request, queryset):
         names = list()
@@ -158,11 +167,12 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
 class SyncManagerAdmin(admin.ModelAdmin):
     list_display = (
         "_alliance_name",
-        "_contacts_count",
+        "_alliance_contacts_count",
+        "_wt_contacts_count",
         "_synced_characters_count",
         "_user",
         "_character_name",
-        "is_sync_fresh",
+        "_is_fresh",
         "last_update_at",
     )
     list_display_links = None
@@ -188,11 +198,21 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def _alliance_name(self, obj):
         return obj.alliance.alliance_name
 
-    def _contacts_count(self, obj):
-        return "{:,}".format(obj.contacts.count())
+    @admin.display(description="Alliance contacts")
+    def _alliance_contacts_count(self, obj):
+        return "{:,}".format(obj.contacts.filter(is_war_target=False).count())
 
+    @admin.display(description="War targets")
+    def _wt_contacts_count(self, obj):
+        return "{:,}".format(obj.contacts.filter(is_war_target=True).count())
+
+    @admin.display(description="Synced Characters")
     def _synced_characters_count(self, obj):
         return "{:,}".format(obj.synced_characters.count())
+
+    @admin.display(boolean=True)
+    def _is_fresh(self, obj):
+        return obj.is_sync_fresh
 
     @admin.display(description="Force update of selected managers")
     def start_sync_managers(self, request, queryset):

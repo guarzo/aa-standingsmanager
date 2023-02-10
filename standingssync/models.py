@@ -288,7 +288,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info("%s: Adding %d missing contacts", self, len(added))
             esi_api.add_character_contacts(token, added)
         if changed:
-            logger.info("%s: Update %d changed contacts", self, len(changed))
+            logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
 
         if not STANDINGSSYNC_REPLACE_CONTACTS:
@@ -310,6 +310,8 @@ class SyncedCharacter(_SyncBaseModel):
             and not outdated_war_targets
         ):
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
+        else:
+            logger.info("%s: Contacts update completed.", self)
 
         if settings.DEBUG:
             store_json(new_contacts._to_dict(), "new_contacts")

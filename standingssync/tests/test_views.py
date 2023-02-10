@@ -213,7 +213,7 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
             self.make_request(my_user, self.character_4)
 
 
-@patch(MODULE_PATH + ".tasks.run_manager_sync")
+@patch(MODULE_PATH + ".tasks")
 @patch(MODULE_PATH + ".messages")
 class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
@@ -262,13 +262,13 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
         return orig_view(request, token)
 
     def test_user_with_permission_can_add_alliance_manager(
-        self, mock_messages, mock_run_manager_sync
+        self, mock_messages, mock_tasks
     ):
         response = self.make_request(self.user_1, self.character_1)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.success.called)
-        self.assertTrue(mock_run_manager_sync.delay.called)
+        self.assertTrue(mock_tasks.run_manager_sync.delay.called)
         self.assertTrue(
             SyncManager.objects.filter(alliance=self.alliance_1)
             .filter(character_ownership__character=self.character_1)
@@ -277,12 +277,12 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
 
     """
     def test_user_wo_permission_can_not_add_alliance_manager(
-        self, mock_messages, mock_run_manager_sync
+        self, mock_messages, mock_tasks
     ):
         response = self.make_request(self.user_2, self.character_2)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('standingssync:index'))
-        self.assertFalse(mock_run_manager_sync.delay.called)
+        self.assertFalse(mock_tasks.delay.called)
         self.assertFalse(
             SyncManager.objects
             .filter(alliance=self.alliance_1)
@@ -292,13 +292,13 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
     """
 
     def test_character_for_manager_must_be_alliance_member(
-        self, mock_messages, mock_run_manager_sync
+        self, mock_messages, mock_tasks
     ):
         response = self.make_request(self.user_1, self.character_5)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.warning.called)
-        self.assertFalse(mock_run_manager_sync.delay.called)
+        self.assertFalse(mock_tasks.run_manager_sync.delay.called)
         self.assertFalse(
             SyncManager.objects.filter(alliance=self.alliance_1)
             .filter(character_ownership__character=self.character_5)
@@ -306,13 +306,13 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
         )
 
     def test_character_for_manager_must_be_owned_by_user(
-        self, mock_messages, mock_run_manager_sync
+        self, mock_messages, mock_tasks
     ):
         response = self.make_request(self.user_1, self.character_3)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.warning.called)
-        self.assertFalse(mock_run_manager_sync.delay.called)
+        self.assertFalse(mock_tasks.run_manager_sync.delay.called)
         self.assertFalse(
             SyncManager.objects.filter(alliance=self.alliance_1)
             .filter(character_ownership__character=self.character_3)

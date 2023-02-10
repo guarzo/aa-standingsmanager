@@ -337,13 +337,13 @@ class TestSyncManager2(NoSocketsTestCase):
         # then
         self.assertSetEqual(self._war_target_contact_ids(), set())
 
-    def test_do_store_contacts_when_unchanged(self, mock_esi):
+    def test_do_not_store_contacts_when_unchanged(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
             BravadoOperationStub(ALLIANCE_CONTACTS)
         )
         sync_manager = SyncManagerFactory(
-            version_hash="82abdccc0dc29886061cefc34453c30f"
+            version_hash="33f9b95322860e4d6d2914117bff4929"
         )
         # when
         sync_manager.run_sync()

@@ -172,13 +172,14 @@ class EsiContactsContainer:
         return set(self._labels.values())
 
     def war_target_label_id(self) -> Optional[int]:
+        """Fetch the ID of the configured war target label."""
         for label in self._labels.values():
             if label.name.lower() == STANDINGSSYNC_WAR_TARGETS_LABEL_NAME.lower():
                 return label.id
         return None
 
     def war_targets(self) -> Set[EsiContact]:
-        """Current war targets."""
+        """Fetch contacts that are war targets."""
         war_target_id = self.war_target_label_id()
         contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
         return contacts
@@ -204,19 +205,21 @@ class EsiContactsContainer:
         return added, removed, changed
 
     def contacts_to_esi_dicts(self) -> List[dict]:
+        """Convert contacts into a stable dictionary."""
         return [
             obj.to_esi_dict()
             for obj in sorted(self._contacts.values(), key=lambda o: o.contact_id)
         ]
 
     def labels_to_esi_dicts(self) -> List[dict]:
+        """Convert labels into a stable dictionary."""
         return [
             obj.to_esi_dict()
             for obj in sorted(self._labels.values(), key=lambda o: o.id)
         ]
 
     def _to_dict(self) -> dict:
-        """Convert obj into a dictionary."""
+        """Convert this object into a stable dictionary."""
         data = {
             "contacts": self.contacts_to_esi_dicts(),
             "labels": self.labels_to_esi_dicts(),
@@ -224,11 +227,8 @@ class EsiContactsContainer:
         return data
 
     def version_hash(self) -> str:
-        """Calculate hash for current contacts in order to compare versions.
-
-        Note that has is calculated for contacts only.
-        """
-        data = self.contacts_to_esi_dicts()
+        """Calculate hash for current contacts & label in order to identify changes."""
+        data = self._to_dict()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod

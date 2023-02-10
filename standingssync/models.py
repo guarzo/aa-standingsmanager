@@ -33,7 +33,11 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 class _SyncBaseModel(models.Model):
     """Common fields and logic for sync models."""
 
-    last_sync_at = models.DateTimeField(null=True, default=None)
+    last_sync_at = models.DateTimeField(
+        null=True,
+        default=None,
+        help_text="When the last successful sync was completed.",
+    )
 
     class Meta:
         abstract = True
@@ -55,12 +59,24 @@ class SyncManager(_SyncBaseModel):
     """An object for managing syncing of contacts for an alliance."""
 
     alliance = models.OneToOneField(
-        EveAllianceInfo, on_delete=models.CASCADE, primary_key=True, related_name="+"
+        EveAllianceInfo,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="+",
+        help_text="Alliance to sync contacts for",
     )
     character_ownership = models.OneToOneField(
-        CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
-    )  # alliance contacts are fetched from this character
-    version_hash = models.CharField(max_length=32, default="")
+        CharacterOwnership,
+        on_delete=models.SET_NULL,
+        null=True,
+        default=None,
+        help_text="alliance contacts are fetched from this character",
+    )
+    version_hash = models.CharField(
+        max_length=32,
+        default="",
+        help_text="hash over all contacts to identify when it has changed",
+    )
 
     def __str__(self):
         return str(self.alliance)
@@ -117,6 +133,7 @@ class SyncManager(_SyncBaseModel):
         self.record_successful_sync()
 
     def _fetch_token(self) -> Token:
+        """Fetch valid token with required scopes."""
         token = (
             Token.objects.filter(
                 user=self.character_ownership.user,
@@ -175,9 +192,16 @@ class SyncedCharacter(_SyncBaseModel):
     """A character that has his personal contacts synced with an alliance"""
 
     character_ownership = models.OneToOneField(
-        CharacterOwnership, on_delete=models.CASCADE, primary_key=True
+        CharacterOwnership,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        help_text="Character to sync",
     )
-    has_war_targets_label = models.BooleanField(default=None, null=True)
+    has_war_targets_label = models.BooleanField(
+        default=None,
+        null=True,
+        help_text="Whether this character has the war target label.",
+    )
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
@@ -216,7 +240,7 @@ class SyncedCharacter(_SyncBaseModel):
         logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
-        if not self._has_character_standing():
+        if not self._has_standing_with_alliance():
             return False
         token = self._fetch_token()
         if not token:
@@ -305,6 +329,10 @@ class SyncedCharacter(_SyncBaseModel):
         return True
 
     def _fetch_token(self) -> Optional[Token]:
+        """Fetch valid token with required scopes.
+
+        Will deactivate this character if any severe issues are encountered.
+        """
         try:
             token = (
                 Token.objects.filter(
@@ -332,7 +360,8 @@ class SyncedCharacter(_SyncBaseModel):
 
         return token
 
-    def _deactivate_sync(self, message):
+    def _deactivate_sync(self, message: str):
+        """Deactivate character and send a message to the user about the issue."""
         message = (
             "Standings Sync has been deactivated for your "
             f"character {self}, because {message}.\n"
@@ -346,7 +375,12 @@ class SyncedCharacter(_SyncBaseModel):
         )
         self.delete()
 
-    def _has_character_standing(self) -> bool:
+    def _has_standing_with_alliance(self) -> bool:
+        """Clarify if this character has standing with the alliance
+        and therefore is allowed to sync contacts.
+
+        Deactivate character if it has no standing.
+        """
         character_eff_standing = self.manager.effective_standing_with_character(
             self.character_ownership.character
         )

@@ -9,7 +9,7 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
-from app_utils.views import link_html
+from app_utils.views import bootstrap_icon_plus_name_html
 
 from . import __title__, tasks
 from .app_settings import (
@@ -21,34 +21,6 @@ from .app_settings import (
 from .models import EveWar, SyncedCharacter, SyncManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
-
-
-def create_img_html(src: str, classes: list = None, size: int = None) -> str:
-    classes_str = format_html('class="{}"', (" ".join(classes)) if classes else "")
-    size_html = format_html('width="{}" height="{}"', size, size) if size else ""
-    return format_html('<img {} {} src="{}">', classes_str, size_html, src)
-
-
-def create_icon_plus_name_html(
-    icon_url,
-    name,
-    size: int = 32,
-    avatar: bool = False,
-    url: str = None,
-    text: str = None,
-) -> str:
-    """create HTML to display an icon next to a name. Can also be a link."""
-    name_html = link_html(url, name, new_window=False) if url else name
-    if text:
-        name_html = format_html("{}&nbsp;{}", name_html, text)
-
-    return format_html(
-        "{}&nbsp;&nbsp;&nbsp;{}",
-        create_img_html(
-            icon_url, classes=["ra-avatar", "img-circle"] if avatar else [], size=size
-        ),
-        name_html,
-    )
 
 
 @login_required
@@ -75,7 +47,7 @@ def index(request):
     synced_characters = list()
     for synced_character in characters_query:
         character = synced_character.character_ownership.character
-        name_html = create_icon_plus_name_html(
+        name_html = bootstrap_icon_plus_name_html(
             character.portrait_url(), character.character_name, avatar=True
         )
         organization = character.corporation_name

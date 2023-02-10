@@ -1,4 +1,4 @@
-# standingssync
+# Standings Sync
 
 This is a plugin app for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth), which enables non-alliance characters like scout alts to have the same standings view in game as their alliance main.
 
@@ -34,7 +34,7 @@ Here is an high level overview of the main features:
 - Synchronize alliance contacts to chosen non-alliance characters
 - Synchronization is ongoing until user chooses to remove character from synchronization
 - Supports multiple alliances
-- Can sync war targets
+- Can also sync war targets
 - Synchronization automatically ceases once the user is no longer eligible
 
 ## Screenshot
@@ -91,7 +91,7 @@ CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
 }
 ```
 
-> **Note**:<br>This configures the sync process to run every 2 hours starting at 00:00 AM UTC. Feel free to adjust the timing to the needs of you alliance.<br>However, do not schedule it too tightly. Or you risk generating more and more tasks, when sync tasks from previous runs are not able to finish within the alloted time.
+Please also see the [settings](#settings) section for more configuration options. For example a setting is required to enable syncing war targets.
 
 ### Step 5 - Finalize installation into AA
 

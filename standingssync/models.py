@@ -33,26 +33,26 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 class _SyncBaseModel(models.Model):
     """Common fields and logic for sync models."""
 
-    last_update_at = models.DateTimeField(null=True, default=None)
+    last_sync_at = models.DateTimeField(null=True, default=None)
 
     class Meta:
         abstract = True
 
     @property
     def is_sync_fresh(self) -> bool:
-        if not self.last_update_at:
+        if not self.last_sync_at:
             return False
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
-        return self.last_update_at > deadline
+        return self.last_sync_at > deadline
 
     def record_successful_update(self):
-        """Record date & time of this successful update."""
-        self.last_update_at = now()
+        """Record date & time of a successful update."""
+        self.last_sync_at = now()
         self.save()
 
 
 class SyncManager(_SyncBaseModel):
-    """An object for managing syncing of contacts for an alliance"""
+    """An object for managing syncing of contacts for an alliance."""
 
     alliance = models.OneToOneField(
         EveAllianceInfo, on_delete=models.CASCADE, primary_key=True, related_name="+"

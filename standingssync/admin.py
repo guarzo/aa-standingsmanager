@@ -113,12 +113,12 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
         "_character_name",
         "_has_war_targets_label",
         "_is_fresh",
-        "last_update_at",
+        "last_sync_at",
         "manager",
     )
     list_filter = (
         "manager",
-        "last_update_at",
+        "last_sync_at",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
     )
     actions = ["sync_characters"]
@@ -173,7 +173,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
         "_user",
         "_character_name",
         "_is_fresh",
-        "last_update_at",
+        "last_sync_at",
     )
     list_display_links = None
     list_filter = (("character_ownership__user", admin.RelatedOnlyFieldListFilter),)

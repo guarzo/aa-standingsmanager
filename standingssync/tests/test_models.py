@@ -237,9 +237,7 @@ class TestSyncManager2(NoSocketsTestCase):
     def test_should_report_sync_as_ok(self, dummy):
         # given
         my_dt = now()
-        sync_manager = SyncManagerFactory(
-            last_update_at=my_dt - dt.timedelta(minutes=1)
-        )
+        sync_manager = SyncManagerFactory(last_sync_at=my_dt - dt.timedelta(minutes=1))
         # when/then
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertTrue(sync_manager.is_sync_fresh)
@@ -247,9 +245,7 @@ class TestSyncManager2(NoSocketsTestCase):
     def test_should_report_sync_as_not_ok(self, dummy):
         # given
         my_dt = now()
-        sync_manager = SyncManagerFactory(
-            last_update_at=my_dt - dt.timedelta(minutes=61)
-        )
+        sync_manager = SyncManagerFactory(last_sync_at=my_dt - dt.timedelta(minutes=61))
         # when/then
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertFalse(sync_manager.is_sync_fresh)
@@ -391,7 +387,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -433,7 +429,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -477,7 +473,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -520,7 +516,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -565,7 +561,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -615,7 +611,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
-        self.assertIsNotNone(synced_character.last_update_at)
+        self.assertIsNotNone(synced_character.last_sync_at)
         expected = {
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
@@ -810,7 +806,7 @@ class TestSyncCharacter2(NoSocketsTestCase):
     def test_should_report_sync_as_ok(self):
         # given
         my_dt = now()
-        obj = SyncedCharacterFactory(last_update_at=my_dt - dt.timedelta(minutes=1))
+        obj = SyncedCharacterFactory(last_sync_at=my_dt - dt.timedelta(minutes=1))
         # when/then
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertTrue(obj.is_sync_fresh)
@@ -818,7 +814,7 @@ class TestSyncCharacter2(NoSocketsTestCase):
     def test_should_report_sync_as_not_ok(self):
         # given
         my_dt = now()
-        obj = SyncedCharacterFactory(last_update_at=my_dt - dt.timedelta(minutes=61))
+        obj = SyncedCharacterFactory(last_sync_at=my_dt - dt.timedelta(minutes=61))
         # when/then
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertFalse(obj.is_sync_fresh)

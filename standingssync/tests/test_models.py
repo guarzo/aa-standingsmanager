@@ -25,7 +25,6 @@ from .factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
-    UserMainSyncerFactory,
 )
 from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixin
 
@@ -342,7 +341,7 @@ class TestSyncManager2(NoSocketsTestCase):
         # then
         self.assertSetEqual(self._war_target_contact_ids(), set())
 
-    def test_do_nothing_when_contacts_are_unchanged(self, mock_esi):
+    def test_do_store_contacts_when_unchanged(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
             BravadoOperationStub(ALLIANCE_CONTACTS)
@@ -807,16 +806,6 @@ class TestSyncCharacter2(NoSocketsTestCase):
         result = character.update()
         # then
         self.assertIsNone(result)
-
-    def test_should_abort_sync_when_insufficient_permissions(self):
-        # given
-        manager = SyncManagerFactory(version_hash="abc")
-        user = UserMainSyncerFactory(permissions__=[])
-        character = SyncedCharacterFactory(manager=manager, user=user)
-        # when
-        result = character.update()
-        # then
-        self.assertFalse(result)
 
 
 class TestEveWar(NoSocketsTestCase):

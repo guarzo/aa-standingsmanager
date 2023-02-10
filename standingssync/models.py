@@ -30,7 +30,28 @@ from .managers import EveContactManager, EveWarManager
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
-class SyncManager(models.Model):
+class _SyncBaseModel(models.Model):
+    """Common fields and logic for sync models."""
+
+    last_update_at = models.DateTimeField(null=True, default=None)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def is_sync_fresh(self) -> bool:
+        if not self.last_update_at:
+            return False
+        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
+        return self.last_update_at > deadline
+
+    def record_successful_update(self):
+        """Record date & time of this successful update."""
+        self.last_update_at = now()
+        self.save()
+
+
+class SyncManager(_SyncBaseModel):
     """An object for managing syncing of contacts for an alliance"""
 
     alliance = models.OneToOneField(
@@ -39,8 +60,6 @@ class SyncManager(models.Model):
     character_ownership = models.OneToOneField(
         CharacterOwnership, on_delete=models.SET_NULL, null=True, default=None
     )  # alliance contacts are fetched from this character
-
-    last_update_at = models.DateTimeField(null=True, default=None)
     version_hash = models.CharField(max_length=32, default="")
 
     def __str__(self):
@@ -49,11 +68,6 @@ class SyncManager(models.Model):
     @property
     def character_alliance_id(self) -> int:
         return self.character_ownership.character.alliance_id
-
-    @property
-    def is_sync_fresh(self) -> bool:
-        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
-        return self.last_update_at > deadline
 
     def effective_standing_with_character(self, character: EveCharacter) -> float:
         """Effective standing of the alliance with a character."""
@@ -97,8 +111,7 @@ class SyncManager(models.Model):
             self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
-        self.last_update_at = now()
-        self.save()
+        self.record_successful_update()
 
     def _fetch_token(self) -> Token:
         token = (
@@ -155,14 +168,13 @@ class SyncManager(models.Model):
         return ["esi-alliances.read_contacts.v1"]
 
 
-class SyncedCharacter(models.Model):
+class SyncedCharacter(_SyncBaseModel):
     """A character that has his personal contacts synced with an alliance"""
 
     character_ownership = models.OneToOneField(
         CharacterOwnership, on_delete=models.CASCADE, primary_key=True
     )
     has_war_targets_label = models.BooleanField(default=None, null=True)
-    last_update_at = models.DateTimeField(null=True, default=None)
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
@@ -181,13 +193,6 @@ class SyncedCharacter(models.Model):
     @property
     def character_id(self) -> int:
         return self.character.character_id
-
-    @property
-    def is_sync_fresh(self) -> bool:
-        if not self.last_update_at:
-            return False
-        deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
-        return self.last_update_at > deadline
 
     def get_status_message(self):
         if self.is_sync_fresh:
@@ -282,8 +287,7 @@ class SyncedCharacter(models.Model):
         if settings.DEBUG:
             store_json(new_contacts._to_dict(), "new_contacts")
 
-        self.last_update_at = now()
-        self.save()
+        self.record_successful_update()
         return True
 
     def _has_owner_permissions(self) -> bool:

@@ -4,16 +4,23 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Dict, FrozenSet, Iterable, List, NamedTuple, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
 from standingssync.app_settings import STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
 
 
-class EsiContactLabel(NamedTuple):
+@dataclass(frozen=True)
+class EsiContactLabel:
+    """An ESI contact label. Immutable."""
+
     id: int
     name: str
+
+    def __post_init__(self):
+        object.__setattr__(self, "id", int(self.id))
+        object.__setattr__(self, "name", str(self.name))
 
     def to_dict(self) -> dict:
         return {self.id: self.name}

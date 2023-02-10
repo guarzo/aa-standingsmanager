@@ -2,7 +2,11 @@ from unittest.mock import patch
 
 from app_utils.testing import NoSocketsTestCase
 
-from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.core.esi_contacts import (
+    EsiContact,
+    EsiContactLabel,
+    EsiContactsContainer,
+)
 
 from ..factories import EsiContactFactory, EsiContactLabelFactory, EveContactFactory
 
@@ -106,6 +110,35 @@ class TestEsiContact(NoSocketsTestCase):
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
         self.assertEqual(obj, EsiContact(1, "alliance", 5.0))
+
+
+class TestEsiContactLabel(NoSocketsTestCase):
+    def test_should_create_from_esi_dict(self):
+        # given
+        esi_dict = {"label_id": 42, "label_name": "alpha"}
+        # when
+        result = EsiContactLabel.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(result.id, 42)
+        self.assertEqual(result.name, "alpha")
+
+    def test_should_convert_to_dict(self):
+        # given
+        obj = EsiContactLabel(42, "alpha")
+        # when
+        result = obj.to_dict()
+        # then
+        expected = {42: "alpha"}
+        self.assertDictEqual(expected, result)
+
+    def test_should_convert_to_esi_dict(self):
+        # given
+        obj = EsiContactLabel(42, "alpha")
+        # when
+        result = obj.to_esi_dict()
+        # then
+        expected = {"label_id": 42, "label_name": "alpha"}
+        self.assertDictEqual(expected, result)
 
 
 @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")

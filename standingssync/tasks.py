@@ -22,7 +22,7 @@ def run_regular_sync():
     if not is_esi_online():
         logger.warning("ESI is not online. aborting")
         return
-    update_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
+    sync_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
     for sync_manager_pk in SyncManager.objects.values_list("pk", flat=True):
         run_manager_sync.apply_async(
             args=[sync_manager_pk], priority=DEFAULT_TASK_PRIORITY
@@ -59,16 +59,16 @@ def run_character_sync(sync_char_pk: int):
 
 
 @shared_task
-def update_all_wars():
-    """Update known wars from ESI."""
+def sync_all_wars():
+    """Sync all wars from ESI."""
     relevant_war_ids = EveWar.objects.calc_relevant_war_ids()
-    logger.info("Fetching details for %s wars from ESI", len(relevant_war_ids))
+    logger.info("Syncing %s wars from ESI.", len(relevant_war_ids))
     for war_id in relevant_war_ids:
-        update_war.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+        run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
 @shared_task
-def update_war(war_id: int):
-    """Update a specific known war from ESI."""
+def run_war_sync(war_id: int):
+    """Sync given war from ESI."""
     EveWar.objects.update_or_create_from_esi(war_id)

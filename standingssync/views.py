@@ -276,7 +276,7 @@ def remove_character(request, alt_pk):
 def admin_update_wars(request):
     """Start updating eve wars."""
     wars_count = EveWar.objects.count()
-    tasks.update_all_wars.delay()
+    tasks.sync_all_wars.delay()
     messages.info(
         request,
         (

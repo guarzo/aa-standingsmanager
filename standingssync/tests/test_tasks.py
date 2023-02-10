@@ -21,7 +21,7 @@ TASKS_PATH = "standingssync.tasks"
 
 
 @patch(TASKS_PATH + ".run_manager_sync")
-@patch(TASKS_PATH + ".update_all_wars")
+@patch(TASKS_PATH + ".sync_all_wars")
 class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
@@ -166,7 +166,7 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
     def setUpClass(cls):
         super().setUpClass()
 
-    @patch(TASKS_PATH + ".update_war")
+    @patch(TASKS_PATH + ".run_war_sync")
     @patch(TASKS_PATH + ".EveWar.objects.calc_relevant_war_ids")
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
@@ -174,14 +174,14 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
         # given
         mock_calc_relevant_war_ids.return_value = [1, 2, 3]
         # when
-        tasks.update_all_wars()
+        tasks.sync_all_wars()
         # then
         result = {
             obj[1]["args"][0] for obj in mock_update_war.apply_async.call_args_list
         }
         self.assertSetEqual(result, {1, 2, 3})
 
-    # @patch(TASKS_PATH + ".update_war")
+    # @patch(TASKS_PATH + ".run_war_sync")
     # @patch(TASKS_PATH + ".EveWar.objects.calc_relevant_war_ids")
     # def test_should_remove_older_finished_wars(
     #     self, mock_calc_relevant_war_ids, mock_update_war
@@ -191,7 +191,7 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
     #     EveWarFactory(id=1)
     #     EveWarFactory(id=2)
     #     # when
-    #     tasks.update_all_wars()
+    #     tasks.sync_all_wars()
     #     # then
     #     current_war_ids = set(EveWar.objects.values_list("id", flat=True))
     #     self.assertSetEqual(current_war_ids, {2})
@@ -199,7 +199,7 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
     @patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
     def test_should_update_war(self, mock_update_from_esi):
         # when
-        tasks.update_war(42)
+        tasks.run_war_sync(42)
         # then
         args, _ = mock_update_from_esi.call_args
         self.assertEqual(args[0], 42)

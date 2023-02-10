@@ -55,7 +55,7 @@ def run_character_sync(sync_char_pk: int):
     - sync_char_pk: primary key of sync character to run sync for
     """
     synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
-    synced_character.update()
+    synced_character.run_sync()
 
 
 @shared_task

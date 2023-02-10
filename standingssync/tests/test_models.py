@@ -383,7 +383,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -425,7 +425,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -469,7 +469,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -512,7 +512,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -557,7 +557,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -607,7 +607,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertTrue(result)
         synced_character.refresh_from_db()
@@ -641,7 +641,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        synced_character.update()
+        synced_character.run_sync()
         # then
         synced_character.refresh_from_db()
         self.assertTrue(synced_character.has_war_targets_label)
@@ -667,7 +667,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        synced_character.update()
+        synced_character.run_sync()
         # then
         synced_character.refresh_from_db()
         self.assertFalse(synced_character.has_war_targets_label)
@@ -693,7 +693,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts.setup_esi_mock(mock_esi)
         # when
-        result = synced_character.update()
+        result = synced_character.run_sync()
         # then
         self.assertIsNone(result)
 
@@ -710,7 +710,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = sync_character.update()
+        result = sync_character.run_sync()
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
@@ -729,7 +729,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = sync_character.update()
+        result = sync_character.run_sync()
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
@@ -750,7 +750,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = sync_character.update()
+        result = sync_character.run_sync()
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
@@ -771,7 +771,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             character_ownership=alt_ownership, manager=sync_manager
         )
         # when
-        result = sync_character.update()
+        result = sync_character.run_sync()
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
@@ -796,7 +796,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
             standing=-10,
         )
         # when
-        result = sync_character.update()
+        result = sync_character.run_sync()
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())

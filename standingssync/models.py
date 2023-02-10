@@ -202,10 +202,10 @@ class SyncedCharacter(_SyncBaseModel):
             return "OK"
         return "Sync is outdated."
 
-    def update(self) -> bool:
-        """Update in-game contacts for given character with alliance contacts.
+    def run_sync(self) -> bool:
+        """Sync in-game contacts for given character with alliance contacts.
 
-        Will delete the sync character if necessary,
+        Will delete this sync character if necessary,
         e.g. if token is no longer valid or character is no longer blue
 
         Returns:

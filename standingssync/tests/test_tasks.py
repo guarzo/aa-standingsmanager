@@ -87,7 +87,7 @@ class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
         with self.assertRaises(SyncedCharacter.DoesNotExist):
             tasks.run_character_sync(generate_invalid_pk(SyncedCharacter))
 
-    @patch(TASKS_PATH + ".SyncedCharacter.update")
+    @patch(TASKS_PATH + ".SyncedCharacter.run_sync")
     def test_should_call_update(self, mock_update):
         # given
         mock_update.return_value = True
@@ -96,7 +96,7 @@ class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
         # then
         self.assertTrue(mock_update.called)
 
-    @patch(TASKS_PATH + ".SyncedCharacter.update")
+    @patch(TASKS_PATH + ".SyncedCharacter.run_sync")
     def test_should_raise_exception(self, mock_update):
         # given
         mock_update.side_effect = RuntimeError

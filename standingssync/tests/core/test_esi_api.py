@@ -7,7 +7,11 @@ from app_utils.testing import NoSocketsTestCase
 from standingssync.core import esi_api
 from standingssync.core.esi_contacts import EsiContact
 
-from ..factories import EsiContactLabelFactory, EveEntityCharacterFactory
+from ..factories import (
+    EsiContactFactory,
+    EsiContactLabelFactory,
+    EveEntityCharacterFactory,
+)
 from ..utils import EsiCharacterContactsStub
 
 MODULE_PATH = "standingssync.core.esi_api"
@@ -143,6 +147,28 @@ class TestEsiContactsApi(NoSocketsTestCase):
         esi_api.update_character_contacts(mock_token, {contact})
         # then
         self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
+
+
+class TestEsiContactsHelpers(NoSocketsTestCase):
+    def test_should_group_contacts_for_esi_update(self):
+        # given
+        label_1 = EsiContactLabelFactory(id=1)
+        contact_1 = EsiContactFactory(contact_id=11, label_ids=[label_1.id])
+        label_2 = EsiContactLabelFactory(id=2)
+        contact_2 = EsiContactFactory(contact_id=12, label_ids=[label_1.id, label_2.id])
+        contact_3 = EsiContactFactory(contact_id=13, standing=2.0)
+        contact_4 = EsiContactFactory(contact_id=14, standing=2.0)
+        esi_contacts = [contact_1, contact_2, contact_3, contact_4]
+        # when
+        result = esi_api._group_for_esi_update(esi_contacts)
+        self.maxDiff = None
+        # then
+        expected = {
+            frozenset({1}): {contact_1.standing: {contact_1.contact_id}},
+            frozenset({1, 2}): {contact_2.standing: {contact_2.contact_id}},
+            frozenset(): {2.0: {contact_3.contact_id, contact_4.contact_id}},
+        }
+        self.assertEqual(expected, result)
 
 
 class TestEsiWarsApi(NoSocketsTestCase):

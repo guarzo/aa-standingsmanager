@@ -1,6 +1,7 @@
 """Wrapper for handling all access to the ESI API."""
 
-from typing import Callable, Dict, Iterable, Set
+from collections import defaultdict
+from typing import Callable, Dict, FrozenSet, Iterable, List, Set
 
 from esi.models import Token
 
@@ -100,7 +101,7 @@ def _update_character_contacts(
     for (
         label_ids,
         contacts_by_standing,
-    ) in EsiContact.group_for_esi_update(contacts).items():
+    ) in _group_for_esi_update(contacts).items():
         _update_character_contacts_esi(
             token=token,
             contacts_by_standing=contacts_by_standing,
@@ -129,6 +130,19 @@ def _update_character_contacts_esi(
             if label_ids is not None:
                 params["label_ids"] = sorted(list(label_ids))
             esi_method(**params).results()
+
+
+def _group_for_esi_update(
+    contacts: List["EsiContact"],
+) -> Dict[FrozenSet, Dict[float, Set[int]]]:
+    """Group contacts for ESI update."""
+    contacts_grouped = dict()
+    for contact in contacts:
+        if contact.label_ids not in contacts_grouped:
+            contacts_grouped[contact.label_ids] = defaultdict(set)
+        contacts_grouped[contact.label_ids][contact.standing].add(contact.contact_id)
+    return contacts_grouped
+    # return dict(sorted(contacts_by_standing.items()))
 
 
 def fetch_war_ids() -> Set[int]:

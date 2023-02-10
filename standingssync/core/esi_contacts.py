@@ -1,6 +1,5 @@
 import hashlib
 import json
-from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field, fields
 from enum import Enum
@@ -70,9 +69,6 @@ class EsiContact:
         new_obj = self.__class__(**params)
         return new_obj
 
-    def replace_label_ids(self, label_ids: Iterable[int]):
-        self.label_ids = frozenset(label_ids)
-
     def to_esi_dict(self) -> dict:
         obj = {
             "contact_id": self.contact_id,
@@ -126,30 +122,10 @@ class EsiContact:
             label_ids=label_ids if label_ids else [],
         )
 
-    @staticmethod
-    def group_for_esi_update(
-        contacts: List["EsiContact"],
-    ) -> Dict[FrozenSet, Dict[float, Set[int]]]:
-        """Group contacts for ESI update."""
-        contacts_grouped = dict()
-        for contact in contacts:
-            if contact.label_ids not in contacts_grouped:
-                contacts_grouped[contact.label_ids] = defaultdict(set)
-            contacts_grouped[contact.label_ids][contact.standing].add(
-                contact.contact_id
-            )
-        return contacts_grouped
-        # return dict(sorted(contacts_by_standing.items()))
-
 
 @dataclass
 class EsiContactsContainer:
-    """Container for ESI contacts wth their labels.
-
-    This is needed to calculate the version hash after an update.
-    The ESI contacts endpoint can not be used for this,
-    because it is cached for several minutes.
-    """
+    """Container of ESI contacts with their labels."""
 
     _contacts: Dict[int, EsiContact] = field(
         default_factory=dict, init=False, repr=False

@@ -14,26 +14,6 @@ MODULE_PATH = "standingssync.core.esi_contacts"
 
 
 class TestEsiContact(NoSocketsTestCase):
-    def test_should_group_contacts_for_esi_update(self):
-        # given
-        label_1 = EsiContactLabelFactory(id=1)
-        contact_1 = EsiContactFactory(contact_id=11, label_ids=[label_1.id])
-        label_2 = EsiContactLabelFactory(id=2)
-        contact_2 = EsiContactFactory(contact_id=12, label_ids=[label_1.id, label_2.id])
-        contact_3 = EsiContactFactory(contact_id=13, standing=2.0)
-        contact_4 = EsiContactFactory(contact_id=14, standing=2.0)
-        esi_contacts = [contact_1, contact_2, contact_3, contact_4]
-        # when
-        result = EsiContact.group_for_esi_update(esi_contacts)
-        self.maxDiff = None
-        # then
-        expected = {
-            frozenset({1}): {contact_1.standing: {contact_1.contact_id}},
-            frozenset({1, 2}): {contact_2.standing: {contact_2.contact_id}},
-            frozenset(): {2.0: {contact_3.contact_id, contact_4.contact_id}},
-        }
-        self.assertEqual(expected, result)
-
     def test_should_create_new_1(self):
         # when
         obj = EsiContact(1001, EsiContact.ContactType.CHARACTER, 5.0)

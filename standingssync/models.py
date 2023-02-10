@@ -69,6 +69,10 @@ class SyncManager(_SyncBaseModel):
     def character_alliance_id(self) -> int:
         return self.character_ownership.character.alliance_id
 
+    def contacts_for_sync(self, synced_character: "SyncedCharacter") -> models.QuerySet:
+        """Relevant contacts for sync, which excludes the sync character."""
+        return self.contacts.exclude(eve_entity_id=synced_character.character_id)
+
     def effective_standing_with_character(self, character: EveCharacter) -> float:
         """Effective standing of the alliance with a character."""
 
@@ -200,7 +204,7 @@ class SyncedCharacter(_SyncBaseModel):
         return "Sync is outdated."
 
     def update(self) -> bool:
-        """updates in-game contacts for given character
+        """Update in-game contacts for given character with alliance contacts.
 
         Will delete the sync character if necessary,
         e.g. if token is no longer valid or character is no longer blue
@@ -219,7 +223,7 @@ class SyncedCharacter(_SyncBaseModel):
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
             return False
-        if not self.manager.contacts.exists():
+        if not self.manager.contacts_for_sync(self).exists():
             logger.info("%s: No contacts to sync", self)
             return None
 
@@ -242,15 +246,13 @@ class SyncedCharacter(_SyncBaseModel):
             labels=current_contacts.labels()
         )
         new_contacts.add_eve_contacts(
-            self.manager.contacts.exclude(eve_entity_id=self.character_id).filter(
-                is_war_target=False
-            )
+            self.manager.contacts_for_sync(self).filter(is_war_target=False)
         )
         if STANDINGSSYNC_ADD_WAR_TARGETS:
             # add war targets
             wt_label_id = current_contacts.war_target_label_id()
             new_contacts.add_eve_contacts(
-                self.manager.contacts.filter(is_war_target=True),
+                self.manager.contacts_for_sync(self).filter(is_war_target=True),
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 

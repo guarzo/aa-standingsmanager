@@ -676,6 +676,31 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         synced_character.refresh_from_db()
         self.assertFalse(synced_character.has_war_targets_label)
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
+    def test_should_not_sync_when_no_contacts(self, mock_esi):
+        # given
+        synced_character = SyncedCharacterFactory()
+        sync_manager = synced_character.manager
+        EveContactFactory(
+            manager=sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=synced_character.character_id),
+            standing=10,
+        )
+        character_contact_1 = EsiContact.from_eve_entity(
+            EveEntityCharacterFactory(), -5
+        )
+        esi_character_contacts = EsiCharacterContactsStub()
+        esi_character_contacts.setup_contacts(
+            synced_character.character_id, [character_contact_1]
+        )
+        esi_character_contacts.setup_esi_mock(mock_esi)
+        # when
+        result = synced_character.update()
+        # then
+        self.assertIsNone(result)
+
 
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_delete_when_insufficient_permission(self):
@@ -797,15 +822,6 @@ class TestSyncCharacter2(NoSocketsTestCase):
         # when/then
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertFalse(obj.is_sync_fresh)
-
-    def test_should_not_sync_when_no_contacts(self):
-        # given
-        manager = SyncManagerFactory(version_hash="abc")
-        character = SyncedCharacterFactory(manager=manager)
-        # when
-        result = character.update()
-        # then
-        self.assertIsNone(result)
 
 
 class TestEveWar(NoSocketsTestCase):

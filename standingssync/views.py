@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import redirect, render
@@ -8,7 +9,6 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
-from app_utils.messages import messages_plus
 from app_utils.views import link_html
 
 from . import __title__, tasks
@@ -159,7 +159,7 @@ def add_alliance_manager(request, token):
     alliance = None
 
     if not token_char.alliance_id:
-        messages_plus.warning(
+        messages.warning(
             request,
             f"Can not add {token_char}, because it is not a member of any alliance.",
         )
@@ -171,7 +171,7 @@ def add_alliance_manager(request, token):
                 user=request.user, character=token_char
             )
         except CharacterOwnership.DoesNotExist:
-            messages_plus.warning(
+            messages.warning(
                 request, f"Could not find character {token_char.character_name}"
             )
             success = False
@@ -188,7 +188,7 @@ def add_alliance_manager(request, token):
             alliance=alliance, defaults={"character_ownership": character_ownership}
         )
         tasks.run_manager_sync.delay(sync_manager.pk)
-        messages_plus.success(
+        messages.success(
             request,
             "{} set as alliance character for {}. "
             "Started syncing of alliance contacts. ".format(
@@ -218,7 +218,7 @@ def add_character(request, token):
 
     token_char = EveCharacter.objects.get(character_id=token.character_id)
     if token_char.alliance_id == sync_manager.character_ownership.character.alliance_id:
-        messages_plus.warning(
+        messages.warning(
             request,
             "Adding alliance members does not make much sense, "
             "since they already have access to alliance contacts.",
@@ -230,7 +230,7 @@ def add_character(request, token):
                 user=request.user, character=token_char
             )
         except CharacterOwnership.DoesNotExist:
-            messages_plus.warning(
+            messages.warning(
                 request, "Could not find character {}".format(token_char.character_name)
             )
         else:
@@ -238,7 +238,7 @@ def add_character(request, token):
                 character_ownership.character
             )
             if eff_standing < STANDINGSSYNC_CHAR_MIN_STANDING:
-                messages_plus.warning(
+                messages.warning(
                     request,
                     "Can not activate sync for your "
                     f"character {token_char.character_name}, "
@@ -254,7 +254,7 @@ def add_character(request, token):
                     defaults={"manager": sync_manager},
                 )
                 tasks.run_character_sync.delay(sync_character.pk)
-                messages_plus.success(
+                messages.success(
                     request, "Sync activated for {}!".format(token_char.character_name)
                 )
     return redirect("standingssync:index")
@@ -267,7 +267,7 @@ def remove_character(request, alt_pk):
     alt = SyncedCharacter.objects.get(pk=alt_pk)
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
-    messages_plus.success(request, "Sync deactivated for {}".format(alt_name))
+    messages.success(request, "Sync deactivated for {}".format(alt_name))
     return redirect("standingssync:index")
 
 
@@ -277,7 +277,7 @@ def admin_update_wars(request):
     """Start updating eve wars."""
     wars_count = EveWar.objects.count()
     tasks.update_all_wars.delay()
-    messages_plus.info(
+    messages.info(
         request,
         (
             f"Started updating approx. {wars_count:,} wars from ESI in the background. "

@@ -152,7 +152,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _is_fresh(self, obj):
         return obj.is_sync_fresh
 
-    @admin.display(description="Start update of selected synced characters")
+    @admin.display(description="Start sync for selected synced characters")
     def sync_characters(self, request, queryset):
         names = list()
         for obj in queryset:
@@ -214,7 +214,7 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def _is_fresh(self, obj):
         return obj.is_sync_fresh
 
-    @admin.display(description="Force update of selected managers")
+    @admin.display(description="Start sync for selected managers")
     def start_sync_managers(self, request, queryset):
         names = list()
         for obj in queryset:

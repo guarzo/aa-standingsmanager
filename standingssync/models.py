@@ -257,14 +257,14 @@ class SyncedCharacter(_SyncBaseModel):
 
         # update contacts on ESI
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
-        if added:
-            logger.info("%s: Adding missing contacts", self)
-            esi_api.add_character_contacts(token, added)
         if removed and STANDINGSSYNC_REPLACE_CONTACTS:
-            logger.info("%s: Deleting added contacts", self)
+            logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
+        if added:
+            logger.info("%s: Adding %d missing contacts", self, len(added))
+            esi_api.add_character_contacts(token, added)
         if changed:
-            logger.info("%s: Update changed contacts", self)
+            logger.info("%s: Update %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
 
         if not STANDINGSSYNC_REPLACE_CONTACTS:
@@ -272,7 +272,9 @@ class SyncedCharacter(_SyncBaseModel):
             new_war_targets = new_contacts.war_targets()
             current_war_targets = current_contacts.war_targets()
             outdated_war_targets = current_war_targets - new_war_targets
-            logger.info("%s: Deleting outdated war targets", self)
+            logger.info(
+                "%s: Deleting %d outdated war targets", self, len(outdated_war_targets)
+            )
             esi_api.delete_character_contacts(token, outdated_war_targets)
 
         if (
@@ -371,7 +373,6 @@ class SyncedCharacter(_SyncBaseModel):
             logger.debug(
                 "%s: new version hash: %s", self, current_contacts.version_hash()
             )
-            logger.debug("%s: old version hash: %s", self, self.version_hash_character)
         return current_contacts
 
     @staticmethod

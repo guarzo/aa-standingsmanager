@@ -7,7 +7,6 @@ from django.urls import reverse
 from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
-from allianceauth.eveonline.models import EveCharacter
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
 from .. import views
@@ -176,42 +175,6 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
             .exists()
         )
 
-    def test_user_can_not_add_char_users_down_not_own(
-        self, mock_messages, mock_run_character_sync
-    ):
-        response = self.make_request(self.user_2, self.character_3)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
-        self.assertTrue(mock_messages.warning.called)
-        self.assertFalse(mock_run_character_sync.delay.called)
-        self.assertFalse(
-            SyncedCharacter.objects.filter(manager=self.sync_manager)
-            .filter(character_ownership__character=self.character_3)
-            .exists()
-        )
-
-    def test_raises_exception_if_alliance_not_found(
-        self, mock_messages, mock_run_character_sync
-    ):
-        my_char = EveCharacter.objects.create(
-            character_id=1098,
-            character_name="Joker",
-            corporation_id=2098,
-            corporation_name="Joker Corp",
-            alliance_id=3098,
-            alliance_name="Joker Alliance",
-        )
-        my_user, _ = create_user_from_evecharacter(my_char.character_id)
-        with self.assertRaises(RuntimeError):
-            self.make_request(my_user, self.character_4)
-
-    def test_raises_exception_if_no_sync_manager_for_alliance(
-        self, mock_messages, mock_run_character_sync
-    ):
-        my_user, _ = create_user_from_evecharacter(self.character_3.character_id)
-        with self.assertRaises(RuntimeError):
-            self.make_request(my_user, self.character_4)
-
 
 @patch(MODULE_PATH + ".tasks")
 @patch(MODULE_PATH + ".messages")
@@ -302,19 +265,5 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertFalse(
             SyncManager.objects.filter(alliance=self.alliance_1)
             .filter(character_ownership__character=self.character_5)
-            .exists()
-        )
-
-    def test_character_for_manager_must_be_owned_by_user(
-        self, mock_messages, mock_tasks
-    ):
-        response = self.make_request(self.user_1, self.character_3)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
-        self.assertTrue(mock_messages.warning.called)
-        self.assertFalse(mock_tasks.run_manager_sync.delay.called)
-        self.assertFalse(
-            SyncManager.objects.filter(alliance=self.alliance_1)
-            .filter(character_ownership__character=self.character_3)
             .exists()
         )

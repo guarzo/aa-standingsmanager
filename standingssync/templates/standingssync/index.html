@@ -47,17 +47,32 @@
                     </thead>
                     <tbody>
                         {% for character in synced_characters|dictsort:"name" %}
-                            {% if character.has_error %}
+                            {% if character.errors %}
                                 <tr class="danger">
                             {% else %}
                                 <tr>
                             {% endif %}
                                     <td>{{ character.name_html }}</td>
                                     <td>{{ character.organization }}</td>
-                                    <td>{{ character.status_message }}</td>
-                                    <td><a class="btn btn-warning" href="{% url 'standingssync:remove_character' character.pk %}" role="button">
-                                        <i class="far fa-trash-alt"></i>
-                                    </a></td>
+                                    <td>
+                                        {% if character.errors %}
+                                            {% for error in character.errors %}
+                                                <span class="text-warning">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    {{ error }}
+                                                </span><br>
+                                            {% endfor %}
+                                        {% else %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a  class="btn btn-warning"
+                                            href="{% url 'standingssync:remove_character' character.pk %}"
+                                            role="button">
+                                            <i class="far fa-trash-alt"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                         {% endfor %}
                     </tbody>

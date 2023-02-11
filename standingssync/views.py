@@ -2,7 +2,6 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.html import format_html
 from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
@@ -41,36 +40,23 @@ def index(request):
         if character.alliance_ticker:
             organization += f" [{character.alliance_ticker}]"
 
-        status_message_raw = synced_character.get_status_message()
-        if status_message_raw.lower() == "ok":
-            if (
-                STANDINGSSYNC_ADD_WAR_TARGETS
-                and synced_character.has_war_targets_label is False
-            ):
-                status_message = format_html(
-                    '<span class="text-warning">'
-                    '<i class="fas fa-info-circle"></i> '
-                    "Please create a contact label with the name: {}</span>",
-                    STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
-                )
-            else:
-                status_message = format_html(
-                    '<i class="fas fa-check text-success"></i>'
-                )
-        else:
-            status_message = format_html(
-                '<span class="text-danger">'
-                '<i class="fas fa-exclamation-triangle"></i> {}</span>',
-                status_message_raw,
+        errors = []
+        if not synced_character.is_sync_fresh:
+            errors.append("Sync is outdated.")
+        if (
+            STANDINGSSYNC_ADD_WAR_TARGETS
+            and synced_character.has_war_targets_label is False
+        ):
+            errors.append(
+                f"Please create a contact label with the name: "
+                f"{STANDINGSSYNC_WAR_TARGETS_LABEL_NAME}"
             )
-
         synced_characters.append(
             {
                 "name": character.character_name,
                 "name_html": name_html,
                 "organization": organization,
-                "status_message": status_message,
-                "has_error": not synced_character.is_sync_fresh,
+                "errors": errors,
                 "pk": synced_character.pk,
             }
         )

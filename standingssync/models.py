@@ -229,11 +229,6 @@ class SyncedCharacter(_SyncBaseModel):
     def character_id(self) -> int:
         return self.character.character_id
 
-    def get_status_message(self):
-        if self.is_sync_fresh:
-            return "OK"
-        return "Sync is outdated."
-
     def run_sync(self) -> bool:
         """Sync in-game contacts for given character with alliance contacts.
 

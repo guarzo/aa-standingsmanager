@@ -127,42 +127,30 @@ def index(request):
 @token_required(SyncManager.get_esi_scopes())
 def add_alliance_manager(request, token):
     """Add or update sync manager for an alliance."""
-    success = True
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
-    character_ownership = None
-    alliance = None
-
     if not token_char.alliance_id:
         messages.warning(
             request,
             f"Can not add {token_char}, because it is not a member of any alliance.",
         )
-        success = False
-
-    if success:
+    else:
         character_ownership = get_object_or_404(
             CharacterOwnership, user=request.user, character=token_char
         )
-
-    if success:
         try:
             alliance = EveAllianceInfo.objects.get(alliance_id=token_char.alliance_id)
         except EveAllianceInfo.DoesNotExist:
             alliance = EveAllianceInfo.objects.create_alliance(token_char.alliance_id)
             alliance.save()
-
-    if success:
         sync_manager, _ = SyncManager.objects.update_or_create(
             alliance=alliance, defaults={"character_ownership": character_ownership}
         )
         tasks.run_manager_sync.delay(sync_manager.pk)
         messages.success(
             request,
-            "{} set as alliance character for {}. "
-            "Started syncing of alliance contacts. ".format(
-                sync_manager.character_ownership.character.character_name,
-                alliance.alliance_name,
-            ),
+            f"{sync_manager.character_ownership.character.character_name} "
+            f"set as alliance character for {alliance.alliance_name}. "
+            "Started syncing of alliance contacts. ",
         )
     return redirect("standingssync:index")
 

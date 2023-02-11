@@ -302,7 +302,7 @@ class TestEveWarManager2(NoSocketsTestCase):
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
         EveWarFactory(id=42, finished=now() - dt.timedelta(days=1))
         # when
-        result = EveWar.objects.calc_relevant_war_ids()
+        result = EveWar.objects.unfinished_war_ids()
         # then
         self.assertSetEqual(result, {1, 2})
 

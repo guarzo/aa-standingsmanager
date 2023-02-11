@@ -62,11 +62,18 @@ def run_character_sync(sync_char_pk: int):
 @shared_task
 def sync_all_wars():
     """Sync all wars from ESI."""
-    relevant_war_ids = EveWar.objects.calc_relevant_war_ids()
-    if relevant_war_ids:
-        logger.info("Syncing %s wars from ESI.", len(relevant_war_ids))
-        for war_id in relevant_war_ids:
+    unfinished_war_ids = EveWar.objects.unfinished_war_ids()
+    if unfinished_war_ids:
+        logger.info(
+            "Updating details for %d active wars from ESI.", len(unfinished_war_ids)
+        )
+        for war_id in unfinished_war_ids:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+    known_war_ids = EveWar.objects.values_list("id", flat=True)
+    orphaned_war_ids = set(known_war_ids) - set(unfinished_war_ids)
+    if orphaned_war_ids:
+        logger.info("Deleting %d orphaned wars.", len(orphaned_war_ids))
+        EveWar.objects.filter(id__in=orphaned_war_ids).delete()
 
 
 @shared_task

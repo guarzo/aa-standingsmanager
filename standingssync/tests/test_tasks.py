@@ -11,8 +11,13 @@ from app_utils.testing import (
 )
 
 from .. import tasks
-from ..models import SyncedCharacter, SyncManager
-from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
+from ..models import EveWar, SyncedCharacter, SyncManager
+from .factories import (
+    EveContactFactory,
+    EveWarFactory,
+    SyncedCharacterFactory,
+    SyncManagerFactory,
+)
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
 MANAGERS_PATH = "standingssync.managers"
@@ -161,13 +166,9 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
-    @patch(TASKS_PATH + ".run_war_sync")
-    @patch(TASKS_PATH + ".EveWar.objects.calc_relevant_war_ids")
+@patch(TASKS_PATH + ".run_war_sync")
+@patch(TASKS_PATH + ".EveWar.objects.unfinished_war_ids")
+class TestSyncAllWars(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
     ):
@@ -181,8 +182,34 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
         }
         self.assertSetEqual(result, {1, 2, 3})
 
+    def test_should_not_start_any_war_update(
+        self, mock_calc_relevant_war_ids, mock_update_war
+    ):
+        # given
+        mock_calc_relevant_war_ids.return_value = []
+        # when
+        tasks.sync_all_wars()
+        # then
+        result = {
+            obj[1]["args"][0] for obj in mock_update_war.apply_async.call_args_list
+        }
+        self.assertSetEqual(result, set())
+
+    def test_should_delete_orphaned_wars(
+        self, mock_calc_relevant_war_ids, mock_update_war
+    ):
+        # given
+        other_war = EveWarFactory()
+        orphaned_war = EveWarFactory()
+        mock_calc_relevant_war_ids.return_value = [other_war.id]
+        # when
+        tasks.sync_all_wars()
+        # then
+        self.assertTrue(EveWar.objects.filter(id=other_war.id).exists())
+        self.assertFalse(EveWar.objects.filter(id=orphaned_war.id).exists())
+
     # @patch(TASKS_PATH + ".run_war_sync")
-    # @patch(TASKS_PATH + ".EveWar.objects.calc_relevant_war_ids")
+    # @patch(TASKS_PATH + ".EveWar.objects.unfinished_war_ids")
     # def test_should_remove_older_finished_wars(
     #     self, mock_calc_relevant_war_ids, mock_update_war
     # ):
@@ -196,6 +223,9 @@ class TestUpdateWars(LoadTestDataMixin, NoSocketsTestCase):
     #     current_war_ids = set(EveWar.objects.values_list("id", flat=True))
     #     self.assertSetEqual(current_war_ids, {2})
 
+
+@override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
+class TestRunWarSync(LoadTestDataMixin, NoSocketsTestCase):
     @patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
     def test_should_update_war(self, mock_update_from_esi):
         # when

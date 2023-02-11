@@ -115,8 +115,8 @@ class EveWarManagerBase(models.Manager):
             raise ValueError(f"Invalid participant: {participant}")
         return alliance_id or corporation_id
 
-    def calc_relevant_war_ids(self) -> Set[int]:
-        """Determine IDs from unfinished and new wars."""
+    def unfinished_war_ids(self) -> Set[int]:
+        """IDs for unfinished wars, which need to be updated from ESI."""
         logger.info("Fetching wars from ESI")
         war_ids = esi_api.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))

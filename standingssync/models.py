@@ -2,6 +2,7 @@ import datetime as dt
 from typing import Optional, Set
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
@@ -25,7 +26,7 @@ from .app_settings import (
 from .core import esi_api
 from .core.esi_contacts import EsiContact, EsiContactsContainer
 from .helpers import store_json
-from .managers import EveContactManager, EveWarManager
+from .managers import EveContactManager, EveWarManager, SyncManagerManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -78,6 +79,8 @@ class SyncManager(_SyncBaseModel):
         help_text="hash over all contacts to identify when it has changed",
     )
 
+    objects = SyncManagerManager()
+
     def __str__(self):
         return str(self.alliance)
 
@@ -91,7 +94,6 @@ class SyncManager(_SyncBaseModel):
 
     def effective_standing_with_character(self, character: EveCharacter) -> float:
         """Effective standing of the alliance with a character."""
-
         try:
             return self.contacts.get(eve_entity_id=character.character_id).standing
         except EveContact.DoesNotExist:
@@ -106,6 +108,12 @@ class SyncManager(_SyncBaseModel):
             except EveContact.DoesNotExist:
                 pass
         return 0.0
+
+    def synced_characters_for_user(
+        self, user: User
+    ) -> models.QuerySet["SyncedCharacter"]:
+        """Synced characters of the given user."""
+        return self.synced_characters.filter(character_ownership__user=user)
 
     def run_sync(self, force_update: bool = False) -> None:
         """Run sync for this manager.

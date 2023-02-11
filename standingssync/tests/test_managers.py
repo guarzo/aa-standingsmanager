@@ -5,16 +5,19 @@ from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
+from app_utils.testdata_factories import UserFactory
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
-from ..models import EveWar
+from ..models import EveWar, SyncManager
 from .factories import (
     EveContactFactory,
     EveEntityAllianceFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainSyncerFactory,
 )
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
@@ -398,3 +401,34 @@ class TestEveWarManagerActiveWars(NoSocketsTestCase):
         result = EveWar.objects.active_wars()
         # then
         self.assertEqual(result.count(), 0)
+
+
+class TestSyncManagerManager(NoSocketsTestCase):
+    def test_should_return_matching_sync_manager(self):
+        # given
+        user = UserMainSyncerFactory()
+        alliance = EveAllianceInfo.objects.get(
+            alliance_id=user.profile.main_character.alliance_id
+        )
+        sync_manager = SyncManagerFactory(alliance=alliance)
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertEqual(result, sync_manager)
+
+    def test_should_return_none_when_no_match(self):
+        # given
+        user = UserMainSyncerFactory()
+        SyncManagerFactory()
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertIsNone(result)
+
+    def test_should_return_none_when_user_has_no_main(self):
+        # given
+        user = UserFactory()
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertIsNone(result)

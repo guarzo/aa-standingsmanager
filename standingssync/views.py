@@ -27,28 +27,13 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 @permission_required("standingssync.add_syncedcharacter")
 def index(request):
     """main page"""
-    if not request.user.profile.main_character:
-        sync_manager = None
-    else:
-        try:
-            alliance = EveAllianceInfo.objects.get(
-                alliance_id=request.user.profile.main_character.alliance_id
-            )
-        except EveAllianceInfo.DoesNotExist:
-            sync_manager = None
-        else:
-            try:
-                sync_manager = SyncManager.objects.get(alliance=alliance)
-            except SyncManager.DoesNotExist:
-                sync_manager = None
-
-    # get list of synced synced_characters for this user
-    characters_query = SyncedCharacter.objects.select_related(
-        "character_ownership__character"
-    ).filter(character_ownership__user=request.user)
+    sync_manager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = list()
-    for synced_character in characters_query:
-        character = synced_character.character_ownership.character
+    qs = sync_manager.synced_characters_for_user(request.user).select_related(
+        "character_ownership", "character_ownership__character"
+    )
+    for synced_character in qs:
+        character = synced_character.character
         name_html = bootstrap_icon_plus_name_html(
             character.portrait_url(), character.character_name, avatar=True
         )
@@ -73,7 +58,6 @@ def index(request):
                     '<i class="fas fa-check text-success"></i>'
                 )
         else:
-            status_message = status_message_raw
             status_message = format_html(
                 '<span class="text-danger">'
                 '<i class="fas fa-exclamation-triangle"></i> {}</span>',

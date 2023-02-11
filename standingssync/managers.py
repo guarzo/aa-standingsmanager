@@ -1,11 +1,13 @@
 from collections import defaultdict
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 
+from django.contrib.auth.models import User
 from django.db import models, transaction
 from django.db.models import Exists, OuterRef
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
+from allianceauth.eveonline.models import EveAllianceInfo
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
@@ -127,3 +129,20 @@ class EveWarManagerBase(models.Manager):
 
 
 EveWarManager = EveWarManagerBase.from_queryset(EveWarQuerySet)
+
+
+class SyncManagerManager(models.Manager):
+    def fetch_for_user(self, user: User) -> Optional[models.Model]:
+        """Fetch sync manager for given user. Return None if no match is found."""
+        if not user.profile.main_character:
+            return None
+        try:
+            alliance = EveAllianceInfo.objects.get(
+                alliance_id=user.profile.main_character.alliance_id
+            )
+        except EveAllianceInfo.DoesNotExist:
+            return None
+        try:
+            return self.get(alliance=alliance)
+        except self.model.DoesNotExist:
+            return None

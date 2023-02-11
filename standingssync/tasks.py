@@ -2,13 +2,14 @@ from celery import shared_task
 
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.models import EveEntity
-from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
 from .models import EveWar, SyncedCharacter, SyncManager
+
+# from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -62,10 +63,10 @@ def run_character_sync(sync_char_pk: int):
 def sync_all_wars():
     """Sync all wars from ESI."""
     relevant_war_ids = EveWar.objects.calc_relevant_war_ids()
-    logger.info("Syncing %s wars from ESI.", len(relevant_war_ids))
-    for war_id in relevant_war_ids:
-        run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
-    update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
+    if relevant_war_ids:
+        logger.info("Syncing %s wars from ESI.", len(relevant_war_ids))
+        for war_id in relevant_war_ids:
+            run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
 
 
 @shared_task

@@ -75,13 +75,14 @@ class EveWarManagerBase(models.Manager):
         """Updates existing or creates new objects from ESI with given ID."""
 
         logger.info("Retrieving war details for ID %s", id)
+        new_entity_ids = set()
         war_info = esi_api.fetch_war(war_id=id)
-        aggressor, _ = EveEntity.objects.get_or_create(
-            id=self._extract_id_from_war_participant(war_info["aggressor"])
-        )
-        defender, _ = EveEntity.objects.get_or_create(
-            id=self._extract_id_from_war_participant(war_info["defender"])
-        )
+        aggressor_id = self._extract_id_from_war_participant(war_info["aggressor"])
+        aggressor, _ = EveEntity.objects.get_or_create(id=aggressor_id)
+        new_entity_ids.add(aggressor_id)
+        defender_id = self._extract_id_from_war_participant(war_info["defender"])
+        defender, _ = EveEntity.objects.get_or_create(id=defender_id)
+        new_entity_ids.add(defender_id)
         with transaction.atomic():
             war, _ = self.update_or_create(
                 id=id,
@@ -99,10 +100,12 @@ class EveWarManagerBase(models.Manager):
             war.allies.clear()
             if war_info.get("allies"):
                 for ally_info in war_info.get("allies"):
-                    eve_entity, _ = EveEntity.objects.get_or_create(
-                        id=self._extract_id_from_war_participant(ally_info)
-                    )
-                    war.allies.add(eve_entity)
+                    ally_id = self._extract_id_from_war_participant(ally_info)
+                    ally, _ = EveEntity.objects.get_or_create(id=ally_id)
+                    war.allies.add(ally)
+                    new_entity_ids.add(ally_id)
+
+        EveEntity.objects.bulk_create_esi(new_entity_ids)
 
     @staticmethod
     def _extract_id_from_war_participant(participant: dict) -> int:

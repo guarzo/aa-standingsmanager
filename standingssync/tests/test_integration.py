@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import override_settings
 from eveuniverse.models import EveEntity
 
+from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase
 
@@ -15,6 +16,7 @@ from .factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainSyncerFactory,
 )
 from .utils import EsiCharacterContactsStub, create_esi_contact
 
@@ -26,7 +28,7 @@ MODELS_PATH = "standingssync.models"
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_API_PATH + ".esi")
-class TestIntegration(NoSocketsTestCase):
+class TestTasksE2E(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     def test_should_sync_manager_and_character_no_wt(self, mock_esi):
@@ -202,3 +204,28 @@ class TestIntegration(NoSocketsTestCase):
             EsiContact.from_eve_entity(some_alliance_contact, standing=5),
         }
         self.assertSetEqual(result, expected)
+
+
+class TestUI(NoSocketsTestCase):
+    def test_should_open_main_page_wo_syn_manager(self):
+        # given
+        user = UserMainSyncerFactory()
+        self.client.force_login(user)
+        # when
+        response = self.client.get("/standingssync/")
+        # then
+        self.assertEqual(response.status_code, 200)
+
+    def test_should_open_main_page_w_sync_manager_and_chars(self):
+        # given
+        user = UserMainSyncerFactory()
+        alliance = EveAllianceInfo.objects.get(
+            alliance_id=user.profile.main_character.alliance_id
+        )
+        sync_manager = SyncManagerFactory(alliance=alliance)
+        SyncedCharacterFactory(manager=sync_manager)
+        self.client.force_login(user)
+        # when
+        response = self.client.get("/standingssync/")
+        # then
+        self.assertEqual(response.status_code, 200)

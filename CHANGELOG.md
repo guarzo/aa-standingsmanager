@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Update are reported as "fresh" as long as the sync has run successfully before a timeout. The timeout can be configured via settings.
 - Automatically delete orphaned wars
 - Do not sync wars when feature is deactivated
+- Button for adding sync chars is deactivate when no matching alliance for current user
 
 ## [1.6.0] - 2023-01-29
 

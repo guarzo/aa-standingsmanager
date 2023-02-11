@@ -26,38 +26,38 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 def index(request):
     """main page"""
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
-    synced_characters = list()
-    qs = sync_manager.synced_characters_for_user(request.user).select_related(
-        "character_ownership", "character_ownership__character"
-    )
-    for synced_character in qs:
-        character = synced_character.character
-        organization = character.corporation_name
-        if character.alliance_ticker:
-            organization += f" [{character.alliance_ticker}]"
-
-        errors = []
-        if not synced_character.is_sync_fresh:
-            errors.append("Sync is outdated.")
-        if (
-            STANDINGSSYNC_ADD_WAR_TARGETS
-            and synced_character.has_war_targets_label is False
-        ):
-            errors.append(
-                f"Please create a contact label with the name: "
-                f"{STANDINGSSYNC_WAR_TARGETS_LABEL_NAME}"
-            )
-        synced_characters.append(
-            {
-                "id": character.character_id,
-                "name": character.character_name,
-                "portrait_url": character.portrait_url,
-                "organization": organization,
-                "errors": errors,
-                "pk": synced_character.pk,
-            }
+    synced_characters = []
+    if sync_manager:
+        qs = sync_manager.synced_characters_for_user(request.user).select_related(
+            "character_ownership", "character_ownership__character"
         )
+        for synced_character in qs:
+            character = synced_character.character
+            organization = character.corporation_name
+            if character.alliance_ticker:
+                organization += f" [{character.alliance_ticker}]"
 
+            errors = []
+            if not synced_character.is_sync_fresh:
+                errors.append("Sync is outdated.")
+            if (
+                STANDINGSSYNC_ADD_WAR_TARGETS
+                and synced_character.has_war_targets_label is False
+            ):
+                errors.append(
+                    f"Please create a contact label with the name: "
+                    f"{STANDINGSSYNC_WAR_TARGETS_LABEL_NAME}"
+                )
+            synced_characters.append(
+                {
+                    "id": character.character_id,
+                    "name": character.character_name,
+                    "portrait_url": character.portrait_url,
+                    "organization": organization,
+                    "errors": errors,
+                    "pk": synced_character.pk,
+                }
+            )
     context = {
         "app_title": __title__,
         "synced_characters": synced_characters,
@@ -85,7 +85,6 @@ def index(request):
     context["alliance_contacts_count"] = alliance_contacts_count
     context["alliance_war_targets_count"] = alliance_war_targets_count
     context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
-
     return render(request, "standingssync/index.html", context)
 
 

@@ -30,6 +30,7 @@
             {% endif %}
         </div>
     </div>
+
     <div class="panel panel-default">
         <div class="panel-heading" style="display:flex;">
             <h3 class="panel-title">{% translate 'Your Synced Characters' %}</h3>
@@ -52,7 +53,11 @@
                             {% else %}
                                 <tr>
                             {% endif %}
-                                    <td>{{ character.name_html }}</td>
+                                    <td>
+                                        <img src="{{ character.portrait_url }}" class="ra-avatar img-circle">
+                                        &nbsp;
+                                        {{ character.name }}
+                                    </td>
                                     <td>{{ character.organization }}</td>
                                     <td>
                                         {% if character.errors %}

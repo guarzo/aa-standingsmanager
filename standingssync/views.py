@@ -8,7 +8,6 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
-from app_utils.views import bootstrap_icon_plus_name_html
 
 from . import __title__, tasks
 from .app_settings import (
@@ -33,9 +32,6 @@ def index(request):
     )
     for synced_character in qs:
         character = synced_character.character
-        name_html = bootstrap_icon_plus_name_html(
-            character.portrait_url(), character.character_name, avatar=True
-        )
         organization = character.corporation_name
         if character.alliance_ticker:
             organization += f" [{character.alliance_ticker}]"
@@ -53,8 +49,9 @@ def index(request):
             )
         synced_characters.append(
             {
+                "id": character.character_id,
                 "name": character.character_name,
-                "name_html": name_html,
+                "portrait_url": character.portrait_url,
                 "organization": organization,
                 "errors": errors,
                 "pk": synced_character.pk,

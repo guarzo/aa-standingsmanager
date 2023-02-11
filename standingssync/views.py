@@ -112,6 +112,7 @@ def add_alliance_manager(request, token):
             alliance=alliance, defaults={"character_ownership": character_ownership}
         )
         tasks.run_manager_sync.delay(sync_manager.pk)
+        tasks.sync_all_wars.delay()
         messages.success(
             request,
             f"{sync_manager.character_ownership.character.character_name} "

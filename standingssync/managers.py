@@ -10,6 +10,7 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
+from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 from .core import esi_api
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -117,7 +118,8 @@ class EveWarManagerBase(models.Manager):
 
     def unfinished_war_ids(self) -> Set[int]:
         """IDs for unfinished wars, which need to be updated from ESI."""
-        logger.info("Fetching wars from ESI")
+        if not STANDINGSSYNC_ADD_WAR_TARGETS:
+            return set()  # lets not update any wars when feature is deactivated
         war_ids = esi_api.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))
         war_ids = set(war_ids)

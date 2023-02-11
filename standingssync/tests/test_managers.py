@@ -295,16 +295,28 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.started, self.war_started)
 
 
+@patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
 class TestEveWarManager2(NoSocketsTestCase):
-    @patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
-    def test_should_return_relevant_war_ids(self, mock_fetch_war_ids_from_esi):
+    def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
         EveWarFactory(id=42, finished=now() - dt.timedelta(days=1))
         # when
-        result = EveWar.objects.unfinished_war_ids()
+        with patch(MANAGERS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+            result = EveWar.objects.unfinished_war_ids()
         # then
         self.assertSetEqual(result, {1, 2})
+
+    def test_should_return_empty_set_when_deactivated(
+        self, mock_fetch_war_ids_from_esi
+    ):
+        # given
+        mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
+        # when
+        with patch(MANAGERS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+            result = EveWar.objects.unfinished_war_ids()
+        # then
+        self.assertSetEqual(result, set())
 
 
 class TestEveWarManagerActiveWars(NoSocketsTestCase):

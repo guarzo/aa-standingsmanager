@@ -11,13 +11,8 @@ from app_utils.testing import (
 )
 
 from .. import tasks
-from ..models import EveWar, SyncedCharacter, SyncManager
-from .factories import (
-    EveContactFactory,
-    EveWarFactory,
-    SyncedCharacterFactory,
-    SyncManagerFactory,
-)
+from ..models import SyncedCharacter, SyncManager
+from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
 MANAGERS_PATH = "standingssync.managers"
@@ -194,19 +189,6 @@ class TestSyncAllWars(LoadTestDataMixin, NoSocketsTestCase):
             obj[1]["args"][0] for obj in mock_update_war.apply_async.call_args_list
         }
         self.assertSetEqual(result, set())
-
-    def test_should_delete_orphaned_wars(
-        self, mock_calc_relevant_war_ids, mock_update_war
-    ):
-        # given
-        other_war = EveWarFactory()
-        orphaned_war = EveWarFactory()
-        mock_calc_relevant_war_ids.return_value = [other_war.id]
-        # when
-        tasks.sync_all_wars()
-        # then
-        self.assertTrue(EveWar.objects.filter(id=other_war.id).exists())
-        self.assertFalse(EveWar.objects.filter(id=orphaned_war.id).exists())
 
     # @patch(TASKS_PATH + ".run_war_sync")
     # @patch(TASKS_PATH + ".EveWar.objects.unfinished_war_ids")

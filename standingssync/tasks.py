@@ -69,11 +69,6 @@ def sync_all_wars():
         )
         for war_id in unfinished_war_ids:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
-    known_war_ids = EveWar.objects.values_list("id", flat=True)
-    orphaned_war_ids = set(known_war_ids) - set(unfinished_war_ids)
-    if orphaned_war_ids:
-        logger.info("Deleting %d orphaned wars.", len(orphaned_war_ids))
-        EveWar.objects.filter(id__in=orphaned_war_ids).delete()
 
 
 @shared_task

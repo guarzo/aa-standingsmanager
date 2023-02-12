@@ -163,10 +163,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=1)
+        war, created = EveWar.objects.update_or_create_from_esi(id=1)
         # then
-        self.assertTrue(EveWar.objects.filter(id=1).exists())
-        war = EveWar.objects.get(id=1)
+        self.assertTrue(created)
         self.assertEqual(war.aggressor.id, 3001)
         self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
         self.assertEqual(war.declared, declared)
@@ -206,10 +205,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=1)
+        war, created = EveWar.objects.update_or_create_from_esi(id=1)
         # then
-        self.assertTrue(EveWar.objects.filter(id=1).exists())
-        war = EveWar.objects.get(id=1)
+        self.assertTrue(created)
         self.assertEqual(war.aggressor.id, 3001)
         self.assertEqual(war.allies.count(), 0)
         self.assertEqual(war.declared, declared)
@@ -283,10 +281,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=8)
+        war, created = EveWar.objects.update_or_create_from_esi(id=8)
         # then
-        self.assertTrue(EveWar.objects.filter(id=8).exists())
-        war = EveWar.objects.get(id=8)
+        self.assertFalse(created)
         self.assertEqual(war.aggressor.id, 3011)
         self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
         self.assertEqual(war.declared, self.war_declared)
@@ -305,21 +302,9 @@ class TestEveWarManager2(NoSocketsTestCase):
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
         EveWarFactory(id=42, finished=now() - dt.timedelta(days=1))
         # when
-        with patch(MANAGERS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
-            result = EveWar.objects.unfinished_war_ids()
+        result = EveWar.objects.fetch_active_war_ids_esi()
         # then
         self.assertSetEqual(result, {1, 2})
-
-    def test_should_return_empty_set_when_deactivated(
-        self, mock_fetch_war_ids_from_esi
-    ):
-        # given
-        mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
-        # when
-        with patch(MANAGERS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
-            result = EveWar.objects.unfinished_war_ids()
-        # then
-        self.assertSetEqual(result, set())
 
 
 class TestEveWarManagerActiveWars(NoSocketsTestCase):

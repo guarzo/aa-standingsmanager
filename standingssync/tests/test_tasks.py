@@ -29,11 +29,24 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
         # given
         cls.user_1, _ = create_user_from_evecharacter(cls.character_1.character_id)
 
+    def test_should_not_sync_wars_if_disabled(
+        self, mock_update_all_wars, mock_run_manager_sync
+    ):
+        # when
+        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
+            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False
+        ):
+            tasks.run_regular_sync()
+        # then
+        self.assertFalse(mock_update_all_wars.apply_async.called)
+
     def test_should_start_all_tasks(self, mock_update_all_wars, mock_run_manager_sync):
         # given
         sync_manager = SyncManagerFactory(user=self.user_1, version_hash="new")
         # when
-        with patch(TASKS_PATH + ".is_esi_online", lambda: True):
+        with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
+            TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True
+        ):
             tasks.run_regular_sync()
         # then
         self.assertTrue(mock_update_all_wars.apply_async.called)
@@ -162,7 +175,7 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(TASKS_PATH + ".run_war_sync")
-@patch(TASKS_PATH + ".EveWar.objects.unfinished_war_ids")
+@patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
 class TestSyncAllWars(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
@@ -191,7 +204,7 @@ class TestSyncAllWars(LoadTestDataMixin, NoSocketsTestCase):
         self.assertSetEqual(result, set())
 
     # @patch(TASKS_PATH + ".run_war_sync")
-    # @patch(TASKS_PATH + ".EveWar.objects.unfinished_war_ids")
+    # @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
     # def test_should_remove_older_finished_wars(
     #     self, mock_calc_relevant_war_ids, mock_update_war
     # ):

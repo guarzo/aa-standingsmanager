@@ -27,15 +27,14 @@ This is a plugin app for [Alliance Auth](https://gitlab.com/allianceauth/allianc
 
 ## Features
 
-The main purpose of this app is to enable non-alliance characters to have the same standings view of other pilots in game as their alliance main. This e.g. allows non-alliance scouts to correctly report blues and non-blues. And is allows JF pilots to, which other non-alliance characters on grid are actually blues and which are not and therefore a potential threat.
+The main purpose of this app is to enable non-alliance characters to have the same standings view of other pilots in game as their alliance main. This e.g. allows non-alliance scouts to correctly report blues and non-blues. Or JF pilots can see which other non-alliance characters on grid not blues and therefore a potential threat.
 
 Here is an high level overview of the main features:
 
 - Synchronize alliance contacts to chosen non-alliance characters
-- Synchronization is ongoing until user chooses to remove character from synchronization
-- Supports multiple alliances
-- Can also sync war targets
-- Synchronization automatically ceases once the user is no longer eligible
+- Supports coalition usage with multiple alliances in the same Alliance Auth installation
+- Synchronize alliance war targets as contacts with terrible standing
+- Automatically deactivates synchronization when a user ceases to be eligible (e.g. main left the alliance)
 
 ## Screenshot
 

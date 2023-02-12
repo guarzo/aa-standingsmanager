@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple
 
 from django.contrib.auth.models import User
 from django.db import models, transaction
@@ -12,7 +12,6 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
-from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 from .core import esi_api
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
@@ -74,7 +73,7 @@ class EveWarManagerBase(models.Manager):
 
         return EveEntity.objects.filter(id__in=war_target_ids)
 
-    def update_or_create_from_esi(self, id: int):
+    def update_or_create_from_esi(self, id: int) -> Tuple[models.Model, bool]:
         """Updates existing or creates new objects from ESI with given ID."""
 
         logger.info("Retrieving war details for ID %s", id)
@@ -87,7 +86,7 @@ class EveWarManagerBase(models.Manager):
         defender, _ = EveEntity.objects.get_or_create(id=defender_id)
         new_entity_ids.add(defender_id)
         with transaction.atomic():
-            war, _ = self.update_or_create(
+            war, created = self.update_or_create(
                 id=id,
                 defaults={
                     "aggressor": aggressor,
@@ -109,6 +108,7 @@ class EveWarManagerBase(models.Manager):
                     new_entity_ids.add(ally_id)
 
         EveEntity.objects.bulk_create_esi(new_entity_ids)
+        return war, created
 
     @staticmethod
     def _extract_id_from_war_participant(participant: dict) -> int:
@@ -118,10 +118,8 @@ class EveWarManagerBase(models.Manager):
             raise ValueError(f"Invalid participant: {participant}")
         return alliance_id or corporation_id
 
-    def unfinished_war_ids(self) -> Set[int]:
-        """IDs for unfinished wars, which need to be updated from ESI."""
-        if not STANDINGSSYNC_ADD_WAR_TARGETS:
-            return set()  # lets not update any wars when feature is deactivated
+    def fetch_active_war_ids_esi(self) -> Set[int]:
+        """Fetch IDs of all currently active wars."""
         war_ids = esi_api.fetch_war_ids()
         finished_war_ids = set(self.finished_wars().values_list("id", flat=True))
         war_ids = set(war_ids)

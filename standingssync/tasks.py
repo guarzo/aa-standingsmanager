@@ -7,9 +7,8 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__
+from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 from .models import EveWar, SyncedCharacter, SyncManager
-
-# from .app_settings import STANDINGSSYNC_ADD_WAR_TARGETS
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
@@ -23,7 +22,8 @@ def run_regular_sync():
     if not is_esi_online():
         logger.warning("ESI is not online. aborting")
         return
-    sync_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
+    if STANDINGSSYNC_ADD_WAR_TARGETS:
+        sync_all_wars.apply_async(priority=DEFAULT_TASK_PRIORITY)
     for sync_manager_pk in SyncManager.objects.values_list("pk", flat=True):
         run_manager_sync.apply_async(
             args=[sync_manager_pk], priority=DEFAULT_TASK_PRIORITY
@@ -62,12 +62,13 @@ def run_character_sync(sync_char_pk: int):
 @shared_task
 def sync_all_wars():
     """Sync all wars from ESI."""
-    unfinished_war_ids = EveWar.objects.unfinished_war_ids()
-    if unfinished_war_ids:
+    fetch_active_war_ids_esi = EveWar.objects.fetch_active_war_ids_esi()
+    if fetch_active_war_ids_esi:
         logger.info(
-            "Updating details for %d active wars from ESI.", len(unfinished_war_ids)
+            "Updating details for %d active wars from ESI.",
+            len(fetch_active_war_ids_esi),
         )
-        for war_id in unfinished_war_ids:
+        for war_id in fetch_active_war_ids_esi:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
 
 

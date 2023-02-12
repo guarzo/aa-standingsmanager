@@ -239,6 +239,20 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
             .exists()
         )
 
+    def test_should_sync_wars_when_adding_alliance_char_and_feature_enabled(
+        self, mock_messages, mock_tasks
+    ):
+        with patch(MODULE_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+            self.make_request(self.user_1, self.character_1)
+        self.assertTrue(mock_tasks.sync_all_wars.delay.called)
+
+    def test_should_not_sync_wars_when_adding_alliance_char_and_feature_disabled(
+        self, mock_messages, mock_tasks
+    ):
+        with patch(MODULE_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+            self.make_request(self.user_1, self.character_1)
+        self.assertFalse(mock_tasks.sync_all_wars.delay.called)
+
     """
     def test_user_wo_permission_can_not_add_alliance_manager(
         self, mock_messages, mock_tasks

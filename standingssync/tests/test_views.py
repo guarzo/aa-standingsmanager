@@ -232,7 +232,6 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(response.url, reverse("standingssync:index"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_tasks.run_manager_sync.delay.called)
-        self.assertTrue(mock_tasks.sync_all_wars.delay.called)
         self.assertTrue(
             SyncManager.objects.filter(alliance=self.alliance_1)
             .filter(character_ownership__character=self.character_1)

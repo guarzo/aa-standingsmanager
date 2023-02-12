@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [1.7.0] - TBD
+## [1.7.0] - 2023-02-12
 
 ### Added
 
@@ -15,15 +15,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
-- The sync logic has improved:
-  - Replacing contacts will no longer delete all and then recreate contacts. Instead individual contacts are added, deleted and updated as needed.
-  - Characters are now potentially synced every time the manager sync is running, instead of only when alliance contacts / WTs have changed
+- The contacts sync logic has been reworked:
+  - Replacing contacts will now add, delete and update contacts individually instead of recreating all contacts from scratch.
+  - Characters are now synced every time the manager sync is running, instead of only when alliance contacts / WTs have changed
   - Synced characters are now also updated when the in-game contacts of the character has changed
 - Instead of reporting the latest error on the admin site, most severe errors during manager sync will now result in exceptions which will result in tasks failing. These can be tracked with tools like Task Monitor. Errors are still also reported in the log files.
-- Update are reported as "fresh" as long as the sync has run successfully before a timeout. The timeout can be configured via settings.
-- Do not sync wars when feature is deactivated
-- Button for adding sync chars is deactivate when no matching alliance for current user
-- Setting of alliance character now also triggers sync of all wars
+- Update are reported as "fresh" as long as the sync has run successfully within the configured timeout.
+- Wars are no longer synced when the feature is deactivated
+- The button for adding sync chars is now inactive when no matching alliance was found for the current user
+- Adding an alliance character now also triggers syncing of all wars to get the war targets (when enabled)
 
 ## [1.6.0] - 2023-01-29
 

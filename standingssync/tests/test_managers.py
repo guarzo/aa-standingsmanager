@@ -5,20 +5,23 @@ from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
+from app_utils.testdata_factories import UserFactory
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
-from ..managers import EveWarManager
-from ..models import EveWar
+from ..models import EveWar, SyncManager
 from .factories import (
     EveContactFactory,
     EveEntityAllianceFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainSyncerFactory,
 )
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
+ESI_WARS_PATH = "standingssync.core.esi_api"
 MANAGERS_PATH = "standingssync.managers"
 MODELS_PATH = "standingssync.models"
 
@@ -49,10 +52,7 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
         )
 
     def test_grouped_by_standing(self):
-        c = {
-            int(x.eve_entity_id): x
-            for x in self.sync_manager.contacts.order_by("eve_entity_id")
-        }
+        c = {int(x.eve_entity_id): x for x in self.sync_manager.contacts.all()}
         expected = {
             -10.0: {c[1005], c[1012], c[3011], c[2011]},
             -5.0: {c[1013], c[3012], c[2012]},
@@ -60,9 +60,10 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
             5.0: {c[1015], c[3014], c[2013]},
             10.0: {c[1002], c[1004], c[1016], c[3015], c[2015]},
         }
-        result = self.sync_manager.contacts.all().grouped_by_standing()
+        result = self.sync_manager.contacts.grouped_by_standing()
         self.maxDiff = None
         self.assertDictEqual(result, expected)
+        self.assertListEqual(list(result.keys()), list(expected.keys()))
 
 
 class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
@@ -131,7 +132,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         # then
         self.assertSetEqual({obj.id for obj in result}, {2})
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_create_full_war_object_from_esi_1(self, mock_esi):
         # given
         declared = now() - dt.timedelta(days=5)
@@ -162,10 +163,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=1)
+        war, created = EveWar.objects.update_or_create_from_esi(id=1)
         # then
-        self.assertTrue(EveWar.objects.filter(id=1).exists())
-        war = EveWar.objects.get(id=1)
+        self.assertTrue(created)
         self.assertEqual(war.aggressor.id, 3001)
         self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
         self.assertEqual(war.declared, declared)
@@ -176,7 +176,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.retracted, retracted)
         self.assertEqual(war.started, started)
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_create_full_war_object_from_esi_2(self, mock_esi):
         # given
         declared = now() - dt.timedelta(days=5)
@@ -205,10 +205,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=1)
+        war, created = EveWar.objects.update_or_create_from_esi(id=1)
         # then
-        self.assertTrue(EveWar.objects.filter(id=1).exists())
-        war = EveWar.objects.get(id=1)
+        self.assertTrue(created)
         self.assertEqual(war.aggressor.id, 3001)
         self.assertEqual(war.allies.count(), 0)
         self.assertEqual(war.declared, declared)
@@ -219,7 +218,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertIsNone(war.retracted)
         self.assertEqual(war.started, started)
 
-    # @patch(MANAGERS_PATH + ".esi")
+    # @patch(ESI_WARS_PATH + ".esi")
     # def test_should_not_create_object_from_esi_for_finished_war(self, mock_esi):
     #     # given
     #     declared = now() - dt.timedelta(days=5)
@@ -253,7 +252,7 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
     #     # then
     #     self.assertFalse(EveWar.objects.filter(id=1).exists())
 
-    @patch(MANAGERS_PATH + ".esi")
+    @patch(ESI_WARS_PATH + ".esi")
     def test_should_update_existing_war_from_esi(self, mock_esi):
         # given
         finished = now() + dt.timedelta(days=1)
@@ -282,10 +281,9 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             esi_data
         )
         # when
-        EveWar.objects.update_or_create_from_esi(id=8)
+        war, created = EveWar.objects.update_or_create_from_esi(id=8)
         # then
-        self.assertTrue(EveWar.objects.filter(id=8).exists())
-        war = EveWar.objects.get(id=8)
+        self.assertFalse(created)
         self.assertEqual(war.aggressor.id, 3011)
         self.assertEqual(set(war.allies.values_list("id", flat=True)), {2003, 3003})
         self.assertEqual(war.declared, self.war_declared)
@@ -297,36 +295,16 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.started, self.war_started)
 
 
+@patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
 class TestEveWarManager2(NoSocketsTestCase):
-    @patch(MANAGERS_PATH + ".STANDINGSSYNC_SPECIAL_WAR_IDS", [3, 4])
-    @patch(MODELS_PATH + ".EveWar.objects.fetch_war_ids_from_esi")
-    def test_should_return_relevant_war_ids(self, mock_fetch_war_ids_from_esi):
+    def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
         EveWarFactory(id=42, finished=now() - dt.timedelta(days=1))
         # when
-        result = EveWar.objects.calc_relevant_war_ids()
+        result = EveWar.objects.fetch_active_war_ids_esi()
         # then
-        self.assertSetEqual(result, {1, 2, 3, 4})
-
-    @patch(MANAGERS_PATH + ".STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID", 4)
-    @patch(MANAGERS_PATH + ".esi")
-    def test_should_fetch_war_ids_with_paging(self, mock_esi):
-        def esi_get_wars(max_war_id=None):
-            if max_war_id:
-                war_ids = [war_id for war_id in esi_war_ids if war_id < max_war_id]
-            else:
-                war_ids = esi_war_ids
-            return BravadoOperationStub(sorted(war_ids, reverse=True)[:page_size])
-
-        # given
-        esi_war_ids = [1, 2, 3, 4, 5, 6, 7, 8]
-        page_size = 3
-        mock_esi.client.Wars.get_wars.side_effect = esi_get_wars
-        # when
-        result = EveWarManager.fetch_war_ids_from_esi(max_items=3)
-        # then
-        self.assertSetEqual(result, {4, 5, 6, 7, 8})
+        self.assertSetEqual(result, {1, 2})
 
 
 class TestEveWarManagerActiveWars(NoSocketsTestCase):
@@ -408,3 +386,34 @@ class TestEveWarManagerActiveWars(NoSocketsTestCase):
         result = EveWar.objects.active_wars()
         # then
         self.assertEqual(result.count(), 0)
+
+
+class TestSyncManagerManager(NoSocketsTestCase):
+    def test_should_return_matching_sync_manager(self):
+        # given
+        user = UserMainSyncerFactory()
+        alliance = EveAllianceInfo.objects.get(
+            alliance_id=user.profile.main_character.alliance_id
+        )
+        sync_manager = SyncManagerFactory(alliance=alliance)
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertEqual(result, sync_manager)
+
+    def test_should_return_none_when_no_match(self):
+        # given
+        user = UserMainSyncerFactory()
+        SyncManagerFactory()
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertIsNone(result)
+
+    def test_should_return_none_when_user_has_no_main(self):
+        # given
+        user = UserFactory()
+        # when
+        result = SyncManager.objects.fetch_for_user(user)
+        # then
+        self.assertIsNone(result)

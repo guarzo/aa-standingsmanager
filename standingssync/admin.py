@@ -19,7 +19,7 @@ class EveContactAdmin(admin.ModelAdmin):
     list_display_links = None
     ordering = ("eve_entity__name",)
     list_select_related = True
-    list_filter = ("eve_entity__category", "is_war_target", "manager")
+    list_filter = ("manager", "eve_entity__category", "is_war_target")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -111,20 +111,17 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     list_display = (
         "_user",
         "_character_name",
-        "version_hash",
-        "_sync_ok",
-        "last_sync",
-        "last_error",
+        "_has_war_targets_label",
+        "_is_fresh",
+        "last_sync_at",
         "manager",
     )
     list_filter = (
-        "last_error",
-        "version_hash",
-        "last_sync",
+        "manager",
+        "last_sync_at",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
-        ("manager", admin.RelatedOnlyFieldListFilter),
     )
-    actions = ["start_sync_contacts"]
+    actions = ["sync_characters"]
     list_display_links = None
 
     def get_queryset(self, request):
@@ -139,10 +136,6 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.display(boolean=True)
-    def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_ok
-
     @admin.display(ordering="character_ownership__user")
     def _user(self, obj):
         return obj.character_ownership.user
@@ -151,27 +144,36 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _character_name(self, obj):
         return obj.__str__()
 
-    @admin.display(description="Sync selected characters")
-    def start_sync_contacts(self, request, queryset):
+    @admin.display(boolean=True, description="Has WT label")
+    def _has_war_targets_label(self, obj):
+        return obj.has_war_targets_label
+
+    @admin.display(boolean=True)
+    def _is_fresh(self, obj):
+        return obj.is_sync_fresh
+
+    @admin.display(description="Start sync for selected synced characters")
+    def sync_characters(self, request, queryset):
         names = list()
         for obj in queryset:
-            tasks.run_character_sync.delay(sync_char_pk=obj.pk, force_sync=True)
+            tasks.run_character_sync.delay(obj.pk)
             names.append(str(obj))
-        self.message_user(request, "Started syncing for: {}".format(", ".join(names)))
+        self.message_user(
+            request, "Started normal syncing for: {}".format(", ".join(names))
+        )
 
 
 @admin.register(SyncManager)
 class SyncManagerAdmin(admin.ModelAdmin):
     list_display = (
         "_alliance_name",
-        "_contacts_count",
+        "_alliance_contacts_count",
+        "_wt_contacts_count",
         "_synced_characters_count",
         "_user",
         "_character_name",
-        "version_hash",
-        "_sync_ok",
-        "last_sync",
-        "last_error",
+        "_is_fresh",
+        "last_sync_at",
     )
     list_display_links = None
     list_filter = (("character_ownership__user", admin.RelatedOnlyFieldListFilter),)
@@ -183,10 +185,6 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
-
-    @admin.display(boolean=True)
-    def _sync_ok(self, obj) -> bool:
-        return obj.is_sync_ok
 
     @admin.display(ordering="character_ownership__user__username")
     def _user(self, obj):
@@ -200,17 +198,27 @@ class SyncManagerAdmin(admin.ModelAdmin):
     def _alliance_name(self, obj):
         return obj.alliance.alliance_name
 
-    def _contacts_count(self, obj):
-        return "{:,}".format(obj.contacts.count())
+    @admin.display(description="Alliance contacts")
+    def _alliance_contacts_count(self, obj):
+        return "{:,}".format(obj.contacts.filter(is_war_target=False).count())
 
+    @admin.display(description="War targets")
+    def _wt_contacts_count(self, obj):
+        return "{:,}".format(obj.contacts.filter(is_war_target=True).count())
+
+    @admin.display(description="Synced Characters")
     def _synced_characters_count(self, obj):
         return "{:,}".format(obj.synced_characters.count())
 
-    @admin.display(description="Sync selected managers")
+    @admin.display(boolean=True)
+    def _is_fresh(self, obj):
+        return obj.is_sync_fresh
+
+    @admin.display(description="Start sync for selected managers")
     def start_sync_managers(self, request, queryset):
         names = list()
         for obj in queryset:
-            tasks.run_manager_sync.delay(manager_pk=obj.pk, force_sync=True)
+            tasks.run_manager_sync.delay(manager_pk=obj.pk, force_update=True)
             names.append(str(obj))
         text = "Started syncing for: {} ".format(", ".join(names))
         self.message_user(request, text)

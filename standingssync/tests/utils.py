@@ -1,8 +1,6 @@
 """Utility functions and classes for tests"""
 import copy
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import FrozenSet, List
+from typing import List, Set
 
 from eveuniverse.models import EveEntity
 
@@ -11,7 +9,9 @@ from allianceauth.eveonline.models import (
     EveCharacter,
     EveCorporationInfo,
 )
-from app_utils.esi_testing import BravadoOperationStub
+from app_utils.esi_testing import BravadoOperationStub, build_http_error
+
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 
 
 def create_esi_contact(eve_entity: EveEntity, standing: int = 5.0) -> dict:
@@ -34,16 +34,16 @@ ALLIANCE_CONTACTS = [
     {"contact_id": 1014, "contact_type": "character", "standing": 0.0},
     {"contact_id": 1015, "contact_type": "character", "standing": 5.0},
     {"contact_id": 1016, "contact_type": "character", "standing": 10.0},
-    {"contact_id": 3011, "contact_type": "alliance", "standing": -10.0},
-    {"contact_id": 3012, "contact_type": "alliance", "standing": -5.0},
-    {"contact_id": 3013, "contact_type": "alliance", "standing": 0.0},
-    {"contact_id": 3014, "contact_type": "alliance", "standing": 5.0},
-    {"contact_id": 3015, "contact_type": "alliance", "standing": 10.0},
     {"contact_id": 2011, "contact_type": "corporation", "standing": -10.0},
     {"contact_id": 2012, "contact_type": "corporation", "standing": -5.0},
     {"contact_id": 2014, "contact_type": "corporation", "standing": 0.0},
     {"contact_id": 2013, "contact_type": "corporation", "standing": 5.0},
     {"contact_id": 2015, "contact_type": "corporation", "standing": 10.0},
+    {"contact_id": 3011, "contact_type": "alliance", "standing": -10.0},
+    {"contact_id": 3012, "contact_type": "alliance", "standing": -5.0},
+    {"contact_id": 3013, "contact_type": "alliance", "standing": 0.0},
+    {"contact_id": 3014, "contact_type": "alliance", "standing": 5.0},
+    {"contact_id": 3015, "contact_type": "alliance", "standing": 10.0},
 ]
 
 
@@ -171,76 +171,6 @@ def auth_to_eve_entities():
         )
 
 
-@dataclass(frozen=True)
-class EsiContactLabel:
-    id: int
-    name: str
-
-    def __post_init__(self):
-        object.__setattr__(self, "id", int(self.id))
-        object.__setattr__(self, "name", str(self.name))
-
-    def to_dict(self) -> dict:
-        return {self.id: self.name}
-
-
-@dataclass(unsafe_hash=True)
-class EsiContact:
-    """A contact in the ESI character contacts stub."""
-
-    class ContactType(str, Enum):
-        CHARACTER = "character"
-        CORPORATION = "corporation"
-        ALLIANCE = "alliance"
-
-    contact_id: int
-    contact_type: str
-    standing: float
-    label_ids: FrozenSet[int] = field(default_factory=frozenset)
-
-    def __setattr__(self, prop, val):
-        if prop == "contact_id":
-            val = int(val)
-        if prop == "standing":
-            val = float(val)
-        if prop == "label_ids":
-            if not val:
-                val = []
-            val = self._clean_label_ids(val)
-        if prop == "contact_type":
-            if val not in self.ContactType:
-                raise ValueError(f"Invalid contact_type: {val}")
-        super().__setattr__(prop, val)
-
-    def _clean_label_ids(self, label_ids):
-        return frozenset([int(obj) for obj in label_ids])
-
-    def to_esi_dict(self) -> dict:
-        return {
-            "contact_id": self.contact_id,
-            "contact_type": self.ContactType(self.contact_type),
-            "standing": self.standing,
-            "label_ids": list(self.label_ids),
-        }
-
-    @classmethod
-    def from_eve_entity(
-        cls, eve_entity: EveEntity, standing: float, label_ids=None
-    ) -> "EsiContact":
-        """Create new instance from an EveEntity object."""
-        contact_type_map = {
-            EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
-            EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
-            EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
-        }
-        return cls(
-            contact_id=eve_entity.id,
-            contact_type=contact_type_map[eve_entity.category],
-            standing=standing,
-            label_ids=label_ids,
-        )
-
-
 class EsiCharacterContactsStub:
     """Simulates the contacts for a character on ESI"""
 
@@ -255,21 +185,21 @@ class EsiCharacterContactsStub:
         for contact in contacts:
             if contact.label_ids:
                 for label_id in contact.label_ids:
-                    if label_id not in self.labels(character_id).keys():
+                    if label_id not in self._labels[character_id].keys():
                         raise ValueError(f"Invalid label_id: {label_id}")
             self._contacts[character_id][contact.contact_id] = copy.deepcopy(contact)
 
-    def setup_labels(self, character_id: int, labels: List[EsiContact]):
+    def setup_labels(self, character_id: int, labels: List[EsiContactLabel]):
         self._labels[character_id] = {obj.id: obj.name for obj in labels}
 
-    def contacts(self, character_id: int) -> dict:
-        return self._contacts[character_id].values()
+    def contacts(self, character_id: int) -> Set[EsiContact]:
+        return set(self._contacts[character_id].values())
 
     def character_contact(self, character_id: int, contact_id: int) -> EsiContact:
         return self._contacts[character_id][contact_id]
 
-    def labels(self, character_id: int) -> dict:
-        return self._labels[character_id] if character_id in self._labels else dict()
+    def labels(self, character_id: int) -> Set[EsiContactLabel]:
+        return set(self._labels[character_id].values())
 
     def setup_esi_mock(self, mock_esi):
         """Sets the mock for ESI to this object."""
@@ -291,9 +221,10 @@ class EsiCharacterContactsStub:
 
     def _esi_get_characters_character_id_contacts(self, character_id, token, page=None):
         if character_id in self._contacts:
-            contacts = [
-                obj.to_esi_dict() for obj in self._contacts[character_id].values()
-            ]
+            contacts = sorted(
+                [obj.to_esi_dict() for obj in self._contacts[character_id].values()],
+                key=lambda obj: obj["contact_id"],
+            )
         else:
             contacts = []
         return BravadoOperationStub(contacts)
@@ -302,10 +233,13 @@ class EsiCharacterContactsStub:
         self, character_id, token, page=None
     ):
         if character_id in self._labels:
-            labels = [
-                {"label_id": k, "label_name": v}
-                for k, v in self._labels[character_id].items()
-            ]
+            labels = sorted(
+                [
+                    {"label_id": k, "label_name": v}
+                    for k, v in self._labels[character_id].items()
+                ],
+                key=lambda obj: obj["label_id"],
+            )
         else:
             labels = []
         return BravadoOperationStub(labels)
@@ -327,32 +261,46 @@ class EsiCharacterContactsStub:
                 contact_id=contact_id,
                 contact_type=contact_type_map[eve_entity.category],
                 standing=standing,
-                label_ids=label_ids,
+                label_ids=label_ids if label_ids else [],
             )
-        return BravadoOperationStub([])
+        return BravadoOperationStub(contact_ids)
 
     def _esi_put_characters_character_id_contacts(
         self, character_id, contact_ids, standing, token, label_ids=None
     ):
+        try:
+            character_contacts = self._contacts[character_id]
+        except KeyError:
+            raise build_http_error(404, "unknown character") from None
         self._check_label_ids_valid(character_id, label_ids)
         for contact_id in contact_ids:
-            self._contacts[character_id][contact_id].standing = standing
+            try:
+                old_esi_contact = character_contacts[contact_id]
+            except KeyError:
+                continue
+            params = {"standing": standing}
             if label_ids:
-                if not self._contacts[character_id][contact_id].label_ids:
-                    self._contacts[character_id][contact_id].label_ids = label_ids
-                else:
-                    self._contacts[character_id][contact_id].label_ids += label_ids
-        return BravadoOperationStub([])
+                params["label_ids"] = list(old_esi_contact.label_ids) + list(label_ids)
+            new_esi_contact = old_esi_contact.clone(**params)
+            character_contacts[contact_id] = new_esi_contact
+        return BravadoOperationStub(None)
 
     def _esi_delete_characters_character_id_contacts(
         self, character_id, contact_ids, token
     ):
+        try:
+            character_contacts = self._contacts[character_id]
+        except KeyError:
+            raise build_http_error(404, "unknown character") from None
         for contact_id in contact_ids:
-            del self._contacts[character_id][contact_id]
+            try:
+                del character_contacts[contact_id]
+            except KeyError:
+                pass
         return BravadoOperationStub([])
 
     def _check_label_ids_valid(self, character_id, label_ids):
         if label_ids:
             for label_id in label_ids:
-                if label_id not in self.labels(character_id).keys():
+                if label_id not in self._labels[character_id].keys():
                     raise ValueError(f"Invalid label_id: {label_id}")

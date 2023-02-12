@@ -1,4 +1,4 @@
-# standingssync
+# Standings Sync
 
 This is a plugin app for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth), which enables non-alliance characters like scout alts to have the same standings view in game as their alliance main.
 
@@ -21,21 +21,20 @@ This is a plugin app for [Alliance Auth](https://gitlab.com/allianceauth/allianc
 - [Updating](#updating)
 - [Settings](#settings)
 - [Permissions](#permissions)
-- [Admin Functions](#Admin-functions)
+- [Admin Functions](#admin-functions)
 - [Feedback](#feedback)
 - [Change Log](CHANGELOG.md)
 
 ## Features
 
-The main purpose of this app is to enable non-alliance characters to have the same standings view of other pilots in game as their alliance main. This e.g. allows non-alliance scouts to correctly report blues and non-blues. And is allows JF pilots to, which other non-alliance characters on grid are actually blues and which are not and therefore a potential threat.
+The main purpose of this app is to enable non-alliance characters to have the same standings view of other pilots in game as their alliance main. This e.g. allows non-alliance scouts to correctly report blues and non-blues. Or JF pilots can see which other non-alliance characters on grid not blues and therefore a potential threat.
 
 Here is an high level overview of the main features:
 
 - Synchronize alliance contacts to chosen non-alliance characters
-- Synchronization is ongoing until user chooses to remove character from synchronization
-- Supports multiple alliances
-- Can sync war targets
-- Synchronization automatically ceases once the user is no longer eligible
+- Supports coalition usage with multiple alliances in the same Alliance Auth installation
+- Synchronize alliance war targets as contacts with terrible standing
+- Automatically deactivates synchronization when a user ceases to be eligible (e.g. main left the alliance)
 
 ## Screenshot
 
@@ -49,15 +48,23 @@ To enable non-alliance members to use alliance standings the personal contact of
 
 ## Installation
 
-### 1. Install app
+### Step 1 - Check Preconditions
 
-Install into AA virtual environment with PIP install ffrom PyPI:
+Please make sure you meet all preconditions before proceeding:
+
+1. Standings Sync is a plugin for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth). If you don't have Alliance Auth running already, please install it first before proceeding. (see the official [AA installation guide](https://allianceauth.readthedocs.io/en/latest/installation/auth/allianceauth/) for details)
+
+2. Standings Sync needs the app [django-eveuniverse](https://gitlab.com/ErikKalkoken/django-eveuniverse) to function. Please make sure it is installed, before continuing.
+
+### Step 2 - Install app
+
+Install into AA virtual environment with PIP install from PyPI:
 
 ```bash
 pip install aa-standingssync
 ```
 
-### 2 Update Eve Online app
+### Step 3 - Update Eve Online app
 
 Update the Eve Online app used for authentication in your AA installation to include the following scopes:
 
@@ -67,7 +74,7 @@ esi-characters.write_contacts.v1
 esi-alliances.read_contacts.v1
 ```
 
-### 3. Configure AA settings
+### Step 4 - Configure AA settings
 
 Configure your AA settings (`local.py`) as follows:
 
@@ -83,24 +90,24 @@ CELERYBEAT_SCHEDULE['standingssync.run_regular_sync'] = {
 }
 ```
 
-> **Note**:<br>This configures the sync process to run every 2 hours starting at 00:00 AM UTC. Feel free to adjust the timing to the needs of you alliance.<br>However, do not schedule it too tightly. Or you risk generating more and more tasks, when sync tasks from previous runs are not able to finish within the alloted time.
+Please also see the [settings](#settings) section for more configuration options. For example a setting is required to enable syncing war targets.
 
-### 4. Finalize installation into AA
+### Step 5 - Finalize installation into AA
 
 Run migrations & copy static files
 
 ```bash
 python manage.py migrate
-python manage.py collectstatic
+python manage.py collectstatic --noinput
 ```
 
 Restart your supervisor services for AA
 
-### 5. Setup permissions
+### Step 6 - Setup permissions
 
 Now you can access Alliance Auth and setup permissions for your users. See section "Permissions" below for details.
 
-### 6. Setup alliance character
+### Step 7 - Setup alliance character
 
 Finally you need to set the alliance character that will be used for fetching the alliance contacts / standing. Just click on "Set Alliance Character" and add the requested token. Note that only users with the appropriate permission will be able to see and use this function.
 
@@ -123,7 +130,7 @@ python manage.py migrate
 ```
 
 ```bash
-python manage.py collectstatic
+python manage.py collectstatic --noinput
 ```
 
 Finally restart your AA supervisor services.
@@ -138,6 +145,8 @@ Name | Description | Default
 `STANDINGSSYNC_CHAR_MIN_STANDING`| minimum standing a character needs to have with the alliance to be able to sync.<br>Set to `0.0` if you want to allow neutral alts to sync. | `0.1`<br>*character has to have some blue standing, neutrals will be rejected*
 `STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID`| Smallest war ID to fetch from ESI. All wars with smaller IDs are known to be already finished. This is an optimization to avoid having to fetch >700K wars from ESI. | `693125`
 `STANDINGSSYNC_REPLACE_CONTACTS`| When enabled will replace contacts of synced characters with alliance contacts | `True`
+`STANDINGSSYNC_SYNC_TIMEOUT`| Duration in minutes after which a delayed sync for managers and characters
+is reported as down. This value should be aligned with the frequency of the sync task. | `180`
 `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`| Name of the contact label for war targets. Needs to be created by the user for each synced character. Required to ensure that war targets are deleted once they become invalid. Not case sensitive. | `war_targets`
 
 ## Permissions

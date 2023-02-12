@@ -13,7 +13,8 @@ from app_utils.testdata_factories import (
     UserMainFactory,
 )
 
-from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
+from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
+from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
 
 class EveEntityFactory(factory.django.DjangoModelFactory):
@@ -134,7 +135,7 @@ class EveContactFactory(factory.django.DjangoModelFactory):
         model = EveContact
 
     manager = factory.SubFactory(SyncManagerFactory)
-    eve_entity = factory.SubFactory(EveEntityFactory)
+    eve_entity = factory.SubFactory(EveEntityCharacterFactory)
     standing = 5
     is_war_target = False
 
@@ -142,3 +143,31 @@ class EveContactFactory(factory.django.DjangoModelFactory):
 class EveContactWarTargetFactory(EveContactFactory):
     standing = -10
     is_war_target = True
+
+
+class EsiContactDictFactory(factory.base.DictFactory):
+    contact_id = factory.fuzzy.FuzzyInteger(90_000, 99_999)
+    contact_type = factory.fuzzy.FuzzyChoice(["character", "corporation", "alliance"])
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
+class EsiLabelDictFactory(factory.base.DictFactory):
+    label_id = factory.fuzzy.FuzzyInteger(1, 9_999)
+    label_name = factory.Faker("word")
+
+
+class EsiContactFactory(factory.base.Factory):
+    class Meta:
+        model = EsiContact
+
+    contact_id = factory.fuzzy.FuzzyInteger(90_000, 99_999)
+    contact_type = factory.fuzzy.FuzzyChoice(list(EsiContact.ContactType))
+    standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
+
+
+class EsiContactLabelFactory(factory.base.DictFactory):
+    class Meta:
+        model = EsiContactLabel
+
+    id = factory.fuzzy.FuzzyInteger(1, 9_999)
+    name = factory.Faker("word")

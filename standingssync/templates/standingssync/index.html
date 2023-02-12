@@ -30,6 +30,7 @@
             {% endif %}
         </div>
     </div>
+
     <div class="panel panel-default">
         <div class="panel-heading" style="display:flex;">
             <h3 class="panel-title">{% translate 'Your Synced Characters' %}</h3>
@@ -47,17 +48,36 @@
                     </thead>
                     <tbody>
                         {% for character in synced_characters|dictsort:"name" %}
-                            {% if character.has_error %}
+                            {% if character.errors %}
                                 <tr class="danger">
                             {% else %}
                                 <tr>
                             {% endif %}
-                                    <td>{{ character.name_html }}</td>
+                                    <td>
+                                        <img src="{{ character.portrait_url }}" class="ra-avatar img-circle">
+                                        &nbsp;
+                                        {{ character.name }}
+                                    </td>
                                     <td>{{ character.organization }}</td>
-                                    <td>{{ character.status_message }}</td>
-                                    <td><a class="btn btn-warning" href="{% url 'standingssync:remove_character' character.pk %}" role="button">
-                                        <i class="far fa-trash-alt"></i>
-                                    </a></td>
+                                    <td>
+                                        {% if character.errors %}
+                                            {% for error in character.errors %}
+                                                <span class="text-warning">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    {{ error }}
+                                                </span><br>
+                                            {% endfor %}
+                                        {% else %}
+                                            <i class="fas fa-check text-success"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a  class="btn btn-warning"
+                                            href="{% url 'standingssync:remove_character' character.pk %}"
+                                            role="button">
+                                            <i class="far fa-trash-alt"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                         {% endfor %}
                     </tbody>
@@ -68,9 +88,17 @@
         </div>
     </div>
 
-    <a id="standingssyncBtnAddSyncChar" class="btn btn-primary" href="{% url 'standingssync:add_character' %}">
-        Add Character to Sync
-    </a>
+    {% if alliance %}
+        <a  id="standingssyncBtnAddSyncChar"
+            class="btn btn-primary"
+            href="{% url 'standingssync:add_character' %}">
+            Add Character to Sync
+        </a>
+    {% else %}
+        <button class="btn btn-primary" disabled="disabled">
+            Add Character to Sync
+        </button>
+    {% endif %}
 
     {% if perms.standingssync.add_syncmanager %}
         <span class="pull-right">

@@ -1,14 +1,13 @@
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
-from django.shortcuts import redirect, render
-from django.utils.html import format_html
+from django.shortcuts import get_object_or_404, redirect, render
 from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
-from app_utils.messages import messages_plus
-from app_utils.views import link_html
 
 from . import __title__, tasks
 from .app_settings import (
@@ -17,105 +16,48 @@ from .app_settings import (
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
 )
-from .models import SyncedCharacter, SyncManager
+from .models import EveWar, SyncedCharacter, SyncManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
-
-
-def create_img_html(src: str, classes: list = None, size: int = None) -> str:
-    classes_str = format_html('class="{}"', (" ".join(classes)) if classes else "")
-    size_html = format_html('width="{}" height="{}"', size, size) if size else ""
-    return format_html('<img {} {} src="{}">', classes_str, size_html, src)
-
-
-def create_icon_plus_name_html(
-    icon_url,
-    name,
-    size: int = 32,
-    avatar: bool = False,
-    url: str = None,
-    text: str = None,
-) -> str:
-    """create HTML to display an icon next to a name. Can also be a link."""
-    name_html = link_html(url, name, new_window=False) if url else name
-    if text:
-        name_html = format_html("{}&nbsp;{}", name_html, text)
-
-    return format_html(
-        "{}&nbsp;&nbsp;&nbsp;{}",
-        create_img_html(
-            icon_url, classes=["ra-avatar", "img-circle"] if avatar else [], size=size
-        ),
-        name_html,
-    )
 
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def index(request):
     """main page"""
-    if not request.user.profile.main_character:
-        sync_manager = None
-    else:
-        try:
-            alliance = EveAllianceInfo.objects.get(
-                alliance_id=request.user.profile.main_character.alliance_id
-            )
-            sync_manager = SyncManager.objects.get(alliance=alliance)
-        except EveAllianceInfo.DoesNotExist:
-            sync_manager = None
-        except SyncManager.DoesNotExist:
-            sync_manager = None
-
-    # get list of synced synced_characters for this user
-    characters_query = SyncedCharacter.objects.select_related(
-        "character_ownership__character"
-    ).filter(character_ownership__user=request.user)
-    synced_characters = list()
-    for synced_character in characters_query:
-        character = synced_character.character_ownership.character
-        name_html = create_icon_plus_name_html(
-            character.portrait_url(), character.character_name, avatar=True
+    sync_manager = SyncManager.objects.fetch_for_user(request.user)
+    synced_characters = []
+    if sync_manager:
+        qs = sync_manager.synced_characters_for_user(request.user).select_related(
+            "character_ownership", "character_ownership__character"
         )
-        organization = character.corporation_name
-        if character.alliance_ticker:
-            organization += f" [{character.alliance_ticker}]"
+        for synced_character in qs:
+            character = synced_character.character
+            organization = character.corporation_name
+            if character.alliance_ticker:
+                organization += f" [{character.alliance_ticker}]"
 
-        status_message_raw = synced_character.get_status_message()
-        if status_message_raw.lower() == "ok":
+            errors = []
+            if not synced_character.is_sync_fresh:
+                errors.append("Sync is outdated.")
             if (
                 STANDINGSSYNC_ADD_WAR_TARGETS
                 and synced_character.has_war_targets_label is False
             ):
-                status_message = format_html(
-                    '<span class="text-warning">'
-                    '<i class="fas fa-info-circle"></i> '
-                    "Please create a contact label with the name: {}</span>",
-                    STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+                errors.append(
+                    f"Please create a contact label with the name: "
+                    f"{STANDINGSSYNC_WAR_TARGETS_LABEL_NAME}"
                 )
-            else:
-                status_message = format_html(
-                    '<i class="fas fa-check text-success"></i>'
-                )
-        else:
-            status_message = status_message_raw
-            status_message = format_html(
-                '<span class="text-danger">'
-                '<i class="fas fa-exclamation-triangle"></i> {}</span>',
-                status_message_raw,
+            synced_characters.append(
+                {
+                    "id": character.character_id,
+                    "name": character.character_name,
+                    "portrait_url": character.portrait_url,
+                    "organization": organization,
+                    "errors": errors,
+                    "pk": synced_character.pk,
+                }
             )
-
-        synced_characters.append(
-            {
-                "name": character.character_name,
-                "name_html": name_html,
-                "organization": organization,
-                "status_message": status_message,
-                "has_error": synced_character.last_error != SyncedCharacter.Error.NONE,
-                "pk": synced_character.pk,
-            }
-        )
-
     context = {
         "app_title": __title__,
         "synced_characters": synced_characters,
@@ -143,7 +85,6 @@ def index(request):
     context["alliance_contacts_count"] = alliance_contacts_count
     context["alliance_war_targets_count"] = alliance_war_targets_count
     context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
-
     return render(request, "standingssync/index.html", context)
 
 
@@ -151,49 +92,33 @@ def index(request):
 @permission_required("standingssync.add_syncmanager")
 @token_required(SyncManager.get_esi_scopes())
 def add_alliance_manager(request, token):
-    """add or update sync manager for an alliance"""
-    success = True
-    token_char = EveCharacter.objects.get(character_id=token.character_id)
-    character_ownership = None
-    alliance = None
-
+    """Add or update sync manager for an alliance."""
+    token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
     if not token_char.alliance_id:
-        messages_plus.warning(
+        messages.warning(
             request,
             f"Can not add {token_char}, because it is not a member of any alliance.",
         )
-        success = False
-
-    if success:
-        try:
-            character_ownership = CharacterOwnership.objects.get(
-                user=request.user, character=token_char
-            )
-        except CharacterOwnership.DoesNotExist:
-            messages_plus.warning(
-                request, f"Could not find character {token_char.character_name}"
-            )
-            success = False
-
-    if success:
+    else:
+        character_ownership = get_object_or_404(
+            CharacterOwnership, user=request.user, character=token_char
+        )
         try:
             alliance = EveAllianceInfo.objects.get(alliance_id=token_char.alliance_id)
         except EveAllianceInfo.DoesNotExist:
             alliance = EveAllianceInfo.objects.create_alliance(token_char.alliance_id)
             alliance.save()
-
-    if success:
         sync_manager, _ = SyncManager.objects.update_or_create(
             alliance=alliance, defaults={"character_ownership": character_ownership}
         )
         tasks.run_manager_sync.delay(sync_manager.pk)
-        messages_plus.success(
+        if STANDINGSSYNC_ADD_WAR_TARGETS:
+            tasks.sync_all_wars.delay()
+        messages.success(
             request,
-            "{} set as alliance character for {}. "
-            "Started syncing of alliance contacts. ".format(
-                sync_manager.character_ownership.character.character_name,
-                alliance.alliance_name,
-            ),
+            f"{sync_manager.character_ownership.character.character_name} "
+            f"set as alliance character for {alliance.alliance_name}. "
+            "Started syncing of alliance contacts. ",
         )
     return redirect("standingssync:index")
 
@@ -203,59 +128,45 @@ def add_alliance_manager(request, token):
 @token_required(scopes=SyncedCharacter.get_esi_scopes())
 def add_character(request, token):
     """add character to receive alliance contacts"""
-    try:
-        alliance = EveAllianceInfo.objects.get(
-            alliance_id=request.user.profile.main_character.alliance_id
-        )
-    except EveAllianceInfo.DoesNotExist:
-        raise RuntimeError("Can not find alliance")
-
-    try:
-        sync_manager = SyncManager.objects.get(alliance=alliance)
-    except SyncManager.DoesNotExist:
-        raise RuntimeError("can not find sync manager for alliance")
-
-    token_char = EveCharacter.objects.get(character_id=token.character_id)
+    alliance = get_object_or_404(
+        EveAllianceInfo, alliance_id=request.user.profile.main_character.alliance_id
+    )
+    sync_manager = get_object_or_404(SyncManager, alliance=alliance)
+    token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
     if token_char.alliance_id == sync_manager.character_ownership.character.alliance_id:
-        messages_plus.warning(
+        messages.warning(
             request,
             "Adding alliance members does not make much sense, "
             "since they already have access to alliance contacts.",
         )
 
     else:
-        try:
-            character_ownership = CharacterOwnership.objects.get(
-                user=request.user, character=token_char
-            )
-        except CharacterOwnership.DoesNotExist:
-            messages_plus.warning(
-                request, "Could not find character {}".format(token_char.character_name)
+        character_ownership = get_object_or_404(
+            CharacterOwnership, user=request.user, character=token_char
+        )
+        eff_standing = sync_manager.effective_standing_with_character(
+            character_ownership.character
+        )
+        if eff_standing < STANDINGSSYNC_CHAR_MIN_STANDING:
+            messages.warning(
+                request,
+                "Can not activate sync for your "
+                f"character {token_char.character_name}, "
+                "because it does not have blue standing "
+                "with the alliance. "
+                f"The standing value is: {eff_standing:.1f}. "
+                "Please first obtain blue "
+                "standing for your character and then try again.",
             )
         else:
-            eff_standing = sync_manager.get_effective_standing(
-                character_ownership.character
+            sync_character, _ = SyncedCharacter.objects.update_or_create(
+                character_ownership=character_ownership,
+                defaults={"manager": sync_manager},
             )
-            if eff_standing < STANDINGSSYNC_CHAR_MIN_STANDING:
-                messages_plus.warning(
-                    request,
-                    "Can not activate sync for your "
-                    f"character {token_char.character_name}, "
-                    "because it does not have blue standing "
-                    "with the alliance. "
-                    f"The standing value is: {eff_standing:.1f}. "
-                    "Please first obtain blue "
-                    "standing for your character and then try again.",
-                )
-            else:
-                sync_character, _ = SyncedCharacter.objects.update_or_create(
-                    character_ownership=character_ownership,
-                    defaults={"manager": sync_manager},
-                )
-                tasks.run_character_sync.delay(sync_character.pk)
-                messages_plus.success(
-                    request, "Sync activated for {}!".format(token_char.character_name)
-                )
+            tasks.run_character_sync.delay(sync_character.pk)
+            messages.success(
+                request, "Sync activated for {}!".format(token_char.character_name)
+            )
     return redirect("standingssync:index")
 
 
@@ -263,8 +174,24 @@ def add_character(request, token):
 @permission_required("standingssync.add_syncedcharacter")
 def remove_character(request, alt_pk):
     """remove character from receiving alliance contacts"""
-    alt = SyncedCharacter.objects.get(pk=alt_pk)
+    alt = get_object_or_404(SyncedCharacter, pk=alt_pk)
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
-    messages_plus.success(request, "Sync deactivated for {}".format(alt_name))
+    messages.success(request, "Sync deactivated for {}".format(alt_name))
     return redirect("standingssync:index")
+
+
+@login_required
+@staff_member_required
+def admin_update_wars(request):
+    """Start updating eve wars."""
+    wars_count = EveWar.objects.count()
+    tasks.sync_all_wars.delay()
+    messages.info(
+        request,
+        (
+            f"Started updating approx. {wars_count:,} wars from ESI in the background. "
+            "This can take a minute."
+        ),
+    )
+    return redirect("admin:standingssync_evewar_changelist")

@@ -240,6 +240,6 @@ class TestUI(NoSocketsTestCase):
         SyncedCharacterFactory(manager=sync_manager)
         self.client.force_login(user)
         # when
-        response = self.client.get("/standingssync/active-wars")
+        response = self.client.get("/standingssync/wars")
         # then
         self.assertEqual(response.status_code, 200)

@@ -19,9 +19,9 @@
                     <a href="{% url 'standingssync:characters' %}">My Characters</a>
                 </li>
                 {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
-                    <li class="{% navactive request 'standingssync:active_wars' %}">
-                        <a href="{% url 'standingssync:active_wars' %}">
-                            Active Wars
+                    <li class="{% navactive request 'standingssync:wars' %}">
+                        <a href="{% url 'standingssync:wars' %}">
+                            Current Wars
                         </a>
                     </li>
                 {% endif %}

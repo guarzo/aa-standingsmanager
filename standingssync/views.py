@@ -203,7 +203,7 @@ def remove_character(request, alt_pk):
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
-def active_wars(request):
+def wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     wars = []
     for war in (
@@ -227,12 +227,12 @@ def active_wars(request):
             }
         )
     context = {
-        "page_title": "Active Wars",
+        "page_title": "Current Wars",
         "alliance": sync_manager.alliance if sync_manager else "",
         "wars": wars,
         "war_count": len(wars),
     }
-    return render(request, "standingssync/active_wars.html", common_context(context))
+    return render(request, "standingssync/wars.html", common_context(context))
 
 
 @login_required

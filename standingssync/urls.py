@@ -14,6 +14,6 @@ urlpatterns = [
     path(
         "add-alliance-manager", views.add_alliance_manager, name="add_alliance_manager"
     ),
-    path("active-wars", views.active_wars, name="active_wars"),
+    path("wars", views.wars, name="wars"),
     path("admin-update-wars", views.admin_update_wars, name="admin_update_wars"),
 ]

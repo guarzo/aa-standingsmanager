@@ -1,11 +1,12 @@
-{% extends 'standingssync/base.html' %}
+{% extends 'standingssync/_base.html' %}
 {% load i18n %}
 {% load humanize %}
+{% load standingssync %}
 
 {% block details %}
     <div class="panel panel-default">
         <div class="panel-heading" style="display:flex;">
-            <h3 class="panel-title">{{ alliance }} (99)</h3>
+            <h3 class="panel-title">{{ alliance }} ({{ war_count }})</h3>
         </div>
         <div class="panel-body">
             <div role="tabpanel" class="tab-pane">
@@ -22,13 +23,13 @@
                     <tbody>
                         {% for war in wars %}
                             <tr>
-                                <td>{{ war.declared }}</td>
-                                <td>{{ war.started }}</td>
-                                <td>{{ war.aggressor }}</td>
-                                <td>{{ war.defender }}</td>
+                                <td class="text-nowrap">{{ war.declared|date:DATEFORMAT }}</td>
+                                <td class="text-nowrap">{{ war.started|date:DATEFORMAT }}</td>
+                                <td>{% war_participant war.aggressor %}</td>
+                                <td>{% war_participant war.defender %}</td>
                                 <td>
                                     {% for ally in war.allies %}
-                                        {{ ally }}<br>
+                                        {% war_participant ally %}<br>
                                     {% empty %}
                                         -
                                     {% endfor %}

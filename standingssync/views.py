@@ -20,9 +20,15 @@ from .models import EveWar, SyncedCharacter, SyncManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
+MY_DATETIME_FORMAT = "Y-M-d H:i"
+
 
 def common_context(ctx: dict) -> dict:
-    result = {"app_title": __title__, "page_title": "PLACEHOLDER"}
+    result = {
+        "app_title": __title__,
+        "page_title": "PLACEHOLDER",
+        "DATEFORMAT": MY_DATETIME_FORMAT,
+    }
     result.update(ctx)
     return result
 
@@ -203,7 +209,7 @@ def active_wars(request):
         .prefetch_related("allies")
         .select_related("aggressor", "defender")[:20]
     ):
-        allies = sorted([obj.name for obj in war.allies.all()])
+        allies = war.allies.all()
         wars.append(
             {
                 "declared": war.declared,
@@ -217,6 +223,7 @@ def active_wars(request):
         "page_title": "Active Wars",
         "alliance": sync_manager.alliance if sync_manager else "",
         "wars": wars,
+        "war_count": len(wars),
     }
     return render(request, "standingssync/active_wars.html", common_context(context))
 

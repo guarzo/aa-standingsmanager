@@ -18,12 +18,13 @@
                 <li class="{% navactive request 'standingssync:characters' %}">
                     <a href="{% url 'standingssync:characters' %}">My Characters</a>
                 </li>
-
-                <li class="{% navactive request 'standingssync:active_wars' %}">
-                    <a href="{% url 'standingssync:active_wars' %}">
-                        Active Wars
-                    </a>
-                </li>
+                {% if STANDINGSSYNC_ADD_WAR_TARGETS %}
+                    <li class="{% navactive request 'standingssync:active_wars' %}">
+                        <a href="{% url 'standingssync:active_wars' %}">
+                            Active Wars
+                        </a>
+                    </li>
+                {% endif %}
             </ul>
 
             <ul class="nav navbar-nav navbar-right">

@@ -1,8 +1,10 @@
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from esi.decorators import token_required
+from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
@@ -28,6 +30,7 @@ def common_context(ctx: dict) -> dict:
         "app_title": __title__,
         "page_title": "PLACEHOLDER",
         "DATEFORMAT": MY_DATETIME_FORMAT,
+        "STANDINGSSYNC_ADD_WAR_TARGETS": STANDINGSSYNC_ADD_WAR_TARGETS,
     }
     result.update(ctx)
     return result
@@ -207,10 +210,16 @@ def active_wars(request):
     for war in (
         EveWar.objects.active_wars()
         .alliance_wars(alliance=sync_manager.alliance)
-        .prefetch_related("allies")
-        .select_related("aggressor", "defender")[:20]
+        .prefetch_related(
+            Prefetch(
+                "allies",
+                to_attr="allies_sorted",
+                queryset=EveEntity.objects.exclude(name=""),
+            )
+        )
+        .select_related("aggressor", "defender")
     ):
-        allies = war.allies.exclude(name="").all()
+        allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
         wars.append(
             {
                 "declared": war.declared,

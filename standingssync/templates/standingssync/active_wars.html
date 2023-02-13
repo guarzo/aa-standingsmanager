@@ -23,7 +23,9 @@
                         {% for war in wars %}
                             <tr>
                                 <td data-sort="{{ war.started.isoformat }}" class="text-nowrap">
-                                    {{ war.started|date:DATEFORMAT }}
+                                    <span title="{{ war.started|date:DATEFORMAT }}">
+                                        {{ war.started|timesince }} ago
+                                    </span>
                                 </td>
                                 <td data-sort="{{ war.aggressor }}">
                                     {% war_participant war.aggressor %}

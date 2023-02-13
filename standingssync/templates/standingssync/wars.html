@@ -25,10 +25,12 @@
                         {% for war in wars %}
                             <tr>
                                 <td>
-                                    {% if not war.is_active %}
-                                        <i class="fas fa-pause text-info"></i>
-                                    {% else %}
+                                    {% if war.is_active %}
                                         <i class="fas fa-play text-danger"></i>
+                                    {% elif war.is_finished %}
+                                        <i class="fas fa-stop text-success"></i>
+                                    {% else %}
+                                        <i class="fas fa-pause text-warning"></i>
                                     {% endif %}
                                 </td>
                                 <td data-sort="{{ war.started.isoformat }}" class="text-nowrap">
@@ -66,9 +68,11 @@
         </div>
     </div>
     <p class="text-muted">
+        <i class="fas fa-pause text-warning"></i>&nbsp;&nbsp;Declared war
+        &nbsp;&nbsp;&nbsp;
         <i class="fas fa-play text-danger"></i>&nbsp;&nbsp;Active war
-        &nbsp;&nbsp;
-        <i class="fas fa-pause text-info"></i>&nbsp;&nbsp;Inactive war
+        &nbsp;&nbsp;&nbsp;
+        <i class="fas fa-stop text-success"></i>&nbsp;&nbsp;Finished war
     </p>
 {% endblock %}
 

@@ -3,6 +3,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.timezone import now
 from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
@@ -224,6 +225,7 @@ def wars(request):
                 "defender": war.defender,
                 "allies": allies,
                 "is_active": war.is_active,
+                "is_finished": war.finished and war.finished < now(),
             }
         )
     context = {

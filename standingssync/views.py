@@ -198,10 +198,12 @@ def remove_character(request, alt_pk):
 def active_wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     wars = []
-    for war in EveWar.objects.active_wars().select_related("aggressor", "defender")[
-        :20
-    ]:
-        allies = sorted(list(war.allies.values_list("name", flat=True)))
+    for war in (
+        EveWar.objects.active_wars()
+        .prefetch_related("allies")
+        .select_related("aggressor", "defender")[:20]
+    ):
+        allies = sorted([obj.name for obj in war.allies.all()])
         wars.append(
             {
                 "declared": war.declared,

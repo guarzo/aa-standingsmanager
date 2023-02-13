@@ -22,7 +22,7 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
 def common_context(ctx: dict) -> dict:
-    result = {"app_title": __title__}
+    result = {"app_title": __title__, "page_title": "PLACEHOLDER"}
     result.update(ctx)
     return result
 
@@ -71,6 +71,7 @@ def characters(request):
                 }
             )
     context = {
+        "page_title": "My Characters",
         "synced_characters": synced_characters,
         "has_synced_chars": len(synced_characters) > 0,
     }
@@ -195,7 +196,13 @@ def remove_character(request, alt_pk):
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def active_wars(request):
-    context = {}
+    sync_manager = SyncManager.objects.fetch_for_user(request.user)
+    wars = EveWar.objects.active_wars()[:20]
+    context = {
+        "page_title": "Active Wars",
+        "alliance": sync_manager.alliance if sync_manager else "",
+        "wars": wars,
+    }
     return render(request, "standingssync/active_wars.html", common_context(context))
 
 

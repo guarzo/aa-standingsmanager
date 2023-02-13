@@ -197,7 +197,20 @@ def remove_character(request, alt_pk):
 @permission_required("standingssync.add_syncedcharacter")
 def active_wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
-    wars = EveWar.objects.active_wars()[:20]
+    wars = []
+    for war in EveWar.objects.active_wars().select_related("aggressor", "defender")[
+        :20
+    ]:
+        allies = sorted(list(war.allies.values_list("name", flat=True)))
+        wars.append(
+            {
+                "declared": war.declared,
+                "started": war.started,
+                "aggressor": war.aggressor,
+                "defender": war.defender,
+                "allies": allies,
+            }
+        )
     context = {
         "page_title": "Active Wars",
         "alliance": sync_manager.alliance if sync_manager else "",

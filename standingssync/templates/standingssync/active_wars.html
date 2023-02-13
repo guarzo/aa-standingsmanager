@@ -26,7 +26,13 @@
                                 <td>{{ war.started }}</td>
                                 <td>{{ war.aggressor }}</td>
                                 <td>{{ war.defender }}</td>
-                                <td>TBD</td>
+                                <td>
+                                    {% for ally in war.allies %}
+                                        {{ ally }}<br>
+                                    {% empty %}
+                                        -
+                                    {% endfor %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

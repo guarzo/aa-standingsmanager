@@ -295,6 +295,27 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.started, self.war_started)
 
 
+class TestEveWarQueryset(NoSocketsTestCase):
+    def test_should_return_wars_of_alliance_only(self):
+        # given
+        alliance_entity = EveEntityAllianceFactory()
+        alliance = EveAllianceInfo.objects.get(alliance_id=alliance_entity.id)
+        other_1 = EveEntityAllianceFactory()
+        other_2 = EveEntityAllianceFactory()
+        war_1 = EveWarFactory(aggressor=alliance_entity, defender=other_1)
+        war_2 = EveWarFactory(aggressor=other_1, defender=alliance_entity)
+        war_3 = EveWarFactory(
+            aggressor=other_1, defender=other_2, allies=[alliance_entity]
+        )
+        EveWarFactory(aggressor=other_1, defender=other_2)
+        # when
+        qs = EveWar.objects.alliance_wars(alliance)
+        # then
+        expected = {war_1.id, war_2.id, war_3.id}
+        result = set(qs.values_list("id", flat=True))
+        self.assertSetEqual(expected, result)
+
+
 @patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
 class TestEveWarManager2(NoSocketsTestCase):
     def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):

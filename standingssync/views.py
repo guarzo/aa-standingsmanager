@@ -206,10 +206,11 @@ def active_wars(request):
     wars = []
     for war in (
         EveWar.objects.active_wars()
+        .alliance_wars(alliance=sync_manager.alliance)
         .prefetch_related("allies")
         .select_related("aggressor", "defender")[:20]
     ):
-        allies = war.allies.all()
+        allies = war.allies.exclude(name="").all()
         wars.append(
             {
                 "declared": war.declared,

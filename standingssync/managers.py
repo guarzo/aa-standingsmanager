@@ -49,6 +49,14 @@ class EveWarQuerySet(models.QuerySet):
     def finished_wars(self) -> models.QuerySet:
         return self.filter(finished__lte=now())
 
+    def alliance_wars(self, alliance: EveAllianceInfo) -> models.QuerySet:
+        """Include wars where a given alliance is participating only."""
+        return (
+            self.filter(aggressor_id=alliance.alliance_id)
+            | self.filter(defender_id=alliance.alliance_id)
+            | self.filter(allies__id=alliance.alliance_id)
+        ).distinct()
+
 
 class EveWarManagerBase(models.Manager):
     def war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:

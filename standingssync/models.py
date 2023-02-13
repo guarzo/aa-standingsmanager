@@ -162,7 +162,10 @@ class SyncManager(_SyncBaseModel):
             return set()
         war_targets = EveWar.objects.war_targets(self.character_alliance_id)
         for war_target in war_targets:
-            contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+            try:
+                contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+            except KeyError:  # eve_entity has no category
+                logger.warning("Skipping unresolved war target: %s", war_target)
         return {war_target.id for war_target in war_targets}
 
     def _save_new_contacts(

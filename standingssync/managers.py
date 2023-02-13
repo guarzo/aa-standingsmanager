@@ -36,6 +36,7 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 
 class EveWarQuerySet(models.QuerySet):
     def annotate_active_wars(self) -> models.QuerySet:
+        """Add is_active property to wars."""
         return self.annotate(
             is_active=Case(
                 When(started__lt=now(), finished__isnull=True, then=Value(True)),
@@ -45,7 +46,11 @@ class EveWarQuerySet(models.QuerySet):
         )
 
     def current_wars(self) -> models.QuerySet:
-        """Current wars incl. wars that are about to start and wars that ended recently."""
+        """Filter for current wars.
+
+        This includes wars that are about to start,
+        active wars and wars that ended recently.
+        """
         cutoff = now() - dt.timedelta(hours=24)
         qs = self.filter(declared__lt=now())
         return (
@@ -53,6 +58,7 @@ class EveWarQuerySet(models.QuerySet):
         ).distinct()
 
     def active_wars(self) -> models.QuerySet:
+        """Filter for active wars."""
         qs = self.filter(started__lt=now())
         return (
             qs.filter(finished__gt=now()) | qs.filter(finished__isnull=True)

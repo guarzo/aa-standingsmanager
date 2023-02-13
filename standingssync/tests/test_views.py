@@ -51,15 +51,15 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
         cls.factory = RequestFactory()
 
     def test_user_with_permission_can_open_app(self):
-        request = self.factory.get(reverse("standingssync:index"))
+        request = self.factory.get(reverse("standingssync:characters"))
         request.user = self.user_2
-        response = views.index(request)
+        response = views.characters(request)
         self.assertEqual(response.status_code, 200)
 
     def test_user_wo_permission_can_not_open_app(self):
-        request = self.factory.get(reverse("standingssync:index"))
+        request = self.factory.get(reverse("standingssync:characters"))
         request.user = self.user_3
-        response = views.index(request)
+        response = views.characters(request)
         self.assertEqual(response.status_code, 302)
 
     @patch(MODULE_PATH + ".messages")
@@ -132,14 +132,14 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
     ):
         response = self.make_request(self.user_2, self.character_2)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
+        self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
 
     def test_user_can_add_blue_alt(self, mock_messages, mock_run_character_sync):
         response = self.make_request(self.user_2, self.character_4)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
+        self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_run_character_sync.delay.called)
         self.assertTrue(
@@ -152,7 +152,7 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
     def test_user_can_add_neutral_alt(self, mock_messages, mock_run_character_sync):
         response = self.make_request(self.user_2, self.character_6)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
+        self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_run_character_sync.delay.called)
         self.assertTrue(
@@ -166,7 +166,7 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
     ):
         response = self.make_request(self.user_2, self.character_5)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:index"))
+        self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
         self.assertFalse(
@@ -258,7 +258,7 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
     ):
         response = self.make_request(self.user_2, self.character_2)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('standingssync:index'))
+        self.assertEqual(response.url, reverse('standingssync:characters'))
         self.assertFalse(mock_tasks.delay.called)
         self.assertFalse(
             SyncManager.objects

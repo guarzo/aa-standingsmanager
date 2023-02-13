@@ -21,9 +21,21 @@ from .models import EveWar, SyncedCharacter, SyncManager
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
+def common_context(ctx: dict) -> dict:
+    result = {"app_title": __title__}
+    result.update(ctx)
+    return result
+
+
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def index(request):
+    return redirect("standingssync:characters")
+
+
+@login_required
+@permission_required("standingssync.add_syncedcharacter")
+def characters(request):
     """main page"""
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = []
@@ -59,7 +71,6 @@ def index(request):
                 }
             )
     context = {
-        "app_title": __title__,
         "synced_characters": synced_characters,
         "has_synced_chars": len(synced_characters) > 0,
     }
@@ -85,7 +96,7 @@ def index(request):
     context["alliance_contacts_count"] = alliance_contacts_count
     context["alliance_war_targets_count"] = alliance_war_targets_count
     context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
-    return render(request, "standingssync/index.html", context)
+    return render(request, "standingssync/characters.html", common_context(context))
 
 
 @login_required
@@ -167,7 +178,7 @@ def add_character(request, token):
             messages.success(
                 request, "Sync activated for {}!".format(token_char.character_name)
             )
-    return redirect("standingssync:index")
+    return redirect("standingssync:characters")
 
 
 @login_required
@@ -178,7 +189,14 @@ def remove_character(request, alt_pk):
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
     messages.success(request, "Sync deactivated for {}".format(alt_name))
-    return redirect("standingssync:index")
+    return redirect("standingssync:characters")
+
+
+@login_required
+@permission_required("standingssync.add_syncedcharacter")
+def active_wars(request):
+    context = {}
+    return render(request, "standingssync/active_wars.html", common_context(context))
 
 
 @login_required

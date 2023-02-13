@@ -100,15 +100,6 @@
         </button>
     {% endif %}
 
-    {% if perms.standingssync.add_syncmanager %}
-        <span class="pull-right">
-            <a class="btn btn-default" href="{% url 'standingssync:add_alliance_manager' %}">
-                Set Alliance Character
-            </a>
-        </span>
-        <div class="clearfix"></div>
-    {% endif %}
-
     <div class="bs-callout bs-callout-warning">
         <h3>Read Me First</h3>
         <p>Once activated this app will automatically update the personal contacts of your synced characters. Note that you can only sync out-of-alliance alts.</p>

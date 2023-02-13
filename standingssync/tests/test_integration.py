@@ -212,7 +212,7 @@ class TestUI(NoSocketsTestCase):
         user = UserMainSyncerFactory()
         self.client.force_login(user)
         # when
-        response = self.client.get("/standingssync/")
+        response = self.client.get("/standingssync/characters")
         # then
         self.assertEqual(response.status_code, 200)
 
@@ -226,6 +226,6 @@ class TestUI(NoSocketsTestCase):
         SyncedCharacterFactory(manager=sync_manager)
         self.client.force_login(user)
         # when
-        response = self.client.get("/standingssync/")
+        response = self.client.get("/standingssync/characters")
         # then
         self.assertEqual(response.status_code, 200)

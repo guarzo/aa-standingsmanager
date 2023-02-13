@@ -15,8 +15,8 @@ class standingssyncMenuItem(MenuItemHook):
             self,
             _(__title__),
             "fas fa-sync-alt",
-            "standingssync:index",
-            navactive=["standingssync:index"],
+            "standingssync:characters",
+            navactive=["standingssync:characters"],
         )
 
     def render(self, request):

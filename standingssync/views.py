@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from esi.decorators import token_required
-from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter
@@ -208,25 +207,23 @@ def active_wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     wars = []
     for war in (
-        EveWar.objects.active_wars()
+        EveWar.objects.current_wars()
         .alliance_wars(alliance=sync_manager.alliance)
-        .prefetch_related(
-            Prefetch(
-                "allies",
-                to_attr="allies_sorted",
-                queryset=EveEntity.objects.exclude(name=""),
-            )
-        )
+        .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
         .select_related("aggressor", "defender")
+        .annotate_active_wars()
+        .order_by("-started")
     ):
         allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
         wars.append(
             {
                 "declared": war.declared,
                 "started": war.started,
+                "finished": war.finished,
                 "aggressor": war.aggressor,
                 "defender": war.defender,
                 "allies": allies,
+                "is_active": war.is_active,
             }
         )
     context = {

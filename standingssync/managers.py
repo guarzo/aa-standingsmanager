@@ -1,9 +1,10 @@
+import datetime as dt
 from collections import defaultdict
 from typing import Dict, Optional, Set, Tuple
 
 from django.contrib.auth.models import User
 from django.db import models, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Case, Value, When
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
@@ -35,16 +36,27 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 
 class EveWarQuerySet(models.QuerySet):
     def annotate_active_wars(self) -> models.QuerySet:
-        from .models import EveWar
-
         return self.annotate(
-            active=Exists(EveWar.objects.active_wars().filter(pk=OuterRef("pk")))
+            is_active=Case(
+                When(started__lt=now(), finished__isnull=True, then=Value(True)),
+                When(started__lt=now(), finished__gt=now(), then=Value(True)),
+                default=Value(False),
+            )
         )
+
+    def current_wars(self) -> models.QuerySet:
+        """Current wars incl. wars that are about to start and wars that ended recently."""
+        cutoff = now() - dt.timedelta(hours=24)
+        qs = self.filter(declared__lt=now())
+        return (
+            qs.filter(finished__gt=cutoff) | qs.filter(finished__isnull=True)
+        ).distinct()
 
     def active_wars(self) -> models.QuerySet:
-        return self.filter(started__lt=now(), finished__gt=now()) | self.filter(
-            started__lt=now(), finished__isnull=True
-        )
+        qs = self.filter(started__lt=now())
+        return (
+            qs.filter(finished__gt=now()) | qs.filter(finished__isnull=True)
+        ).distinct()
 
     def finished_wars(self) -> models.QuerySet:
         return self.filter(finished__lte=now())

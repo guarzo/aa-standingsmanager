@@ -57,9 +57,9 @@ class ActiveWarsListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == "yes":
-            return queryset.annotate_active_wars().filter(active=True)
+            return queryset.annotate_active_wars().filter(is_active=True)
         if self.value() == "no":
-            return queryset.annotate_active_wars().filter(active=False)
+            return queryset.annotate_active_wars().filter(is_active=False)
         return queryset
 
 
@@ -77,7 +77,7 @@ class EveWarAdmin(admin.ModelAdmin):
         "_allies",
         "started",
         "finished",
-        "_active",
+        "_is_active",
     )
     ordering = ("-declared",)
     list_filter = ("declared", ActiveWarsListFilter)
@@ -96,9 +96,9 @@ class EveWarAdmin(admin.ModelAdmin):
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_active_wars()
 
-    @admin.display(boolean=True, ordering="active")
-    def _active(self, obj) -> bool:
-        return obj.active
+    @admin.display(boolean=True, ordering="is_active")
+    def _is_active(self, obj) -> bool:
+        return obj.is_active
 
     @admin.display()
     def _allies(self, obj):

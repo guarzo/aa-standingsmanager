@@ -328,6 +328,51 @@ class TestEveWarManager2(NoSocketsTestCase):
         self.assertSetEqual(result, {1, 2})
 
 
+class TestEveWarManagerAnnotateActiveWars(NoSocketsTestCase):
+    def test_should_annotate_correctly(self):
+        # given
+        war_not_yet_started = EveWarFactory(declared=now())
+        war_started = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_finishes_soon = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
+        # when
+        qs = EveWar.objects.annotate_active_wars()
+        # then
+        self.assertFalse(qs.get(id=war_not_yet_started.id).is_active)
+        self.assertTrue(qs.get(id=war_started.id).is_active)
+        self.assertTrue(qs.get(id=war_finishes_soon.id).is_active)
+        self.assertFalse(qs.get(id=war_finished.id).is_active)
+
+
+class TestEveWarManagerCurrentWars(NoSocketsTestCase):
+    def test_should_return_recently_declared_war(self):
+        # given
+        war = EveWarFactory(declared=now())
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
+
+    def test_should_return_recently_finished_war(self):
+        # given
+        war = EveWarFactory(finished=now() - dt.timedelta(hours=23))
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
+
+    def test_should_return_active_war(self):
+        # given
+        war = EveWarFactory(declared=now() - dt.timedelta(days=2))
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
+
+
 class TestEveWarManagerActiveWars(NoSocketsTestCase):
     def test_should_return_started_war_as_defender(self):
         # given

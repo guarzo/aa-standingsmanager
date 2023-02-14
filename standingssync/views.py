@@ -3,7 +3,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.timezone import now
 from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
@@ -212,7 +211,7 @@ def wars(request):
         .alliance_wars(alliance=sync_manager.alliance)
         .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
         .select_related("aggressor", "defender")
-        .annotate_active_wars()
+        .annotate_state()
         .order_by("-started")
     ):
         allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
@@ -224,8 +223,7 @@ def wars(request):
                 "aggressor": war.aggressor,
                 "defender": war.defender,
                 "allies": allies,
-                "is_active": war.is_active,
-                "is_finished": war.finished and war.finished < now(),
+                "state": war.state,
             }
         )
     context = {

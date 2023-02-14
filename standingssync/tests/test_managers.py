@@ -328,20 +328,20 @@ class TestEveWarManager2(NoSocketsTestCase):
         self.assertSetEqual(result, {1, 2})
 
 
-class TestEveWarManagerAnnotateActiveWars(NoSocketsTestCase):
-    def test_should_annotate_correctly(self):
+class TestEveWarManagerAnnotations(NoSocketsTestCase):
+    def test_should_annotate_state(self):
         # given
-        war_not_yet_started = EveWarFactory(declared=now())
-        war_started = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_pending = EveWarFactory(declared=now())
+        war_active = EveWarFactory(declared=now() - dt.timedelta(hours=24))
         war_finishes_soon = EveWarFactory(finished=now() + dt.timedelta(hours=24))
         war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
         # when
-        qs = EveWar.objects.annotate_active_wars()
+        qs = EveWar.objects.annotate_state()
         # then
-        self.assertFalse(qs.get(id=war_not_yet_started.id).is_active)
-        self.assertTrue(qs.get(id=war_started.id).is_active)
-        self.assertTrue(qs.get(id=war_finishes_soon.id).is_active)
-        self.assertFalse(qs.get(id=war_finished.id).is_active)
+        self.assertEqual(qs.get(id=war_pending.id).state, "pending")
+        self.assertEqual(qs.get(id=war_active.id).state, "active")
+        self.assertEqual(qs.get(id=war_finishes_soon.id).state, "active")
+        self.assertEqual(qs.get(id=war_finished.id).state, "finished")
 
 
 class TestEveWarManagerCurrentWars(NoSocketsTestCase):

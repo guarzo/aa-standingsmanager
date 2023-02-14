@@ -57,9 +57,9 @@ class ActiveWarsListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == "yes":
-            return queryset.annotate_active_wars().filter(is_active=True)
+            return queryset.annotate_state().filter(state="active")
         if self.value() == "no":
-            return queryset.annotate_active_wars().filter(is_active=False)
+            return queryset.annotate_state().exclude(state="active")
         return queryset
 
 
@@ -71,15 +71,15 @@ class AlliesInline(admin.TabularInline):
 class EveWarAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "declared",
+        "_state",
         "aggressor",
         "defender",
         "_allies",
+        "declared",
         "started",
         "finished",
-        "_is_active",
     )
-    ordering = ("-declared",)
+    ordering = ("-id",)
     list_filter = ("declared", ActiveWarsListFilter)
     search_fields = ("aggressor__name", "defender__name", "allies__name")
     inlines = (AlliesInline,)
@@ -94,13 +94,11 @@ class EveWarAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
-        ).annotate_active_wars()
+        ).annotate_state()
 
-    @admin.display(boolean=True, ordering="is_active")
-    def _is_active(self, obj) -> bool:
-        return obj.is_active
+    def _state(self, obj) -> str:
+        return obj.state
 
-    @admin.display()
     def _allies(self, obj):
         allies = sorted([str(ally) for ally in obj.allies.all()])
         return format_html("<br>".join(allies)) if allies else "-"

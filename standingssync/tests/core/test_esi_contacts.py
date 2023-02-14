@@ -154,6 +154,21 @@ class TestEsiContactsClone(NoSocketsTestCase):
         expected = {contact_1, contact_2}
         self.assertSetEqual(obj.contacts(), expected)
 
+    def test_should_create_from_dicts_labels_only(self):
+        # given
+        label = EsiContactLabelFactory()
+        esi_labels = [label.to_esi_dict()]
+        # when
+        obj = EsiContactsContainer.from_esi_dicts(labels=esi_labels)
+        # then
+        self.assertEqual(obj.labels(), {label})
+
+    def test_should_create_empty_for_dicts(self):
+        # when
+        obj = EsiContactsContainer.from_esi_dicts()
+        # then
+        self.assertIsInstance(obj, EsiContactsContainer)
+
     def test_should_create_from_esi_contacts(self):
         # given
         contact_1 = EsiContactFactory()
@@ -226,6 +241,15 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # then
         expected = {contact_1}
         self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_raise_error_when_trying_to_remove_unknown_contact(self):
+        # given
+        contact_1 = EsiContactFactory()
+        contact_2 = EsiContactFactory()
+        obj = EsiContactsContainer.from_esi_contacts([contact_1])
+        # when/then
+        with self.assertRaises(ValueError):
+            obj.remove_contact(contact_2.contact_id)
 
     def test_should_convert_to_esi_dict(self):
         # given

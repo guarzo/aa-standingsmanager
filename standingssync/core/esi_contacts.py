@@ -157,7 +157,7 @@ class EsiContactsContainer:
         try:
             del self._contacts[contact_id]
         except KeyError:
-            raise RuntimeError(f"Contact with ID {contact_id} not found") from None
+            raise ValueError(f"Contact with ID {contact_id} not found") from None
 
     def contact_by_id(self, contact_id: int) -> EsiContact:
         """Returns contact by it's ID."""

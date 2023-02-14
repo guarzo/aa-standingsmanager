@@ -237,9 +237,21 @@ class TestEsiContactsClone(NoSocketsTestCase):
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         obj = EsiContactsContainer.from_esi_dicts(esi_contacts)
         # when
-        obj.remove_contact(contact_2.contact_id)
+        obj.remove_contact(contact_2)
         # then
         expected = {contact_1}
+        self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_remove_several_contacts(self):
+        # given
+        contact_1 = EsiContactFactory()
+        contact_2 = EsiContactFactory()
+        contact_3 = EsiContactFactory()
+        obj = EsiContactsContainer.from_esi_contacts([contact_1, contact_2, contact_3])
+        # when
+        obj.remove_contacts([contact_1, contact_2])
+        # then
+        expected = {contact_3}
         self.assertSetEqual(obj.contacts(), expected)
 
     def test_should_raise_error_when_trying_to_remove_unknown_contact(self):
@@ -249,7 +261,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         obj = EsiContactsContainer.from_esi_contacts([contact_1])
         # when/then
         with self.assertRaises(ValueError):
-            obj.remove_contact(contact_2.contact_id)
+            obj.remove_contact(contact_2)
 
     def test_should_convert_to_esi_dict(self):
         # given
@@ -341,6 +353,23 @@ class TestEsiContactsClone(NoSocketsTestCase):
             EsiContact.from_eve_contact(contact_2, label_ids),
         }
         self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_create_clone(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        label_2 = EsiContactLabelFactory()
+        contact_1 = EsiContactFactory(label_ids=[label_1.id])
+        contact_2 = EsiContactFactory(label_ids=[label_2.id])
+        first = EsiContactsContainer.from_esi_contacts(
+            contacts=[contact_1, contact_2], labels=[label_1, label_2]
+        )
+        # when
+        second = first.clone()
+        # then
+        self.assertEqual(first, second)
+        second.remove_contact(contact_1)
+        self.assertNotIn(contact_1, second.contacts())
+        self.assertIn(contact_1, first.contacts())
 
 
 class TestEsiContactsCloneComparisons(NoSocketsTestCase):

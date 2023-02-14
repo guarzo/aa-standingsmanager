@@ -234,7 +234,8 @@ class SyncedCharacter(_SyncBaseModel):
         return self.character.character_id
 
     def run_sync(self) -> bool:
-        """Sync in-game contacts for given character with alliance contacts.
+        """Sync in-game contacts for given character with alliance contacts
+        and/or war targets.
 
         Will delete this sync character if necessary,
         e.g. if token is no longer valid or character is no longer blue
@@ -259,27 +260,32 @@ class SyncedCharacter(_SyncBaseModel):
 
         current_contacts = self._fetch_current_contacts(token)
 
-        if STANDINGSSYNC_ADD_WAR_TARGETS:
-            # update info about war target label
-            wt_label_id = current_contacts.war_target_label_id()
-            if wt_label_id:
-                logger.debug("%s: Has war target label", self)
-                self.has_war_targets_label = True
-                self.save()
-            else:
-                logger.debug("%s: Does not have war target label", self)
-                self.has_war_targets_label = False
-                self.save()
+        # update info about war target label
+        wt_label_id = current_contacts.war_target_label_id()
+        if wt_label_id:
+            logger.debug("%s: Has war target label", self)
+            self.has_war_targets_label = True
+            self.save()
+        else:
+            logger.debug("%s: Does not have war target label", self)
+            self.has_war_targets_label = False
+            self.save()
 
         # new contacts
-        new_contacts = EsiContactsContainer.from_esi_contacts(
-            labels=current_contacts.labels()
-        )
-        new_contacts.add_eve_contacts(
-            self.manager.contacts_for_sync(self).filter(is_war_target=False)
-        )
+        if STANDINGSSYNC_REPLACE_CONTACTS:
+            new_contacts = EsiContactsContainer.from_esi_contacts(
+                labels=current_contacts.labels()
+            )
+            new_contacts.add_eve_contacts(
+                self.manager.contacts_for_sync(self).filter(is_war_target=False)
+            )
+        else:
+            new_contacts = current_contacts.clone()
+
         if STANDINGSSYNC_ADD_WAR_TARGETS:
-            # add war targets
+            # remove old war targets
+            new_contacts.remove_contacts(current_contacts.war_targets())
+            # add current war targets
             wt_label_id = current_contacts.war_target_label_id()
             new_contacts.add_eve_contacts(
                 self.manager.contacts_for_sync(self).filter(is_war_target=True),
@@ -288,7 +294,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         # update contacts on ESI
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
-        if removed and STANDINGSSYNC_REPLACE_CONTACTS:
+        if removed:
             logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
         if added:
@@ -298,24 +304,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
 
-        if not STANDINGSSYNC_REPLACE_CONTACTS:
-            # delete outdated war targets
-            new_war_targets = new_contacts.war_targets()
-            current_war_targets = current_contacts.war_targets()
-            outdated_war_targets = current_war_targets - new_war_targets
-            logger.info(
-                "%s: Deleting %d outdated war targets", self, len(outdated_war_targets)
-            )
-            esi_api.delete_character_contacts(token, outdated_war_targets)
-
-        if (
-            STANDINGSSYNC_REPLACE_CONTACTS and not added and not removed and not changed
-        ) or (
-            not STANDINGSSYNC_REPLACE_CONTACTS
-            and not added
-            and not removed
-            and not outdated_war_targets
-        ):
+        if not added and not removed and not changed:
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
         else:
             logger.info("%s: Contacts update completed.", self)

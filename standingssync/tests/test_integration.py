@@ -193,7 +193,7 @@ class TestTasksE2E(NoSocketsTestCase):
         # then
         result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
-            EsiContact.from_eve_entity(alliance, standing=10),
+            # EsiContact.from_eve_entity(alliance, standing=10),
             EsiContact.from_eve_entity(
                 war.defender, standing=-10, label_ids=[war_target_label.id]
             ),
@@ -201,7 +201,7 @@ class TestTasksE2E(NoSocketsTestCase):
                 ally, standing=-10, label_ids=[war_target_label.id]
             ),
             EsiContact.from_eve_entity(some_character_contact, standing=10),
-            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
+            # EsiContact.from_eve_entity(some_alliance_contact, standing=5),
         }
         self.assertSetEqual(result, expected)
 

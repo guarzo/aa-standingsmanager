@@ -152,12 +152,19 @@ class EsiContactsContainer:
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
-    def remove_contact(self, contact_id: int):
+    def remove_contact(self, contact: EsiContact):
         """Remove contact."""
         try:
-            del self._contacts[contact_id]
+            del self._contacts[contact.contact_id]
         except KeyError:
-            raise ValueError(f"Contact with ID {contact_id} not found") from None
+            raise ValueError(
+                f"Unknown contact {contact} could not be removed."
+            ) from None
+
+    def remove_contacts(self, contacts: Iterable[EsiContact]):
+        """Remove several contacts."""
+        for contact in contacts:
+            self.remove_contact(contact)
 
     def contact_by_id(self, contact_id: int) -> EsiContact:
         """Returns contact by it's ID."""
@@ -183,6 +190,12 @@ class EsiContactsContainer:
         war_target_id = self.war_target_label_id()
         contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
         return contacts
+
+    def clone(self) -> "EsiContactsContainer":
+        other = self.__class__.from_esi_contacts(
+            contacts=self.contacts(), labels=self.labels()
+        )
+        return other
 
     def contacts_difference(
         self, other: "EsiContactsContainer"

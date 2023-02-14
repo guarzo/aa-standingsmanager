@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Show and filter wars by state on admin site
 
+### Fixed
+
+- Reverted back to original sync logic:  `STANDINGSSYNC_REPLACE_CONTACTS = False` will no longer update  alliance contacts (instead of doing a merge).
+
 ## [1.7.0] - 2023-02-12
 
 ### Added

@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
+from django.utils.functional import classproperty
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
 from esi.models import Token
@@ -160,9 +161,12 @@ class SyncManager(_SyncBaseModel):
         """
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
-        war_targets = EveWar.objects.war_targets(self.character_alliance_id)
+        war_targets = EveWar.objects.alliance_war_targets(self.alliance)
         for war_target in war_targets:
-            contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+            try:
+                contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
+            except KeyError:  # eve_entity has no category
+                logger.warning("Skipping unresolved war target: %s", war_target)
         return {war_target.id for war_target in war_targets}
 
     def _save_new_contacts(
@@ -446,6 +450,17 @@ class EveContact(models.Model):
 
 class EveWar(models.Model):
     """An EveOnline war"""
+
+    class State(models.TextChoices):
+        PENDING = "pending"  # declared, but not started yet
+        ONGOING = "ongoing"  # active and without finish date
+        CONCLUDING = "concluding"  # active and about to finish normally
+        RETRACTED = "retracted"  # activate and about to finish after retraction
+        FINISHED = "finished"  # finished war
+
+        @classproperty
+        def active_states(cls) -> Set["EveWar.State"]:
+            return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 
     id = models.PositiveIntegerField(primary_key=True)
     aggressor = models.ForeignKey(EveEntity, on_delete=models.CASCADE, related_name="+")

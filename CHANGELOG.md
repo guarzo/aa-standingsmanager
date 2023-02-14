@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.8.0] - tbd
+
+### Added
+
+- New page showing the current wars of the configured alliance
+
+### Changed
+
+- Show and filter wars by state on admin site
+
 ## [1.7.0] - 2023-02-12
 
 ### Added

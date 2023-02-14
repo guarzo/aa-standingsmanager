@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from esi.decorators import token_required
 
@@ -20,10 +21,29 @@ from .models import EveWar, SyncedCharacter, SyncManager
 
 logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
+MY_DATETIME_FORMAT = "Y-M-d H:i"
+
+
+def common_context(ctx: dict) -> dict:
+    result = {
+        "app_title": __title__,
+        "page_title": "PLACEHOLDER",
+        "DATEFORMAT": MY_DATETIME_FORMAT,
+        "STANDINGSSYNC_ADD_WAR_TARGETS": STANDINGSSYNC_ADD_WAR_TARGETS,
+    }
+    result.update(ctx)
+    return result
+
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def index(request):
+    return redirect("standingssync:characters")
+
+
+@login_required
+@permission_required("standingssync.add_syncedcharacter")
+def characters(request):
     """main page"""
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = []
@@ -59,7 +79,7 @@ def index(request):
                 }
             )
     context = {
-        "app_title": __title__,
+        "page_title": "My Characters",
         "synced_characters": synced_characters,
         "has_synced_chars": len(synced_characters) > 0,
     }
@@ -85,7 +105,7 @@ def index(request):
     context["alliance_contacts_count"] = alliance_contacts_count
     context["alliance_war_targets_count"] = alliance_war_targets_count
     context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
-    return render(request, "standingssync/index.html", context)
+    return render(request, "standingssync/characters.html", common_context(context))
 
 
 @login_required
@@ -167,7 +187,7 @@ def add_character(request, token):
             messages.success(
                 request, "Sync activated for {}!".format(token_char.character_name)
             )
-    return redirect("standingssync:index")
+    return redirect("standingssync:characters")
 
 
 @login_required
@@ -178,7 +198,42 @@ def remove_character(request, alt_pk):
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
     messages.success(request, "Sync deactivated for {}".format(alt_name))
-    return redirect("standingssync:index")
+    return redirect("standingssync:characters")
+
+
+@login_required
+@permission_required("standingssync.add_syncedcharacter")
+def wars(request):
+    sync_manager = SyncManager.objects.fetch_for_user(request.user)
+    wars = []
+    for war in (
+        EveWar.objects.current_wars()
+        .alliance_wars(alliance=sync_manager.alliance)
+        .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
+        .select_related("aggressor", "defender")
+        .annotate_state()
+        .order_by("-started")
+    ):
+        allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
+        wars.append(
+            {
+                "declared": war.declared,
+                "started": war.started,
+                "finished": war.finished,
+                "aggressor": war.aggressor,
+                "defender": war.defender,
+                "allies": allies,
+                "state": war.state,
+            }
+        )
+    context = {
+        "page_title": "Current Wars",
+        "alliance": sync_manager.alliance if sync_manager else "",
+        "wars": wars,
+        "war_count": len(wars),
+        "State": EveWar.State,
+    }
+    return render(request, "standingssync/wars.html", common_context(context))
 
 
 @login_required

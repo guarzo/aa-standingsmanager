@@ -14,6 +14,7 @@ from ..models import EveWar, SyncManager
 from .factories import (
     EveContactFactory,
     EveEntityAllianceFactory,
+    EveEntityCorporationFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -66,6 +67,47 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertListEqual(list(result.keys()), list(expected.keys()))
 
 
+class TestEveWarManagerWarTargets(NoSocketsTestCase):
+    def test_should_return_defender_and_allies_for_aggressor(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally_1, ally_2])
+        alliance = EveAllianceInfo.objects.get(alliance_id=aggressor.id)
+        # when
+        result = EveWar.objects.alliance_war_targets(alliance)
+        # then
+        self.assertSetEqual(
+            {obj.id for obj in result}, {defender.id, ally_1.id, ally_2.id}
+        )
+
+    def test_should_return_aggressor_for_defender(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        alliance = EveAllianceInfo.objects.get(alliance_id=defender.id)
+        # when
+        result = EveWar.objects.alliance_war_targets(alliance)
+        # then
+        self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
+
+    def test_should_return_aggressor_for_ally(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        alliance = EveAllianceInfo.objects.get(alliance_id=ally.id)
+        # when
+        result = EveWar.objects.alliance_war_targets(alliance)
+        # then
+        self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
+
+
 class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
@@ -83,24 +125,6 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         )
         EveEntityAllianceFactory(id=3002)
         EveEntityAllianceFactory(id=3003)
-
-    def test_should_return_defender_and_allies_for_aggressor(self):
-        # when
-        result = EveWar.objects.war_targets(3011)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3001, 3012})
-
-    def test_should_return_aggressor_for_defender(self):
-        # when
-        result = EveWar.objects.war_targets(3001)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3011})
-
-    def test_should_return_aggressor_for_ally(self):
-        # when
-        result = EveWar.objects.war_targets(3012)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3011})
 
     def test_should_return_finished_wars(self):
         # given
@@ -295,8 +319,29 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(war.started, self.war_started)
 
 
-@patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
+class TestEveWarQueryset(NoSocketsTestCase):
+    def test_should_return_wars_of_alliance_only(self):
+        # given
+        alliance_entity = EveEntityAllianceFactory()
+        alliance = EveAllianceInfo.objects.get(alliance_id=alliance_entity.id)
+        other_1 = EveEntityAllianceFactory()
+        other_2 = EveEntityAllianceFactory()
+        war_1 = EveWarFactory(aggressor=alliance_entity, defender=other_1)
+        war_2 = EveWarFactory(aggressor=other_1, defender=alliance_entity)
+        war_3 = EveWarFactory(
+            aggressor=other_1, defender=other_2, allies=[alliance_entity]
+        )
+        EveWarFactory(aggressor=other_1, defender=other_2)
+        # when
+        qs = EveWar.objects.alliance_wars(alliance)
+        # then
+        expected = {war_1.id, war_2.id, war_3.id}
+        result = set(qs.values_list("id", flat=True))
+        self.assertSetEqual(expected, result)
+
+
 class TestEveWarManager2(NoSocketsTestCase):
+    @patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
     def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
@@ -305,6 +350,100 @@ class TestEveWarManager2(NoSocketsTestCase):
         result = EveWar.objects.fetch_active_war_ids_esi()
         # then
         self.assertSetEqual(result, {1, 2})
+
+
+class TestEveWarManagerEveEntityFromWarParticipant(NoSocketsTestCase):
+    def test_should_create_from_alliance_id(self):
+        # given
+        alliance = EveEntityAllianceFactory()
+        data = {"alliance_id": alliance.id}
+        # when
+        result = EveWar.objects._get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, alliance)
+
+    def test_should_create_from_corporation_id(self):
+        # given
+        corporation = EveEntityCorporationFactory()
+        data = {"corporation_id": corporation.id}
+        # when
+        result = EveWar.objects._get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, corporation)
+
+    def test_should_raise_error_when_no_id_found(self):
+        # given
+        data = {}
+        # when/then
+        with self.assertRaises(ValueError):
+            EveWar.objects._get_or_create_eve_entity_from_participant(data)
+
+
+class TestEveWarManagerAnnotations(NoSocketsTestCase):
+    def test_should_annotate_state(self):
+        # given
+        war_pending = EveWarFactory(declared=now())
+        war_ongoing = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_concluding = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_retracted = EveWarFactory(retracted=now())
+        war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
+        # when
+        qs = EveWar.objects.annotate_state()
+        # then
+        self.assertEqual(qs.get(id=war_pending.id).state, EveWar.State.PENDING.value)
+        self.assertEqual(qs.get(id=war_ongoing.id).state, EveWar.State.ONGOING.value)
+        self.assertEqual(
+            qs.get(id=war_concluding.id).state, EveWar.State.CONCLUDING.value
+        )
+        self.assertEqual(
+            qs.get(id=war_retracted.id).state, EveWar.State.RETRACTED.value
+        )
+        self.assertEqual(qs.get(id=war_finished.id).state, EveWar.State.FINISHED.value)
+
+    def test_should_annotate_is_active(self):
+        # given
+        war_pending = EveWarFactory(declared=now())
+        war_ongoing = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_concluding = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_retracted = EveWarFactory(retracted=now())
+        war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
+        # when
+        qs = EveWar.objects.annotate_state().annotate_is_active()
+        # then
+        self.assertFalse(qs.get(id=war_pending.id).is_active)
+        self.assertTrue(qs.get(id=war_ongoing.id).is_active)
+        self.assertTrue(qs.get(id=war_concluding.id).is_active)
+        self.assertTrue(qs.get(id=war_retracted.id).is_active)
+        self.assertFalse(qs.get(id=war_finished.id).is_active)
+
+
+class TestEveWarManagerCurrentWars(NoSocketsTestCase):
+    def test_should_return_recently_declared_war(self):
+        # given
+        war = EveWarFactory(declared=now())
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
+
+    def test_should_return_recently_finished_war(self):
+        # given
+        war = EveWarFactory(finished=now() - dt.timedelta(hours=23))
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
+
+    def test_should_return_active_war(self):
+        # given
+        war = EveWarFactory(declared=now() - dt.timedelta(days=2))
+        # when
+        result = EveWar.objects.current_wars()
+        # then
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), war)
 
 
 class TestEveWarManagerActiveWars(NoSocketsTestCase):

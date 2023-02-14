@@ -1,9 +1,10 @@
+import datetime as dt
 from collections import defaultdict
 from typing import Dict, Optional, Set, Tuple
 
 from django.contrib.auth.models import User
 from django.db import models, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Case, Value, When
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
@@ -34,41 +35,91 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 
 
 class EveWarQuerySet(models.QuerySet):
-    def annotate_active_wars(self) -> models.QuerySet:
-        from .models import EveWar
-
+    def annotate_state(self) -> models.QuerySet:
+        """Add state field to queryset."""
+        State = self.model.State
         return self.annotate(
-            active=Exists(EveWar.objects.active_wars().filter(pk=OuterRef("pk")))
+            state=Case(
+                When(started__gt=now(), then=Value(State.PENDING.value)),
+                When(
+                    started__lte=now(),
+                    finished__isnull=True,
+                    then=Value(State.ONGOING.value),
+                ),
+                When(
+                    started__lte=now(),
+                    finished__gt=now(),
+                    retracted__isnull=False,
+                    then=Value(State.RETRACTED.value),
+                ),
+                When(
+                    started__lte=now(),
+                    finished__gt=now(),
+                    retracted__isnull=True,
+                    then=Value(State.CONCLUDING.value),
+                ),
+                default=Value(State.FINISHED.value),
+            )
         )
+
+    def annotate_is_active(self) -> models.QuerySet:
+        """Add is_active field to queryset. Requires prior annotation of state."""
+        return self.annotate(
+            is_active=Case(
+                When(state__in=self.model.State.active_states, then=Value(True)),
+                default=Value(False),
+            )
+        )
+
+    def current_wars(self) -> models.QuerySet:
+        """Filter for current wars.
+
+        This includes wars that are about to start,
+        active wars and wars that ended recently.
+        """
+        cutoff = now() - dt.timedelta(hours=24)
+        qs = self.filter(declared__lt=now())
+        return (
+            qs.filter(finished__gt=cutoff) | qs.filter(finished__isnull=True)
+        ).distinct()
 
     def active_wars(self) -> models.QuerySet:
-        return self.filter(started__lt=now(), finished__gt=now()) | self.filter(
-            started__lt=now(), finished__isnull=True
-        )
+        """Filter for active wars."""
+        qs = self.filter(started__lt=now())
+        return (
+            qs.filter(finished__gt=now()) | qs.filter(finished__isnull=True)
+        ).distinct()
 
     def finished_wars(self) -> models.QuerySet:
         return self.filter(finished__lte=now())
 
+    def alliance_wars(self, alliance: EveAllianceInfo) -> models.QuerySet:
+        """Include wars where a given alliance is participating only."""
+        return (
+            self.filter(aggressor_id=alliance.alliance_id)
+            | self.filter(defender_id=alliance.alliance_id)
+            | self.filter(allies__id=alliance.alliance_id)
+        ).distinct()
+
 
 class EveWarManagerBase(models.Manager):
-    def war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:
-        """Return list of current war targets for given alliance as EveEntity objects
-        or an empty list if there are None.
-        """
+    def alliance_war_targets(
+        self, alliance: EveAllianceInfo
+    ) -> models.QuerySet[EveEntity]:
+        """Identify current war targets of on alliance."""
         war_target_ids = set()
-        for war in self.active_wars():
+        for war in self.alliance_wars(alliance).active_wars():
             # case 1 alliance is aggressor
-            if war.aggressor_id == alliance_id:
+            if war.aggressor_id == alliance.alliance_id:
                 war_target_ids.add(war.defender_id)
-                if war.allies:
-                    war_target_ids |= set(war.allies.values_list("id", flat=True))
+                war_target_ids |= set(war.allies.values_list("id", flat=True))
 
             # case 2 alliance is defender
-            if war.defender_id == alliance_id:
+            if war.defender_id == alliance.alliance_id:
                 war_target_ids.add(war.aggressor_id)
 
             # case 3 alliance is ally
-            if war.allies.filter(id=alliance_id).exists():
+            if war.allies.filter(id=alliance.alliance_id).exists():
                 war_target_ids.add(war.aggressor_id)
 
         return EveEntity.objects.filter(id__in=war_target_ids)
@@ -77,14 +128,14 @@ class EveWarManagerBase(models.Manager):
         """Updates existing or creates new objects from ESI with given ID."""
 
         logger.info("Retrieving war details for ID %s", id)
-        new_entity_ids = set()
+        entity_ids = set()
         war_info = esi_api.fetch_war(war_id=id)
-        aggressor_id = self._extract_id_from_war_participant(war_info["aggressor"])
-        aggressor, _ = EveEntity.objects.get_or_create(id=aggressor_id)
-        new_entity_ids.add(aggressor_id)
-        defender_id = self._extract_id_from_war_participant(war_info["defender"])
-        defender, _ = EveEntity.objects.get_or_create(id=defender_id)
-        new_entity_ids.add(defender_id)
+        aggressor = self._get_or_create_eve_entity_from_participant(
+            war_info["aggressor"]
+        )
+        entity_ids.add(aggressor.id)
+        defender = self._get_or_create_eve_entity_from_participant(war_info["defender"])
+        entity_ids.add(defender.id)
         with transaction.atomic():
             war, created = self.update_or_create(
                 id=id,
@@ -102,21 +153,26 @@ class EveWarManagerBase(models.Manager):
             war.allies.clear()
             if war_info.get("allies"):
                 for ally_info in war_info.get("allies"):
-                    ally_id = self._extract_id_from_war_participant(ally_info)
-                    ally, _ = EveEntity.objects.get_or_create(id=ally_id)
-                    war.allies.add(ally)
-                    new_entity_ids.add(ally_id)
+                    try:
+                        ally = self._get_or_create_eve_entity_from_participant(
+                            ally_info
+                        )
+                        war.allies.add(ally)
+                        entity_ids.add(ally.id)
+                    except ValueError:
+                        logger.warning("%s: Could not identify ally: ", id, ally_info)
 
-        EveEntity.objects.bulk_create_esi(new_entity_ids)
+        EveEntity.objects.bulk_create_esi(entity_ids)
         return war, created
 
     @staticmethod
-    def _extract_id_from_war_participant(participant: dict) -> int:
-        alliance_id = participant.get("alliance_id")
-        corporation_id = participant.get("corporation_id")
-        if not alliance_id and not corporation_id:
+    def _get_or_create_eve_entity_from_participant(participant: dict) -> EveEntity:
+        """Get or create an EveEntity object from a war participant dict."""
+        entity_id = participant.get("alliance_id") or participant.get("corporation_id")
+        if not entity_id:
             raise ValueError(f"Invalid participant: {participant}")
-        return alliance_id or corporation_id
+        obj, _ = EveEntity.objects.get_or_create(id=entity_id)
+        return obj
 
     def fetch_active_war_ids_esi(self) -> Set[int]:
         """Fetch IDs of all currently active wars."""

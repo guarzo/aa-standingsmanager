@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.db.models import Prefetch
-from django.utils.html import format_html
 from eveuniverse.models import EveEntity
 
 from . import tasks
@@ -45,7 +44,7 @@ class EveContactAdmin(admin.ModelAdmin):
         return obj.eve_entity.get_category_display()
 
 
-class ActiveWarsListFilter(admin.SimpleListFilter):
+class EveWarActiveWarsListFilter(admin.SimpleListFilter):
     title = "active_wars"
     parameter_name = "active_wars"
 
@@ -57,9 +56,23 @@ class ActiveWarsListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == "yes":
-            return queryset.annotate_active_wars().filter(active=True)
+            return queryset.filter(is_active=True)
         if self.value() == "no":
-            return queryset.annotate_active_wars().filter(active=False)
+            return queryset.filter(is_active=False)
+        return queryset
+
+
+class EveWarStateListFilter(admin.SimpleListFilter):
+    title = "state"
+    parameter_name = "state"
+
+    def lookups(self, request, model_admin):
+        return EveWar.State.choices
+
+    def queryset(self, request, queryset):
+        if value := self.value():
+            return queryset.filter(state=value)
+
         return queryset
 
 
@@ -71,16 +84,16 @@ class AlliesInline(admin.TabularInline):
 class EveWarAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "declared",
+        "_state",
         "aggressor",
         "defender",
-        "_allies",
+        "declared",
         "started",
+        "retracted",
         "finished",
-        "_active",
     )
-    ordering = ("-declared",)
-    list_filter = ("declared", ActiveWarsListFilter)
+    ordering = ("-id",)
+    list_filter = ("declared", EveWarActiveWarsListFilter, EveWarStateListFilter)
     search_fields = ("aggressor__name", "defender__name", "allies__name")
     inlines = (AlliesInline,)
 
@@ -91,19 +104,17 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
+        qs = super().get_queryset(request).annotate_state().annotate_is_active()
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
-        ).annotate_active_wars()
+        ).annotate_state()
 
-    @admin.display(boolean=True, ordering="active")
-    def _active(self, obj) -> bool:
-        return obj.active
+    def _state(self, obj) -> str:
+        return EveWar.State(obj.state).label
 
-    @admin.display()
-    def _allies(self, obj):
-        allies = sorted([str(ally) for ally in obj.allies.all()])
-        return format_html("<br>".join(allies)) if allies else "-"
+    # def _allies(self, obj):
+    #     allies = sorted([str(ally) for ally in obj.allies.all()])
+    #     return format_html("<br>".join(allies)) if allies else "-"
 
 
 @admin.register(SyncedCharacter)

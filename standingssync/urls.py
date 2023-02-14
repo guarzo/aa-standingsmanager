@@ -6,12 +6,14 @@ app_name = "standingssync"
 
 urlpatterns = [
     path("", views.index, name="index"),
-    path("add_character", views.add_character, name="add_character"),
+    path("characters", views.characters, name="characters"),
+    path("add-character", views.add_character, name="add_character"),
     path(
-        "remove_character/<int:alt_pk>", views.remove_character, name="remove_character"
+        "remove-character/<int:alt_pk>", views.remove_character, name="remove_character"
     ),
     path(
-        "add_alliance_manager", views.add_alliance_manager, name="add_alliance_manager"
+        "add-alliance-manager", views.add_alliance_manager, name="add_alliance_manager"
     ),
-    path("admin_update_wars", views.admin_update_wars, name="admin_update_wars"),
+    path("wars", views.wars, name="wars"),
+    path("admin-update-wars", views.admin_update_wars, name="admin_update_wars"),
 ]

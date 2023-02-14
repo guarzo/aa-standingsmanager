@@ -2,6 +2,7 @@ from celery import shared_task
 
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.models import EveEntity
+from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
@@ -70,6 +71,7 @@ def sync_all_wars():
         )
         for war_id in fetch_active_war_ids_esi:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+    update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 
 @shared_task

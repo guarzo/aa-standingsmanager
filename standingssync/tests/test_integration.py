@@ -212,7 +212,7 @@ class TestUI(NoSocketsTestCase):
         user = UserMainSyncerFactory()
         self.client.force_login(user)
         # when
-        response = self.client.get("/standingssync/")
+        response = self.client.get("/standingssync/characters")
         # then
         self.assertEqual(response.status_code, 200)
 
@@ -226,6 +226,20 @@ class TestUI(NoSocketsTestCase):
         SyncedCharacterFactory(manager=sync_manager)
         self.client.force_login(user)
         # when
-        response = self.client.get("/standingssync/")
+        response = self.client.get("/standingssync/characters")
+        # then
+        self.assertEqual(response.status_code, 200)
+
+    def test_should_open_wars_page_w_sync_manager(self):
+        # given
+        user = UserMainSyncerFactory()
+        alliance = EveAllianceInfo.objects.get(
+            alliance_id=user.profile.main_character.alliance_id
+        )
+        sync_manager = SyncManagerFactory(alliance=alliance)
+        SyncedCharacterFactory(manager=sync_manager)
+        self.client.force_login(user)
+        # when
+        response = self.client.get("/standingssync/wars")
         # then
         self.assertEqual(response.status_code, 200)

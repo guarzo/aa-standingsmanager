@@ -273,7 +273,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         if STANDINGSSYNC_ADD_WAR_TARGETS:
             # remove old war targets
-            new_contacts.remove_contacts(new_contacts.war_targets())
+            new_contacts.remove_war_targets()
             # add current war targets
             wt_label_id = current_contacts.war_target_label_id()
             new_contacts.add_eve_contacts(

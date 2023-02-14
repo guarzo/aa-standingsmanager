@@ -191,6 +191,10 @@ class EsiContactsContainer:
         contacts = {obj for obj in self.contacts() if war_target_id in obj.label_ids}
         return contacts
 
+    def remove_war_targets(self):
+        """Remove war targets."""
+        self.remove_contacts(self.war_targets())
+
     def clone(self) -> "EsiContactsContainer":
         other = self.__class__.from_esi_contacts(
             contacts=self.contacts(), labels=self.labels()

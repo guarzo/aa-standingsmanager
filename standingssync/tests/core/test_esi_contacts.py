@@ -323,6 +323,20 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # then
         self.assertSetEqual(result, {war_target})
 
+    def test_should_remove_war_targets(self):
+        # given
+        wt_label = EsiContactLabelFactory(name="war target")
+        other_label = EsiContactLabelFactory()
+        other_contact = EsiContactFactory(label_ids=[other_label.id])
+        war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
+        obj = EsiContactsContainer.from_esi_contacts(
+            contacts=[other_contact, war_target], labels=[wt_label, other_label]
+        )
+        # when
+        obj.remove_war_targets()
+        # then
+        self.assertSetEqual(obj.contacts(), {other_contact})
+
     def test_should_add_eve_contacts(self):
         # given
         obj = EsiContactsContainer()

@@ -260,15 +260,10 @@ class SyncedCharacter(_SyncBaseModel):
 
         current_contacts = self._fetch_current_contacts(token)
 
-        # update info about war target label
-        wt_label_id = current_contacts.war_target_label_id()
-        if wt_label_id:
-            logger.debug("%s: Has war target label", self)
-            self.has_war_targets_label = True
-            self.save()
-        else:
-            logger.debug("%s: Does not have war target label", self)
-            self.has_war_targets_label = False
+        # update info about war target label if it has changed
+        has_wt_label = current_contacts.war_target_label_id() is not None
+        if has_wt_label != self.has_war_targets_label:
+            self.has_war_targets_label = has_wt_label
             self.save()
 
         # new contacts

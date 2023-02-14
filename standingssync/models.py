@@ -258,12 +258,7 @@ class SyncedCharacter(_SyncBaseModel):
             return None
 
         current_contacts = self._fetch_current_contacts(token)
-
-        # update info about war target label if it has changed
-        has_wt_label = current_contacts.war_target_label_id() is not None
-        if has_wt_label != self.has_war_targets_label:
-            self.has_war_targets_label = has_wt_label
-            self.save()
+        self._update_wt_label_info(current_contacts)
 
         # new contacts
         if STANDINGSSYNC_REPLACE_CONTACTS:
@@ -308,6 +303,13 @@ class SyncedCharacter(_SyncBaseModel):
 
         self.record_successful_sync()
         return True
+
+    def _update_wt_label_info(self, current_contacts: EsiContactsContainer):
+        """Update info about WT label if it has changed."""
+        has_wt_label = current_contacts.war_target_label_id() is not None
+        if has_wt_label != self.has_war_targets_label:
+            self.has_war_targets_label = has_wt_label
+            self.save()
 
     def _has_owner_permissions(self) -> bool:
         if not self.character_ownership.user.has_perm(

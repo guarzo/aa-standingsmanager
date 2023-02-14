@@ -827,6 +827,28 @@ class TestSyncCharacter2(NoSocketsTestCase):
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertFalse(obj.is_sync_fresh)
 
+    def test_should_update_wt_label_info(self):
+        # given
+        synced_character = SyncedCharacterFactory()
+        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        character_contacts = EsiContactsContainer.from_esi_contacts(labels=[wt_label])
+        # when
+        synced_character._update_wt_label_info(character_contacts)
+        # then
+        synced_character.refresh_from_db()
+        self.assertTrue(synced_character.has_war_targets_label)
+
+    def test_should_not_update_wt_label_info(self):
+        # given
+        synced_character = SyncedCharacterFactory(has_war_targets_label=True)
+        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        character_contacts = EsiContactsContainer.from_esi_contacts(labels=[wt_label])
+        # when
+        synced_character._update_wt_label_info(character_contacts)
+        # then
+        synced_character.refresh_from_db()
+        self.assertTrue(synced_character.has_war_targets_label)
+
 
 class TestEveWar(NoSocketsTestCase):
     def test_str(self):
@@ -836,3 +858,11 @@ class TestEveWar(NoSocketsTestCase):
         war = EveWarFactory(aggressor=aggressor, defender=defender)
         # when/then
         self.assertEqual(str(war), "Alpha vs. Bravo")
+
+
+class TestEveContact(NoSocketsTestCase):
+    def test_str(self):
+        # given
+        contact = EveContactFactory(eve_entity__name="Alpha")
+        # when/then
+        self.assertEqual(str(contact), "Alpha")

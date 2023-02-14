@@ -44,7 +44,7 @@ class EveContactAdmin(admin.ModelAdmin):
         return obj.eve_entity.get_category_display()
 
 
-class ActiveWarsListFilter(admin.SimpleListFilter):
+class EveWarActiveWarsListFilter(admin.SimpleListFilter):
     title = "active_wars"
     parameter_name = "active_wars"
 
@@ -59,6 +59,20 @@ class ActiveWarsListFilter(admin.SimpleListFilter):
             return queryset.filter(is_active=True)
         if self.value() == "no":
             return queryset.filter(is_active=False)
+        return queryset
+
+
+class EveWarStateListFilter(admin.SimpleListFilter):
+    title = "state"
+    parameter_name = "state"
+
+    def lookups(self, request, model_admin):
+        return EveWar.State.choices
+
+    def queryset(self, request, queryset):
+        if value := self.value():
+            return queryset.filter(state=value)
+
         return queryset
 
 
@@ -79,7 +93,7 @@ class EveWarAdmin(admin.ModelAdmin):
         "finished",
     )
     ordering = ("-id",)
-    list_filter = ("declared", ActiveWarsListFilter)
+    list_filter = ("declared", EveWarActiveWarsListFilter, EveWarStateListFilter)
     search_fields = ("aggressor__name", "defender__name", "allies__name")
     inlines = (AlliesInline,)
 

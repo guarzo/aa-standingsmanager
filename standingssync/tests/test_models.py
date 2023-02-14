@@ -14,14 +14,11 @@ from app_utils.testing import (
     create_user_from_evecharacter,
 )
 
-from standingssync.core.esi_contacts import (
-    EsiContact,
-    EsiContactLabel,
-    EsiContactsContainer,
-)
+from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
 
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
+    EsiContactLabelFactory,
     EveContactFactory,
     EveContactWarTargetFactory,
     EveEntityAllianceFactory,
@@ -35,6 +32,7 @@ from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixi
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
 MODELS_PATH = "standingssync.models"
+WAR_TARGET_LABEL = "WAR TARGETS"
 
 
 class TestGetEffectiveStanding(LoadTestDataMixin, NoSocketsTestCase):
@@ -408,7 +406,7 @@ class TestSyncManagerAddWarTargets(NoSocketsTestCase):
         self.assertSetEqual(result, {defender.contact_id})
 
 
-@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
+@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
 @patch(ESI_API_PATH + ".esi")
 class TestSyncCharacterEsi(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
@@ -518,7 +516,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
             standing=-5
         )
-        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(
             synced_character.character_id, [character_contact_1, character_contact_2]
@@ -586,7 +584,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # given
         synced_character = SyncedCharacterFactory()
         sync_manager = synced_character.manager
-        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         EveContactFactory(manager=sync_manager)  # should not sync this alliance contact
         EveContactFactory(
             manager=sync_manager,
@@ -643,7 +641,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             standing=10,
         )
         EveContactFactory(manager=sync_manager)  # alliance_contact
-        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(synced_character.character_id, [])
         esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
@@ -667,7 +665,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             standing=10,
         )
         EveContactFactory(manager=sync_manager)  # alliance_contact
-        other_label = EsiContactLabel(1, "ABC")
+        other_label = EsiContactLabelFactory()
         esi_character_contacts = EsiCharacterContactsStub()
         esi_character_contacts.setup_contacts(synced_character.character_id, [])
         esi_character_contacts.setup_labels(
@@ -830,7 +828,7 @@ class TestSyncCharacter2(NoSocketsTestCase):
     def test_should_update_wt_label_info(self):
         # given
         synced_character = SyncedCharacterFactory()
-        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         character_contacts = EsiContactsContainer.from_esi_contacts(labels=[wt_label])
         # when
         synced_character._update_wt_label_info(character_contacts)
@@ -841,7 +839,7 @@ class TestSyncCharacter2(NoSocketsTestCase):
     def test_should_not_update_wt_label_info(self):
         # given
         synced_character = SyncedCharacterFactory(has_war_targets_label=True)
-        wt_label = EsiContactLabel(1, "WAR TARGETS")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         character_contacts = EsiContactsContainer.from_esi_contacts(labels=[wt_label])
         # when
         synced_character._update_wt_label_info(character_contacts)

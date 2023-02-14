@@ -11,6 +11,7 @@ from standingssync.core.esi_contacts import (
 from ..factories import EsiContactFactory, EsiContactLabelFactory, EveContactFactory
 
 MODULE_PATH = "standingssync.core.esi_contacts"
+WAR_TARGET_LABEL = "WAR TARGETS"
 
 
 class TestEsiContact(NoSocketsTestCase):
@@ -121,7 +122,7 @@ class TestEsiContactLabel(NoSocketsTestCase):
         self.assertDictEqual(expected, result)
 
 
-@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
+@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
 class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when
@@ -291,7 +292,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_find_war_target_id(self):
         # given
-        label_1 = EsiContactLabelFactory(name="war target")
+        label_1 = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         label_2 = EsiContactLabelFactory()
         obj = EsiContactsContainer.from_esi_contacts(labels=[label_1, label_2])
         # when
@@ -311,7 +312,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_return_war_targets(self):
         # given
-        wt_label = EsiContactLabelFactory(name="war target")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         other_label = EsiContactLabelFactory()
         other_contact = EsiContactFactory(label_ids=[other_label.id])
         war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
@@ -325,7 +326,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_remove_war_targets(self):
         # given
-        wt_label = EsiContactLabelFactory(name="war target")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         other_label = EsiContactLabelFactory()
         other_contact = EsiContactFactory(label_ids=[other_label.id])
         war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])

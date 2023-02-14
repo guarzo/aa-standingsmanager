@@ -103,14 +103,14 @@ class EveWarManagerBase(models.Manager):
         """Updates existing or creates new objects from ESI with given ID."""
 
         logger.info("Retrieving war details for ID %s", id)
-        new_entity_ids = set()
+        entity_ids = set()
         war_info = esi_api.fetch_war(war_id=id)
-        aggressor_id = self._extract_id_from_war_participant(war_info["aggressor"])
-        aggressor, _ = EveEntity.objects.get_or_create(id=aggressor_id)
-        new_entity_ids.add(aggressor_id)
-        defender_id = self._extract_id_from_war_participant(war_info["defender"])
-        defender, _ = EveEntity.objects.get_or_create(id=defender_id)
-        new_entity_ids.add(defender_id)
+        aggressor = self._get_or_create_eve_entity_from_participant(
+            war_info["aggressor"]
+        )
+        entity_ids.add(aggressor.id)
+        defender = self._get_or_create_eve_entity_from_participant(war_info["defender"])
+        entity_ids.add(defender.id)
         with transaction.atomic():
             war, created = self.update_or_create(
                 id=id,
@@ -128,21 +128,26 @@ class EveWarManagerBase(models.Manager):
             war.allies.clear()
             if war_info.get("allies"):
                 for ally_info in war_info.get("allies"):
-                    ally_id = self._extract_id_from_war_participant(ally_info)
-                    ally, _ = EveEntity.objects.get_or_create(id=ally_id)
-                    war.allies.add(ally)
-                    new_entity_ids.add(ally_id)
+                    try:
+                        ally = self._get_or_create_eve_entity_from_participant(
+                            ally_info
+                        )
+                        war.allies.add(ally)
+                        entity_ids.add(ally.id)
+                    except ValueError:
+                        logger.warning("%s: Could not identify ally: ", id, ally_info)
 
-        EveEntity.objects.bulk_create_esi(new_entity_ids)
+        EveEntity.objects.bulk_create_esi(entity_ids)
         return war, created
 
     @staticmethod
-    def _extract_id_from_war_participant(participant: dict) -> int:
-        alliance_id = participant.get("alliance_id")
-        corporation_id = participant.get("corporation_id")
-        if not alliance_id and not corporation_id:
+    def _get_or_create_eve_entity_from_participant(participant: dict) -> EveEntity:
+        """Get or create an EveEntity object from a war participant dict."""
+        entity_id = participant.get("alliance_id") or participant.get("corporation_id")
+        if not entity_id:
             raise ValueError(f"Invalid participant: {participant}")
-        return alliance_id or corporation_id
+        obj, _ = EveEntity.objects.get_or_create(id=entity_id)
+        return obj
 
     def fetch_active_war_ids_esi(self) -> Set[int]:
         """Fetch IDs of all currently active wars."""

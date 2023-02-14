@@ -14,6 +14,7 @@ from ..models import EveWar, SyncManager
 from .factories import (
     EveContactFactory,
     EveEntityAllianceFactory,
+    EveEntityCorporationFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
@@ -339,8 +340,8 @@ class TestEveWarQueryset(NoSocketsTestCase):
         self.assertSetEqual(expected, result)
 
 
-@patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
 class TestEveWarManager2(NoSocketsTestCase):
+    @patch(MANAGERS_PATH + ".esi_api.fetch_war_ids")
     def test_should_return_unfinished_war_ids(self, mock_fetch_war_ids_from_esi):
         # given
         mock_fetch_war_ids_from_esi.return_value = {1, 2, 42}
@@ -349,6 +350,33 @@ class TestEveWarManager2(NoSocketsTestCase):
         result = EveWar.objects.fetch_active_war_ids_esi()
         # then
         self.assertSetEqual(result, {1, 2})
+
+
+class TestEveWarManagerEveEntityFromWarParticipant(NoSocketsTestCase):
+    def test_should_create_from_alliance_id(self):
+        # given
+        alliance = EveEntityAllianceFactory()
+        data = {"alliance_id": alliance.id}
+        # when
+        result = EveWar.objects._get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, alliance)
+
+    def test_should_create_from_corporation_id(self):
+        # given
+        corporation = EveEntityCorporationFactory()
+        data = {"corporation_id": corporation.id}
+        # when
+        result = EveWar.objects._get_or_create_eve_entity_from_participant(data)
+        # then
+        self.assertEqual(result, corporation)
+
+    def test_should_raise_error_when_no_id_found(self):
+        # given
+        data = {}
+        # when/then
+        with self.assertRaises(ValueError):
+            EveWar.objects._get_or_create_eve_entity_from_participant(data)
 
 
 class TestEveWarManagerAnnotations(NoSocketsTestCase):

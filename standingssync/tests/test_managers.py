@@ -66,6 +66,41 @@ class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
         self.assertListEqual(list(result.keys()), list(expected.keys()))
 
 
+class TestEveWarManagerWarTargets(NoSocketsTestCase):
+    def test_should_return_defender_and_allies_for_aggressor(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        # when
+        result = EveWar.objects.alliance_war_targets(aggressor.id)
+        # then
+        self.assertSetEqual({obj.id for obj in result}, {defender.id, ally.id})
+
+    def test_should_return_aggressor_for_defender(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        # when
+        result = EveWar.objects.alliance_war_targets(defender.id)
+        # then
+        self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
+
+    def test_should_return_aggressor_for_ally(self):
+        # given
+        aggressor = EveEntityAllianceFactory()
+        defender = EveEntityAllianceFactory()
+        ally = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        # when
+        result = EveWar.objects.alliance_war_targets(ally.id)
+        # then
+        self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
+
+
 class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
@@ -83,24 +118,6 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
         )
         EveEntityAllianceFactory(id=3002)
         EveEntityAllianceFactory(id=3003)
-
-    def test_should_return_defender_and_allies_for_aggressor(self):
-        # when
-        result = EveWar.objects.war_targets(3011)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3001, 3012})
-
-    def test_should_return_aggressor_for_defender(self):
-        # when
-        result = EveWar.objects.war_targets(3001)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3011})
-
-    def test_should_return_aggressor_for_ally(self):
-        # when
-        result = EveWar.objects.war_targets(3012)
-        # then
-        self.assertSetEqual({obj.id for obj in result}, {3011})
 
     def test_should_return_finished_wars(self):
         # given

@@ -78,7 +78,7 @@ class EveWarQuerySet(models.QuerySet):
 
 
 class EveWarManagerBase(models.Manager):
-    def war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:
+    def alliance_war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:
         """Return list of current war targets for given alliance as EveEntity objects
         or an empty list if there are None.
         """

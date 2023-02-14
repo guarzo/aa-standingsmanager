@@ -160,7 +160,7 @@ class SyncManager(_SyncBaseModel):
         """
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
-        war_targets = EveWar.objects.war_targets(self.character_alliance_id)
+        war_targets = EveWar.objects.alliance_war_targets(self.character_alliance_id)
         for war_target in war_targets:
             try:
                 contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))

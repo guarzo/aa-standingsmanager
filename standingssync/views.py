@@ -231,6 +231,7 @@ def wars(request):
         "alliance": sync_manager.alliance if sync_manager else "",
         "wars": wars,
         "war_count": len(wars),
+        "State": EveWar.State,
     }
     return render(request, "standingssync/wars.html", common_context(context))
 

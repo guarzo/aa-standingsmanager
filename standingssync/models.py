@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
+from django.utils.functional import classproperty
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
 from esi.models import Token
@@ -449,6 +450,17 @@ class EveContact(models.Model):
 
 class EveWar(models.Model):
     """An EveOnline war"""
+
+    class State(models.TextChoices):
+        PENDING = "pending"  # declared, but not started yet
+        ONGOING = "ongoing"  # active and without finish date
+        CONCLUDING = "concluding"  # active and about to finish normally
+        RETRACTED = "retracted"  # activate and about to finish after retraction
+        FINISHED = "finished"  # finished war
+
+        @classproperty
+        def active_states(cls) -> Set["EveWar.State"]:
+            return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 
     id = models.PositiveIntegerField(primary_key=True)
     aggressor = models.ForeignKey(EveEntity, on_delete=models.CASCADE, related_name="+")

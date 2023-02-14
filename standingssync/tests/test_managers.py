@@ -383,16 +383,38 @@ class TestEveWarManagerAnnotations(NoSocketsTestCase):
     def test_should_annotate_state(self):
         # given
         war_pending = EveWarFactory(declared=now())
-        war_active = EveWarFactory(declared=now() - dt.timedelta(hours=24))
-        war_finishes_soon = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_ongoing = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_concluding = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_retracted = EveWarFactory(retracted=now())
         war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
         # when
         qs = EveWar.objects.annotate_state()
         # then
-        self.assertEqual(qs.get(id=war_pending.id).state, "pending")
-        self.assertEqual(qs.get(id=war_active.id).state, "active")
-        self.assertEqual(qs.get(id=war_finishes_soon.id).state, "active")
-        self.assertEqual(qs.get(id=war_finished.id).state, "finished")
+        self.assertEqual(qs.get(id=war_pending.id).state, EveWar.State.PENDING.value)
+        self.assertEqual(qs.get(id=war_ongoing.id).state, EveWar.State.ONGOING.value)
+        self.assertEqual(
+            qs.get(id=war_concluding.id).state, EveWar.State.CONCLUDING.value
+        )
+        self.assertEqual(
+            qs.get(id=war_retracted.id).state, EveWar.State.RETRACTED.value
+        )
+        self.assertEqual(qs.get(id=war_finished.id).state, EveWar.State.FINISHED.value)
+
+    def test_should_annotate_is_active(self):
+        # given
+        war_pending = EveWarFactory(declared=now())
+        war_ongoing = EveWarFactory(declared=now() - dt.timedelta(hours=24))
+        war_concluding = EveWarFactory(finished=now() + dt.timedelta(hours=24))
+        war_retracted = EveWarFactory(retracted=now())
+        war_finished = EveWarFactory(finished=now() - dt.timedelta(hours=1))
+        # when
+        qs = EveWar.objects.annotate_state().annotate_is_active()
+        # then
+        self.assertFalse(qs.get(id=war_pending.id).is_active)
+        self.assertTrue(qs.get(id=war_ongoing.id).is_active)
+        self.assertTrue(qs.get(id=war_concluding.id).is_active)
+        self.assertTrue(qs.get(id=war_retracted.id).is_active)
+        self.assertFalse(qs.get(id=war_finished.id).is_active)
 
 
 class TestEveWarManagerCurrentWars(NoSocketsTestCase):

@@ -66,6 +66,11 @@ class EveWarFactory(factory.django.DjangoModelFactory):
     is_mutual = False
     is_open_for_allies = True
     started = factory.LazyAttribute(lambda obj: obj.declared + dt.timedelta(hours=24))
+    retracted = None
+
+    @factory.lazy_attribute
+    def finished(self):
+        return self.retracted + dt.timedelta(hours=24) if self.retracted else None
 
     @factory.post_generation
     def allies(self, create, extracted, **kwargs):

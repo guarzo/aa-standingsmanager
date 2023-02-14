@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.db.models import Prefetch
-from django.utils.html import format_html
 from eveuniverse.models import EveEntity
 
 from . import tasks
@@ -57,9 +56,9 @@ class ActiveWarsListFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == "yes":
-            return queryset.annotate_state().filter(state="active")
+            return queryset.filter(is_active=True)
         if self.value() == "no":
-            return queryset.annotate_state().exclude(state="active")
+            return queryset.filter(is_active=False)
         return queryset
 
 
@@ -74,9 +73,9 @@ class EveWarAdmin(admin.ModelAdmin):
         "_state",
         "aggressor",
         "defender",
-        "_allies",
         "declared",
         "started",
+        "retracted",
         "finished",
     )
     ordering = ("-id",)
@@ -91,17 +90,17 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
+        qs = super().get_queryset(request).annotate_state().annotate_is_active()
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_state()
 
     def _state(self, obj) -> str:
-        return obj.state
+        return EveWar.State(obj.state).label
 
-    def _allies(self, obj):
-        allies = sorted([str(ally) for ally in obj.allies.all()])
-        return format_html("<br>".join(allies)) if allies else "-"
+    # def _allies(self, obj):
+    #     allies = sorted([str(ally) for ally in obj.allies.all()])
+    #     return format_html("<br>".join(allies)) if allies else "-"
 
 
 @admin.register(SyncedCharacter)

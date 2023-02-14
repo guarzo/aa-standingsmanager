@@ -36,13 +36,38 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 
 class EveWarQuerySet(models.QuerySet):
     def annotate_state(self) -> models.QuerySet:
-        """Add calculated state field."""
+        """Add state field to queryset."""
+        State = self.model.State
         return self.annotate(
             state=Case(
-                When(started__gt=now(), then=Value("pending")),
-                When(started__lte=now(), finished__isnull=True, then=Value("active")),
-                When(started__lte=now(), finished__gt=now(), then=Value("active")),
-                default=Value("finished"),
+                When(started__gt=now(), then=Value(State.PENDING.value)),
+                When(
+                    started__lte=now(),
+                    finished__isnull=True,
+                    then=Value(State.ONGOING.value),
+                ),
+                When(
+                    started__lte=now(),
+                    finished__gt=now(),
+                    retracted__isnull=False,
+                    then=Value(State.RETRACTED.value),
+                ),
+                When(
+                    started__lte=now(),
+                    finished__gt=now(),
+                    retracted__isnull=True,
+                    then=Value(State.CONCLUDING.value),
+                ),
+                default=Value(State.FINISHED.value),
+            )
+        )
+
+    def annotate_is_active(self) -> models.QuerySet:
+        """Add is_active field to queryset. Requires prior annotation of state."""
+        return self.annotate(
+            is_active=Case(
+                When(state__in=self.model.State.active_states, then=Value(True)),
+                default=Value(False),
             )
         )
 

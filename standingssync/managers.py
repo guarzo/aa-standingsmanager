@@ -78,24 +78,23 @@ class EveWarQuerySet(models.QuerySet):
 
 
 class EveWarManagerBase(models.Manager):
-    def alliance_war_targets(self, alliance_id: int) -> models.QuerySet[EveEntity]:
-        """Return list of current war targets for given alliance as EveEntity objects
-        or an empty list if there are None.
-        """
+    def alliance_war_targets(
+        self, alliance: EveAllianceInfo
+    ) -> models.QuerySet[EveEntity]:
+        """Identify current war targets of on alliance."""
         war_target_ids = set()
-        for war in self.active_wars():
+        for war in self.alliance_wars(alliance).active_wars():
             # case 1 alliance is aggressor
-            if war.aggressor_id == alliance_id:
+            if war.aggressor_id == alliance.alliance_id:
                 war_target_ids.add(war.defender_id)
-                if war.allies:
-                    war_target_ids |= set(war.allies.values_list("id", flat=True))
+                war_target_ids |= set(war.allies.values_list("id", flat=True))
 
             # case 2 alliance is defender
-            if war.defender_id == alliance_id:
+            if war.defender_id == alliance.alliance_id:
                 war_target_ids.add(war.aggressor_id)
 
             # case 3 alliance is ally
-            if war.allies.filter(id=alliance_id).exists():
+            if war.allies.filter(id=alliance.alliance_id).exists():
                 war_target_ids.add(war.aggressor_id)
 
         return EveEntity.objects.filter(id__in=war_target_ids)

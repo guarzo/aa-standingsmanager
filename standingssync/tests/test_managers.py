@@ -71,12 +71,16 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         # given
         aggressor = EveEntityAllianceFactory()
         defender = EveEntityAllianceFactory()
-        ally = EveEntityAllianceFactory()
-        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        ally_1 = EveEntityAllianceFactory()
+        ally_2 = EveEntityAllianceFactory()
+        EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally_1, ally_2])
+        alliance = EveAllianceInfo.objects.get(alliance_id=aggressor.id)
         # when
-        result = EveWar.objects.alliance_war_targets(aggressor.id)
+        result = EveWar.objects.alliance_war_targets(alliance)
         # then
-        self.assertSetEqual({obj.id for obj in result}, {defender.id, ally.id})
+        self.assertSetEqual(
+            {obj.id for obj in result}, {defender.id, ally_1.id, ally_2.id}
+        )
 
     def test_should_return_aggressor_for_defender(self):
         # given
@@ -84,8 +88,9 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         defender = EveEntityAllianceFactory()
         ally = EveEntityAllianceFactory()
         EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        alliance = EveAllianceInfo.objects.get(alliance_id=defender.id)
         # when
-        result = EveWar.objects.alliance_war_targets(defender.id)
+        result = EveWar.objects.alliance_war_targets(alliance)
         # then
         self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
 
@@ -95,8 +100,9 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         defender = EveEntityAllianceFactory()
         ally = EveEntityAllianceFactory()
         EveWarFactory(aggressor=aggressor, defender=defender, allies=[ally])
+        alliance = EveAllianceInfo.objects.get(alliance_id=ally.id)
         # when
-        result = EveWar.objects.alliance_war_targets(ally.id)
+        result = EveWar.objects.alliance_war_targets(alliance)
         # then
         self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
 

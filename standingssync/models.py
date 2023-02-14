@@ -85,10 +85,6 @@ class SyncManager(_SyncBaseModel):
     def __str__(self):
         return str(self.alliance)
 
-    @property
-    def character_alliance_id(self) -> int:
-        return self.character_ownership.character.alliance_id
-
     def contacts_for_sync(self, synced_character: "SyncedCharacter") -> models.QuerySet:
         """Relevant contacts for sync, which excludes the sync character."""
         return self.contacts.exclude(eve_entity_id=synced_character.character_id)
@@ -162,12 +158,15 @@ class SyncManager(_SyncBaseModel):
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
         war_targets = EveWar.objects.alliance_war_targets(self.alliance)
+        war_target_ids = set()
         for war_target in war_targets:
             try:
                 contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
             except KeyError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
-        return {war_target.id for war_target in war_targets}
+            else:
+                war_target_ids.add(war_target.id)
+        return war_target_ids
 
     def _save_new_contacts(
         self,

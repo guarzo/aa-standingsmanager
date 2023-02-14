@@ -14,7 +14,11 @@ from app_utils.testing import (
     create_user_from_evecharacter,
 )
 
-from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
+from standingssync.core.esi_contacts import (
+    EsiContact,
+    EsiContactLabel,
+    EsiContactsContainer,
+)
 
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
@@ -349,6 +353,59 @@ class TestSyncManager2(NoSocketsTestCase):
         sync_manager.run_sync()
         # then
         self.assertEqual(sync_manager.contacts.count(), 0)
+
+
+class TestSyncManagerAddWarTargets(NoSocketsTestCase):
+    def test_should_add_war_targets(self):
+        # given
+        sync_manager = SyncManagerFactory()
+        alliance_entity = EveEntityAllianceFactory(
+            id=sync_manager.alliance.alliance_id,
+            name=sync_manager.alliance.alliance_name,
+        )
+        alliance_contacts = EsiContactsContainer()
+        war = EveWarFactory(defender=alliance_entity)
+        aggressor = EsiContact.from_eve_entity(war.aggressor, -10)
+        # when
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+            result = sync_manager._add_war_targets(alliance_contacts)
+        # then
+        self.assertSetEqual(alliance_contacts.contacts(), {aggressor})
+        self.assertSetEqual(result, {aggressor.contact_id})
+
+    def test_should_not_add_war_targets_when_disabled(self):
+        # given
+        sync_manager = SyncManagerFactory()
+        alliance_entity = EveEntityAllianceFactory(
+            id=sync_manager.alliance.alliance_id,
+            name=sync_manager.alliance.alliance_name,
+        )
+        alliance_contacts = EsiContactsContainer()
+        EveWarFactory(defender=alliance_entity)
+        # when
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
+            result = sync_manager._add_war_targets(alliance_contacts)
+        # then
+        self.assertSetEqual(alliance_contacts.contacts(), set())
+        self.assertSetEqual(result, set())
+
+    def test_should_ignore_unknown_war_targets(self):
+        # given
+        sync_manager = SyncManagerFactory()
+        alliance_entity = EveEntityAllianceFactory(
+            id=sync_manager.alliance.alliance_id,
+            name=sync_manager.alliance.alliance_name,
+        )
+        alliance_contacts = EsiContactsContainer()
+        ally = EveEntity.objects.create(id=1234567)
+        war = EveWarFactory(aggressor=alliance_entity, allies=[ally])
+        defender = EsiContact.from_eve_entity(war.defender, -10)
+        # when
+        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
+            result = sync_manager._add_war_targets(alliance_contacts)
+        # then
+        self.assertSetEqual(alliance_contacts.contacts(), {defender})
+        self.assertSetEqual(result, {defender.contact_id})
 
 
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")

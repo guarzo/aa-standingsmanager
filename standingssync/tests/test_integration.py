@@ -53,13 +53,11 @@ class TestTasksE2E(NoSocketsTestCase):
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        self.assertEqual(
-            esi_character_contacts.contact_by_id(some_alliance_contact.id).standing, 5
-        )
-        self.assertEqual(
-            esi_character_contacts.contact_by_id(manager.alliance.alliance_id).standing,
-            10,
-        )
+        expected = {
+            EsiContact.from_eve_entity(some_alliance_contact, standing=5),
+            EsiContact(manager.alliance.alliance_id, "alliance", standing=10),
+        }
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
         self.assertNotIn(
             sync_character.character.character_id, esi_character_contacts.contact_ids()
         )

@@ -178,13 +178,17 @@ def auth_to_eve_entities():
 
 
 @dataclass
-class EsiCharacterContactsStub(EsiContactsContainer):
+class EsiCharacterContactsStub:
     """Simulates the contacts for a character on ESI"""
 
-    character_id: int
+    _character_id: int
+    _contacts: EsiContactsContainer = None
+
+    def contacts(self) -> Set[EsiContact]:
+        return self._contacts.contacts()
 
     def contact_ids(self) -> Set[int]:
-        return {contact.contact_id for contact in self.contacts()}
+        return {contact.contact_id for contact in self._contacts.contacts()}
 
     def _setup_esi_mock(self, mock_esi):
         """Sets the mock for ESI to this object."""
@@ -206,11 +210,11 @@ class EsiCharacterContactsStub(EsiContactsContainer):
 
     def _setup_contacts(self, contacts):
         for contact in contacts:
-            self.add_contact(contact)
+            self._contacts.add_contact(contact)
 
     def _setup_labels(self, labels):
         for label in labels:
-            self.add_label(label)
+            self._contacts.add_label(label)
 
     @classmethod
     def create(
@@ -222,7 +226,7 @@ class EsiCharacterContactsStub(EsiContactsContainer):
         labels: Iterable[EsiContactLabel] = None,
     ) -> "EsiCharacterContactsStub":
         """Create new obj for tests."""
-        obj = cls(character_id)
+        obj = cls(character_id, EsiContactsContainer())
         if labels:
             obj._setup_labels(labels)
         if contacts:
@@ -234,7 +238,7 @@ class EsiCharacterContactsStub(EsiContactsContainer):
     def _esi_get_characters_character_id_contacts(self, character_id, token, page=None):
         self._assert_correct_character(character_id)
         contacts = sorted(
-            [obj.to_esi_dict() for obj in self.contacts()],
+            [obj.to_esi_dict() for obj in self._contacts.contacts()],
             key=lambda obj: obj["contact_id"],
         )
         return BravadoOperationStub(contacts)
@@ -244,7 +248,7 @@ class EsiCharacterContactsStub(EsiContactsContainer):
     ):
         self._assert_correct_character(character_id)
         labels = sorted(
-            [label.to_esi_dict() for label in self.labels()],
+            [label.to_esi_dict() for label in self._contacts.labels()],
             key=lambda obj: obj["label_id"],
         )
         return BravadoOperationStub(labels)
@@ -261,7 +265,7 @@ class EsiCharacterContactsStub(EsiContactsContainer):
         }
         for contact_id in contact_ids:
             eve_entity = EveEntity.objects.get(id=contact_id)
-            self.add_contact(
+            self._contacts.add_contact(
                 EsiContact(
                     contact_id=contact_id,
                     contact_type=contact_type_map[eve_entity.category],
@@ -278,15 +282,15 @@ class EsiCharacterContactsStub(EsiContactsContainer):
         self._check_label_ids_valid(character_id, label_ids)
         for contact_id in contact_ids:
             try:
-                old_contact = self.contact_by_id(contact_id)
+                old_contact = self._contacts.contact_by_id(contact_id)
             except ValueError:
                 continue
             params = {"standing": standing}
             if label_ids:
                 params["label_ids"] = list(old_contact.label_ids) + list(label_ids)
             new_contact = old_contact.clone(**params)
-            self.remove_contact(old_contact)
-            self.add_contact(new_contact)
+            self._contacts.remove_contact(old_contact)
+            self._contacts.add_contact(new_contact)
         return BravadoOperationStub(None)
 
     def _esi_delete_characters_character_id_contacts(
@@ -295,17 +299,17 @@ class EsiCharacterContactsStub(EsiContactsContainer):
         self._assert_correct_character(character_id)
         for contact_id in contact_ids:
             try:
-                contact = self.contact_by_id(contact_id)
+                contact = self._contacts.contact_by_id(contact_id)
             except ValueError:
                 continue
-            self.remove_contact(contact)
+            self._contacts.remove_contact(contact)
         return BravadoOperationStub([])
 
     def _assert_correct_character(self, character_id: int):
-        if character_id != self.character_id:
+        if character_id != self._character_id:
             raise build_http_error(404, f"Unknown character ID: {character_id}")
 
     def _check_label_ids_valid(self, character_id, label_ids):
         if label_ids:
             for label_id in label_ids:
-                self.label_by_id(label_id)
+                self._contacts.label_by_id(label_id)

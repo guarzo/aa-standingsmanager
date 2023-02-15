@@ -19,12 +19,13 @@
                             <th>Defender</th>
                             <th>Allies</th>
                             <th>Finish</th>
+                            <th>Active</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for war in wars %}
                             <tr>
-                                <td>
+                                <td data-sort="{{ war.state }}">
                                     {% if war.state == State.PENDING %}
                                         <i class="fas fa-pause text-warning" title="pending"></i>
                                     {% elif war.state == State.FINISHED %}
@@ -60,6 +61,9 @@
                                         -
                                     {% endif %}
                                 </td>
+                                <td>
+                                    {% if war.is_active %}yes{% else %}no{% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -78,6 +82,7 @@
 
 {% block extra_javascript %}
     {% include 'bundles/datatables-js.html' %}
+    {% include 'bundles/filterdropdown-js.html' %}
 
     <script type="application/javascript">
         $(document).ready(function () {
@@ -86,8 +91,22 @@
                 info: false,
                 order: [ [1, "desc"] ],
                 columnDefs: [
-                    { "sortable": false, "targets": [ 0, 4 ] },
+                    {
+                        sortable: false, targets: [ 4 ]
+                    },
+                    {
+                        visible: false, targets: [ 6 ]
+                    }
                 ],
+                filterDropDown: {
+                    columns: [
+                        {
+                            idx: 6
+                        }
+                    ],
+                    autoSize: false,
+                    bootstrap: true
+                }
             });
         });
     </script>

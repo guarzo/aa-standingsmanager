@@ -434,8 +434,8 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[character_contact_1, character_contact_2],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()
@@ -474,8 +474,8 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[character_contact_1, character_contact_2],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()
@@ -515,9 +515,9 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[character_contact_1, character_contact_2],
             labels=[wt_label],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()
@@ -557,8 +557,8 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[character_contact_1, character_contact_2],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()
@@ -600,13 +600,13 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )  # should replace this existing character contact with a WT
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[
                 character_contact_1,
                 character_old_wt_contact,
                 character_contact_2,
             ],
             labels=[wt_label],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()
@@ -636,7 +636,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         EveContactFactory(manager=sync_manager)  # alliance_contact
         wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         EsiCharacterContactsStub.create(
-            synced_character.character_id, labels=[wt_label], mock_esi=mock_esi
+            synced_character.character_id, mock_esi, labels=[wt_label]
         )
         # when
         synced_character.run_sync()
@@ -659,7 +659,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         EveContactFactory(manager=sync_manager)  # alliance_contact
         other_label = EsiContactLabelFactory()
         EsiCharacterContactsStub.create(
-            synced_character.character_id, labels=[other_label], mock_esi=mock_esi
+            synced_character.character_id, mock_esi, labels=[other_label]
         )
         # when
         synced_character.run_sync()
@@ -684,8 +684,8 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         EsiCharacterContactsStub.create(
             synced_character.character_id,
+            mock_esi,
             contacts=[character_contact_1],
-            mock_esi=mock_esi,
         )
         # when
         result = synced_character.run_sync()

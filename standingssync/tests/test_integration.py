@@ -48,7 +48,7 @@ class TestTasksE2E(NoSocketsTestCase):
             BravadoOperationStub(alliance_contacts)
         )
         esi_character_contacts = EsiCharacterContactsStub.create(
-            sync_character.character.character_id, mock_esi=mock_esi
+            sync_character.character.character_id, mock_esi
         )
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
@@ -86,7 +86,7 @@ class TestTasksE2E(NoSocketsTestCase):
         )
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
         esi_character_contacts = EsiCharacterContactsStub.create(
-            character.id, mock_esi=mock_esi, labels=[war_target_label]
+            character.id, mock_esi, labels=[war_target_label]
         )
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
@@ -129,7 +129,7 @@ class TestTasksE2E(NoSocketsTestCase):
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
         esi_character_contacts = EsiCharacterContactsStub.create(
             character.id,
-            mock_esi=mock_esi,
+            mock_esi,
             contacts=[
                 EsiContact.from_eve_entity(ally, standing=5),
                 EsiContact.from_eve_entity(some_character_contact, standing=10),
@@ -180,7 +180,7 @@ class TestTasksE2E(NoSocketsTestCase):
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
         esi_character_contacts = EsiCharacterContactsStub.create(
             character.id,
-            mock_esi=mock_esi,
+            mock_esi,
             labels=[war_target_label],
             contacts=[
                 EsiContact.from_eve_entity(ally, standing=5),

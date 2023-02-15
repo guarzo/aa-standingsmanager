@@ -111,9 +111,9 @@ class TestEsiContactsApi(NoSocketsTestCase):
         mock_token = MockToken(1001, "Bruce Wayne")
         contact_1002 = EsiContact(1002, EsiContact.ContactType.CHARACTER, 5)
         contact_1003 = EsiContact(1003, EsiContact.ContactType.CHARACTER, 5)
-        esi_stub = EsiCharacterContactsStub(1001)
-        esi_stub.setup_contacts([contact_1002, contact_1003])
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(
+            1001, mock_esi, contacts=[contact_1002, contact_1003]
+        )
         # when
         esi_api.delete_character_contacts(mock_token, [contact_1003])
         # then
@@ -123,8 +123,7 @@ class TestEsiContactsApi(NoSocketsTestCase):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
         contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)
-        esi_stub = EsiCharacterContactsStub(1001)
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(1001, mock_esi)
         # when
         esi_api.add_character_contacts(mock_token, {contact})
         # then
@@ -139,9 +138,9 @@ class TestEsiContactsApi(NoSocketsTestCase):
             contact_type=contact.contact_type,
             standing=10,
         )
-        esi_stub = EsiCharacterContactsStub(1001)
-        esi_stub.setup_contacts([old_esi_contact])
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(
+            1001, mock_esi, contacts=[old_esi_contact]
+        )
         # when
         esi_api.update_character_contacts(mock_token, {contact})
         # then

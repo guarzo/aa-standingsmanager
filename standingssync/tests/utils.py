@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Iterable, Set
+from unittest.mock import MagicMock
 
 from eveuniverse.models import EveEntity
 
@@ -182,27 +183,10 @@ class EsiCharacterContactsStub(EsiContactsContainer):
 
     character_id: int
 
-    def setup_contacts(self, contacts):
-        for contact in contacts:
-            self.add_contact(contact)
-
-    def setup_labels(self, labels):
-        for label in labels:
-            self.add_label(label)
-
     def contact_ids(self) -> Set[int]:
         return {contact.contact_id for contact in self.contacts()}
 
-    # def contacts(self, character_id: int) -> Set[EsiContact]:
-    #     return set(self._contacts[character_id].values())
-
-    # def character_contact(self, character_id: int, contact_id: int) -> EsiContact:
-    #     return self._contacts[character_id][contact_id]
-
-    # def labels(self, character_id: int) -> Set[EsiContactLabel]:
-    #     return set(self._labels[character_id].values())
-
-    def setup_esi_mock(self, mock_esi):
+    def _setup_esi_mock(self, mock_esi):
         """Sets the mock for ESI to this object."""
         mock_esi.client.Contacts.get_characters_character_id_contacts.side_effect = (
             self._esi_get_characters_character_id_contacts
@@ -220,23 +204,31 @@ class EsiCharacterContactsStub(EsiContactsContainer):
             self._esi_get_characters_character_id_contacts_labels
         )
 
+    def _setup_contacts(self, contacts):
+        for contact in contacts:
+            self.add_contact(contact)
+
+    def _setup_labels(self, labels):
+        for label in labels:
+            self.add_label(label)
+
     @classmethod
     def create(
         cls,
         character_id: int,
+        mock_esi: MagicMock,
         *,
         contacts: Iterable[EsiContact] = None,
         labels: Iterable[EsiContactLabel] = None,
-        mock_esi=None,
     ) -> "EsiCharacterContactsStub":
         """Create new obj for tests."""
         obj = cls(character_id)
         if labels:
-            obj.setup_labels(labels)
+            obj._setup_labels(labels)
         if contacts:
-            obj.setup_contacts(contacts)
+            obj._setup_contacts(contacts)
         if mock_esi:
-            obj.setup_esi_mock(mock_esi)
+            obj._setup_esi_mock(mock_esi)
         return obj
 
     def _esi_get_characters_character_id_contacts(self, character_id, token, page=None):

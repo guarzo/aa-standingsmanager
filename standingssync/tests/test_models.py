@@ -18,6 +18,7 @@ from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
 
 from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
+    EsiContactFactory,
     EsiContactLabelFactory,
     EveContactFactory,
     EveContactWarTargetFactory,
@@ -691,6 +692,20 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         result = synced_character.run_sync()
         # then
         self.assertIsNone(result)
+
+    def test_should_delete_contacts(self, mock_esi):
+        # given
+        synced_character = SyncedCharacterFactory()
+        character_contact_1 = EsiContactFactory()
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            mock_esi,
+            contacts=[character_contact_1],
+        )
+        # when
+        synced_character.delete_contacts()
+        # then
+        self.assertSetEqual(esi_character_contacts.contacts(), set())
 
 
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):

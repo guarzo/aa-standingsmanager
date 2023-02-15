@@ -61,6 +61,13 @@ def run_character_sync(sync_char_pk: int):
 
 
 @shared_task
+def character_delete_all_contacts(sync_char_pk: int):
+    """Delete contacts of this character."""
+    synced_character = SyncedCharacter.objects.get(pk=sync_char_pk)
+    synced_character.delete_all_contacts()
+
+
+@shared_task
 def sync_all_wars():
     """Sync all wars from ESI."""
     fetch_active_war_ids_esi = EveWar.objects.fetch_active_war_ids_esi()

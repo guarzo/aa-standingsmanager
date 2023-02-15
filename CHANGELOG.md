@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - New page showing the current wars of the configured alliance
+- Ability to delete all contacts of a character from the admin site
 
 ### Changed
 

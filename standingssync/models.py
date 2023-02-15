@@ -328,31 +328,31 @@ class SyncedCharacter(_SyncBaseModel):
         Will deactivate this character if any severe issues are encountered.
         """
         try:
-            token = (
-                Token.objects.filter(
-                    user=self.character_ownership.user,
-                    character_id=self.character_ownership.character.character_id,
-                )
-                .require_scopes(self.get_esi_scopes())
-                .require_valid()
-                .first()
-            )
+            token = self._valid_token()
         except TokenInvalidError:
             logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
             return None
-
         except TokenExpiredError:
             logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
             return None
-
         if token is None:
             logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
             return None
-
         return token
+
+    def _valid_token(self) -> Optional[Token]:
+        return (
+            Token.objects.filter(
+                user=self.character_ownership.user,
+                character_id=self.character_ownership.character.character_id,
+            )
+            .require_scopes(self.get_esi_scopes())
+            .require_valid()
+            .first()
+        )
 
     def _deactivate_sync(self, message: str):
         """Deactivate character and send a message to the user about the issue."""
@@ -402,6 +402,14 @@ class SyncedCharacter(_SyncBaseModel):
                 "%s: new version hash: %s", self, current_contacts.version_hash()
             )
         return current_contacts
+
+    def delete_all_contacts(self):
+        """Delete all contacts of this character."""
+        token = self._valid_token()
+        contacts_clone = self._fetch_current_contacts(token)
+        contacts = contacts_clone.contacts()
+        logger.info("%s: Deleting all %d contacts", self, len(contacts))
+        esi_api.delete_character_contacts(token, contacts)
 
     @staticmethod
     def get_esi_scopes() -> list:

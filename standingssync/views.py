@@ -213,6 +213,7 @@ def wars(request):
             .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
             .select_related("aggressor", "defender")
             .annotate_state()
+            .annotate_is_active()
             .order_by("-started")
         ):
             allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
@@ -225,15 +226,25 @@ def wars(request):
                     "defender": war.defender,
                     "allies": allies,
                     "state": war.state,
+                    "is_active": war.is_active,
                 }
             )
     context = {
         "page_title": "Current Wars",
-        "alliance": sync_manager.alliance if sync_manager else "Not configured",
+        "alliance": "Not configured",
         "wars": wars,
-        "war_count": len(wars) if sync_manager else "?",
+        "war_count": "?",
+        "active_wars_count": "?",
         "State": EveWar.State,
     }
+    if sync_manager:
+        context.update(
+            {
+                "alliance": sync_manager.alliance,
+                "war_count": len(wars),
+                "active_wars_count": sum([1 for obj in wars if obj["is_active"]]),
+            }
+        )
     return render(request, "standingssync/wars.html", common_context(context))
 
 

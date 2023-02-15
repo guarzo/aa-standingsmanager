@@ -703,7 +703,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             contacts=[character_contact_1],
         )
         # when
-        synced_character.delete_contacts()
+        synced_character.delete_all_contacts()
         # then
         self.assertSetEqual(esi_character_contacts.contacts(), set())
 

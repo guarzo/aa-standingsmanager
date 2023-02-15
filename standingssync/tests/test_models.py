@@ -432,11 +432,11 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
             standing=-5
         )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_1, character_contact_2]
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            contacts=[character_contact_1, character_contact_2],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then
@@ -447,9 +447,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
         }
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
@@ -474,11 +472,11 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
             standing=-5
         )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_1, character_contact_2]
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            contacts=[character_contact_1, character_contact_2],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then
@@ -489,9 +487,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EsiContact.from_eve_contact(alliance_contact_1),
             EsiContact.from_eve_contact(alliance_contact_2),
         }
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
@@ -517,12 +513,12 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             standing=-5
         )
         wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_1, character_contact_2]
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            contacts=[character_contact_1, character_contact_2],
+            labels=[wt_label],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then
@@ -534,9 +530,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EsiContact.from_eve_contact(alliance_contact_2),
             EsiContact.from_eve_contact(alliance_wt_contact, label_ids=[wt_label.id]),
         }
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
@@ -561,11 +555,11 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_2 = EsiContact.from_eve_contact(alliance_contact_2).clone(
             standing=-5
         )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_1, character_contact_2]
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            contacts=[character_contact_1, character_contact_2],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then
@@ -573,9 +567,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         synced_character.refresh_from_db()
         self.assertIsNotNone(synced_character.last_sync_at)
         expected = {character_contact_1, character_contact_2}
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
@@ -606,13 +598,16 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_2 = EsiContact.from_eve_contact(alliance_wt_contact_2).clone(
             standing=10
         )  # should replace this existing character contact with a WT
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
-        esi_character_contacts.setup_contacts(
+        esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
-            [character_contact_1, character_old_wt_contact, character_contact_2],
+            contacts=[
+                character_contact_1,
+                character_old_wt_contact,
+                character_contact_2,
+            ],
+            labels=[wt_label],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then
@@ -624,9 +619,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EsiContact.from_eve_contact(alliance_wt_contact_1, label_ids=[wt_label.id]),
             EsiContact.from_eve_contact(alliance_wt_contact_2, label_ids=[wt_label.id]),
         }
-        self.assertSetEqual(
-            esi_character_contacts.contacts(synced_character.character_id), expected
-        )
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
@@ -642,10 +635,9 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         EveContactFactory(manager=sync_manager)  # alliance_contact
         wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(synced_character.character_id, [])
-        esi_character_contacts.setup_labels(synced_character.character_id, [wt_label])
-        esi_character_contacts.setup_esi_mock(mock_esi)
+        EsiCharacterContactsStub.create(
+            synced_character.character_id, labels=[wt_label], mock_esi=mock_esi
+        )
         # when
         synced_character.run_sync()
         # then
@@ -666,12 +658,9 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
         EveContactFactory(manager=sync_manager)  # alliance_contact
         other_label = EsiContactLabelFactory()
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(synced_character.character_id, [])
-        esi_character_contacts.setup_labels(
-            synced_character.character_id, [other_label]
+        EsiCharacterContactsStub.create(
+            synced_character.character_id, labels=[other_label], mock_esi=mock_esi
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         synced_character.run_sync()
         # then
@@ -693,11 +682,11 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         character_contact_1 = EsiContact.from_eve_entity(
             EveEntityCharacterFactory(), -5
         )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_contacts(
-            synced_character.character_id, [character_contact_1]
+        EsiCharacterContactsStub.create(
+            synced_character.character_id,
+            contacts=[character_contact_1],
+            mock_esi=mock_esi,
         )
-        esi_character_contacts.setup_esi_mock(mock_esi)
         # when
         result = synced_character.run_sync()
         # then

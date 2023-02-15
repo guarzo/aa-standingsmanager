@@ -205,6 +205,31 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # then
         self.assertEqual(result, c1)
 
+    def test_should_raise_error_when_contact_not_found(self):
+        # given
+        c1 = EsiContactFactory()
+        c2 = EsiContactFactory()
+        contacts = EsiContactsContainer.from_esi_contacts([c1, c2])
+        # when/then
+        with self.assertRaises(ValueError):
+            contacts.contact_by_id(123456)
+
+    def test_should_raise_error_when_label_not_found(self):
+        # given
+        contacts = EsiContactsContainer.from_esi_contacts()
+        # when/then
+        with self.assertRaises(ValueError):
+            contacts.label_by_id(123456)
+
+    def test_should_find_label_by_id(self):
+        # given
+        label = EsiContactLabelFactory()
+        contacts = EsiContactsContainer.from_esi_contacts(labels=[label])
+        # when
+        new_label = contacts.label_by_id(label.id)
+        # then
+        self.assertEqual(label, new_label)
+
     def test_should_remove_unknown_label_ids(self):
         # given
         label_1 = EsiContactLabelFactory()

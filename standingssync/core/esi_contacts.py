@@ -167,12 +167,28 @@ class EsiContactsContainer:
             self.remove_contact(contact)
 
     def contact_by_id(self, contact_id: int) -> EsiContact:
-        """Returns contact by it's ID."""
-        return self._contacts[contact_id]
+        """Returns contact by it's ID.
+
+        Raises ValueError when contact is not found.
+        """
+        try:
+            return self._contacts[contact_id]
+        except KeyError:
+            raise ValueError(f"Contact with ID {contact_id} not found.")
 
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
         return set(self._contacts.values())
+
+    def label_by_id(self, label_id) -> EsiContactLabel:
+        """Returns label by it's ID.
+
+        Raises ValueError when label is not found.
+        """
+        try:
+            return self._labels[label_id]
+        except KeyError:
+            raise ValueError(f"Label with ID {label_id} not found.")
 
     def labels(self) -> Set[EsiContactLabel]:
         """Fetch all labels."""

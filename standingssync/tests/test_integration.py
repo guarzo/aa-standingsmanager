@@ -47,18 +47,21 @@ class TestTasksE2E(NoSocketsTestCase):
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
             BravadoOperationStub(alliance_contacts)
         )
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_esi_mock(mock_esi)
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            sync_character.character.character_id, mock_esi=mock_esi
+        )
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        character_contacts = esi_character_contacts._contacts[
-            sync_character.character.character_id
-        ]
-        self.assertEqual(character_contacts[some_alliance_contact.id].standing, 5)
-        self.assertEqual(character_contacts[manager.alliance.alliance_id].standing, 10)
+        self.assertEqual(
+            esi_character_contacts.contact_by_id(some_alliance_contact.id).standing, 5
+        )
+        self.assertEqual(
+            esi_character_contacts.contact_by_id(manager.alliance.alliance_id).standing,
+            10,
+        )
         self.assertNotIn(
-            sync_character.character.character_id, character_contacts.keys()
+            sync_character.character.character_id, esi_character_contacts.contact_ids()
         )
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
@@ -82,13 +85,12 @@ class TestTasksE2E(NoSocketsTestCase):
             BravadoOperationStub(alliance_contacts)
         )
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        esi_character_contacts.setup_labels(character.id, [war_target_label])
+        esi_character_contacts = EsiCharacterContactsStub.create(
+            character.id, mock_esi=mock_esi, labels=[war_target_label]
+        )
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
             EsiContact.from_eve_entity(some_alliance_contact, standing=5),
             EsiContact(
@@ -100,7 +102,7 @@ class TestTasksE2E(NoSocketsTestCase):
                 war.aggressor, standing=-10, label_ids=[war_target_label.id]
             ),
         }
-        self.assertSetEqual(result, expected)
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
@@ -125,20 +127,18 @@ class TestTasksE2E(NoSocketsTestCase):
             BravadoOperationStub(alliance_contacts)
         )
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        esi_character_contacts.setup_contacts(
+        esi_character_contacts = EsiCharacterContactsStub.create(
             character.id,
-            [
+            mock_esi=mock_esi,
+            contacts=[
                 EsiContact.from_eve_entity(ally, standing=5),
                 EsiContact.from_eve_entity(some_character_contact, standing=10),
             ],
+            labels=[war_target_label],
         )
-        esi_character_contacts.setup_labels(character.id, [war_target_label])
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
             EsiContact.from_eve_entity(some_alliance_contact, standing=5),
             EsiContact(
@@ -153,7 +153,7 @@ class TestTasksE2E(NoSocketsTestCase):
                 ally, standing=-10, label_ids=[war_target_label.id]
             ),
         }
-        self.assertSetEqual(result, expected)
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
@@ -178,12 +178,11 @@ class TestTasksE2E(NoSocketsTestCase):
             BravadoOperationStub(alliance_contacts)
         )
         war_target_label = EsiContactLabel(1, "WAR TARGETS")
-        esi_character_contacts = EsiCharacterContactsStub()
-        esi_character_contacts.setup_esi_mock(mock_esi)
-        esi_character_contacts.setup_labels(character.id, [war_target_label])
-        esi_character_contacts.setup_contacts(
+        esi_character_contacts = EsiCharacterContactsStub.create(
             character.id,
-            [
+            mock_esi=mock_esi,
+            labels=[war_target_label],
+            contacts=[
                 EsiContact.from_eve_entity(ally, standing=5),
                 EsiContact.from_eve_entity(some_character_contact, standing=10),
             ],
@@ -191,7 +190,6 @@ class TestTasksE2E(NoSocketsTestCase):
         # when
         run_manager_sync.delay(manager_pk=manager.pk)
         # then
-        result = esi_character_contacts.contacts(sync_character.character.character_id)
         expected = {
             # EsiContact.from_eve_entity(alliance, standing=10),
             EsiContact.from_eve_entity(
@@ -203,7 +201,7 @@ class TestTasksE2E(NoSocketsTestCase):
             EsiContact.from_eve_entity(some_character_contact, standing=10),
             # EsiContact.from_eve_entity(some_alliance_contact, standing=5),
         }
-        self.assertSetEqual(result, expected)
+        self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
 
 class TestUI(NoSocketsTestCase):

@@ -239,3 +239,12 @@ class TestUI(NoSocketsTestCase):
         response = self.client.get("/standingssync/wars")
         # then
         self.assertEqual(response.status_code, 200)
+
+    def test_should_open_wars_page_wo_sync_manager(self):
+        # given
+        user = UserMainSyncerFactory()
+        self.client.force_login(user)
+        # when
+        response = self.client.get("/standingssync/wars")
+        # then
+        self.assertEqual(response.status_code, 200)

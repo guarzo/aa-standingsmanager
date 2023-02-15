@@ -206,31 +206,32 @@ def remove_character(request, alt_pk):
 def wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     wars = []
-    for war in (
-        EveWar.objects.current_wars()
-        .alliance_wars(alliance=sync_manager.alliance)
-        .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
-        .select_related("aggressor", "defender")
-        .annotate_state()
-        .order_by("-started")
-    ):
-        allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
-        wars.append(
-            {
-                "declared": war.declared,
-                "started": war.started,
-                "finished": war.finished,
-                "aggressor": war.aggressor,
-                "defender": war.defender,
-                "allies": allies,
-                "state": war.state,
-            }
-        )
+    if sync_manager:
+        for war in (
+            EveWar.objects.current_wars()
+            .alliance_wars(alliance=sync_manager.alliance)
+            .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
+            .select_related("aggressor", "defender")
+            .annotate_state()
+            .order_by("-started")
+        ):
+            allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
+            wars.append(
+                {
+                    "declared": war.declared,
+                    "started": war.started,
+                    "finished": war.finished,
+                    "aggressor": war.aggressor,
+                    "defender": war.defender,
+                    "allies": allies,
+                    "state": war.state,
+                }
+            )
     context = {
         "page_title": "Current Wars",
-        "alliance": sync_manager.alliance if sync_manager else "",
+        "alliance": sync_manager.alliance if sync_manager else "Not configured",
         "wars": wars,
-        "war_count": len(wars),
+        "war_count": len(wars) if sync_manager else "?",
         "State": EveWar.State,
     }
     return render(request, "standingssync/wars.html", common_context(context))

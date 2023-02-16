@@ -132,7 +132,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
         "last_sync_at",
         ("character_ownership__user", admin.RelatedOnlyFieldListFilter),
     )
-    actions = ["sync_characters"]
+    actions = ["sync_characters", "delete_all_contacts"]
     list_display_links = None
 
     def get_queryset(self, request):
@@ -171,6 +171,16 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
             names.append(str(obj))
         self.message_user(
             request, "Started normal syncing for: {}".format(", ".join(names))
+        )
+
+    @admin.display(description="Delete all contacts of selected synced characters")
+    def delete_all_contacts(self, request, queryset):
+        names = list()
+        for obj in queryset:
+            tasks.character_delete_all_contacts.delay(obj.pk)
+            names.append(str(obj))
+        self.message_user(
+            request, "Started deleting contacts for: {}".format(", ".join(names))
         )
 
 

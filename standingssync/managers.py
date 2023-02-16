@@ -157,10 +157,11 @@ class EveWarManagerBase(models.Manager):
                         ally = self._get_or_create_eve_entity_from_participant(
                             ally_info
                         )
-                        war.allies.add(ally)
-                        entity_ids.add(ally.id)
                     except ValueError:
                         logger.warning("%s: Could not identify ally: ", id, ally_info)
+                        continue
+                    war.allies.add(ally)
+                    entity_ids.add(ally.id)
 
         EveEntity.objects.bulk_create_esi(entity_ids)
         return war, created

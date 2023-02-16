@@ -85,10 +85,6 @@ class SyncManager(_SyncBaseModel):
     def __str__(self):
         return str(self.alliance)
 
-    @property
-    def character_alliance_id(self) -> int:
-        return self.character_ownership.character.alliance_id
-
     def contacts_for_sync(self, synced_character: "SyncedCharacter") -> models.QuerySet:
         """Relevant contacts for sync, which excludes the sync character."""
         return self.contacts.exclude(eve_entity_id=synced_character.character_id)
@@ -162,12 +158,15 @@ class SyncManager(_SyncBaseModel):
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
         war_targets = EveWar.objects.alliance_war_targets(self.alliance)
+        war_target_ids = set()
         for war_target in war_targets:
             try:
                 contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
             except KeyError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
-        return {war_target.id for war_target in war_targets}
+            else:
+                war_target_ids.add(war_target.id)
+        return war_target_ids
 
     def _save_new_contacts(
         self,
@@ -234,7 +233,8 @@ class SyncedCharacter(_SyncBaseModel):
         return self.character.character_id
 
     def run_sync(self) -> bool:
-        """Sync in-game contacts for given character with alliance contacts.
+        """Sync in-game contacts for given character with alliance contacts
+        and/or war targets.
 
         Will delete this sync character if necessary,
         e.g. if token is no longer valid or character is no longer blue
@@ -258,28 +258,23 @@ class SyncedCharacter(_SyncBaseModel):
             return None
 
         current_contacts = self._fetch_current_contacts(token)
-
-        if STANDINGSSYNC_ADD_WAR_TARGETS:
-            # update info about war target label
-            wt_label_id = current_contacts.war_target_label_id()
-            if wt_label_id:
-                logger.debug("%s: Has war target label", self)
-                self.has_war_targets_label = True
-                self.save()
-            else:
-                logger.debug("%s: Does not have war target label", self)
-                self.has_war_targets_label = False
-                self.save()
+        self._update_wt_label_info(current_contacts)
 
         # new contacts
-        new_contacts = EsiContactsContainer.from_esi_contacts(
-            labels=current_contacts.labels()
-        )
-        new_contacts.add_eve_contacts(
-            self.manager.contacts_for_sync(self).filter(is_war_target=False)
-        )
+        if STANDINGSSYNC_REPLACE_CONTACTS:
+            new_contacts = EsiContactsContainer.from_esi_contacts(
+                labels=current_contacts.labels()
+            )
+            new_contacts.add_eve_contacts(
+                self.manager.contacts_for_sync(self).filter(is_war_target=False)
+            )
+        else:
+            new_contacts = current_contacts.clone()
+
         if STANDINGSSYNC_ADD_WAR_TARGETS:
-            # add war targets
+            # remove old war targets
+            new_contacts.remove_war_targets()
+            # add current war targets
             wt_label_id = current_contacts.war_target_label_id()
             new_contacts.add_eve_contacts(
                 self.manager.contacts_for_sync(self).filter(is_war_target=True),
@@ -288,7 +283,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         # update contacts on ESI
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
-        if removed and STANDINGSSYNC_REPLACE_CONTACTS:
+        if removed:
             logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
         if added:
@@ -298,24 +293,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
 
-        if not STANDINGSSYNC_REPLACE_CONTACTS:
-            # delete outdated war targets
-            new_war_targets = new_contacts.war_targets()
-            current_war_targets = current_contacts.war_targets()
-            outdated_war_targets = current_war_targets - new_war_targets
-            logger.info(
-                "%s: Deleting %d outdated war targets", self, len(outdated_war_targets)
-            )
-            esi_api.delete_character_contacts(token, outdated_war_targets)
-
-        if (
-            STANDINGSSYNC_REPLACE_CONTACTS and not added and not removed and not changed
-        ) or (
-            not STANDINGSSYNC_REPLACE_CONTACTS
-            and not added
-            and not removed
-            and not outdated_war_targets
-        ):
+        if not added and not removed and not changed:
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
         else:
             logger.info("%s: Contacts update completed.", self)
@@ -325,6 +303,13 @@ class SyncedCharacter(_SyncBaseModel):
 
         self.record_successful_sync()
         return True
+
+    def _update_wt_label_info(self, current_contacts: EsiContactsContainer):
+        """Update info about WT label if it has changed."""
+        has_wt_label = current_contacts.war_target_label_id() is not None
+        if has_wt_label != self.has_war_targets_label:
+            self.has_war_targets_label = has_wt_label
+            self.save()
 
     def _has_owner_permissions(self) -> bool:
         if not self.character_ownership.user.has_perm(
@@ -343,31 +328,31 @@ class SyncedCharacter(_SyncBaseModel):
         Will deactivate this character if any severe issues are encountered.
         """
         try:
-            token = (
-                Token.objects.filter(
-                    user=self.character_ownership.user,
-                    character_id=self.character_ownership.character.character_id,
-                )
-                .require_scopes(self.get_esi_scopes())
-                .require_valid()
-                .first()
-            )
+            token = self._valid_token()
         except TokenInvalidError:
             logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
             return None
-
         except TokenExpiredError:
             logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
             return None
-
         if token is None:
             logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
             return None
-
         return token
+
+    def _valid_token(self) -> Optional[Token]:
+        return (
+            Token.objects.filter(
+                user=self.character_ownership.user,
+                character_id=self.character_ownership.character.character_id,
+            )
+            .require_scopes(self.get_esi_scopes())
+            .require_valid()
+            .first()
+        )
 
     def _deactivate_sync(self, message: str):
         """Deactivate character and send a message to the user about the issue."""
@@ -417,6 +402,14 @@ class SyncedCharacter(_SyncBaseModel):
                 "%s: new version hash: %s", self, current_contacts.version_hash()
             )
         return current_contacts
+
+    def delete_all_contacts(self):
+        """Delete all contacts of this character."""
+        token = self._valid_token()
+        contacts_clone = self._fetch_current_contacts(token)
+        contacts = contacts_clone.contacts()
+        logger.info("%s: Deleting all %d contacts", self, len(contacts))
+        esi_api.delete_character_contacts(token, contacts)
 
     @staticmethod
     def get_esi_scopes() -> list:

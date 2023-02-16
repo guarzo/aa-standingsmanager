@@ -29,7 +29,7 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
     """Fetch alliance contacts from ESI."""
     contacts_raw = esi.client.Contacts.get_alliances_alliance_id_contacts(
         token=token.valid_access_token(), alliance_id=alliance_id
-    ).results()
+    ).results(ignore_cache=True)
     contacts = {
         int(row["contact_id"]): EsiContact.from_esi_dict(row) for row in contacts_raw
     }
@@ -47,7 +47,7 @@ def fetch_character_contacts(token: Token) -> Set[EsiContact]:
     logger.info("%s: Fetching current contacts", token.character_name)
     character_contacts_raw = esi.client.Contacts.get_characters_character_id_contacts(
         token=token.valid_access_token(), character_id=token.character_id
-    ).results()
+    ).results(ignore_cache=True)
     character_contacts = {
         EsiContact.from_esi_dict(contact) for contact in character_contacts_raw
     }
@@ -59,7 +59,7 @@ def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     logger.info("%s: Fetching current labels", token.character_name)
     labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
         character_id=token.character_id, token=token.valid_access_token()
-    ).results()
+    ).results(ignore_cache=True)
     labels = {EsiContactLabel.from_esi_dict(label) for label in labels_raw}
     return labels
 

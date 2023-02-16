@@ -11,6 +11,7 @@ from standingssync.core.esi_contacts import (
 from ..factories import EsiContactFactory, EsiContactLabelFactory, EveContactFactory
 
 MODULE_PATH = "standingssync.core.esi_contacts"
+WAR_TARGET_LABEL = "WAR TARGETS"
 
 
 class TestEsiContact(NoSocketsTestCase):
@@ -121,7 +122,7 @@ class TestEsiContactLabel(NoSocketsTestCase):
         self.assertDictEqual(expected, result)
 
 
-@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGET")
+@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
 class TestEsiContactsClone(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when
@@ -204,6 +205,31 @@ class TestEsiContactsClone(NoSocketsTestCase):
         # then
         self.assertEqual(result, c1)
 
+    def test_should_raise_error_when_contact_not_found(self):
+        # given
+        c1 = EsiContactFactory()
+        c2 = EsiContactFactory()
+        contacts = EsiContactsContainer.from_esi_contacts([c1, c2])
+        # when/then
+        with self.assertRaises(ValueError):
+            contacts.contact_by_id(123456)
+
+    def test_should_raise_error_when_label_not_found(self):
+        # given
+        contacts = EsiContactsContainer.from_esi_contacts()
+        # when/then
+        with self.assertRaises(ValueError):
+            contacts.label_by_id(123456)
+
+    def test_should_find_label_by_id(self):
+        # given
+        label = EsiContactLabelFactory()
+        contacts = EsiContactsContainer.from_esi_contacts(labels=[label])
+        # when
+        new_label = contacts.label_by_id(label.id)
+        # then
+        self.assertEqual(label, new_label)
+
     def test_should_remove_unknown_label_ids(self):
         # given
         label_1 = EsiContactLabelFactory()
@@ -237,9 +263,21 @@ class TestEsiContactsClone(NoSocketsTestCase):
         esi_contacts = [contact_1.to_esi_dict(), contact_2.to_esi_dict()]
         obj = EsiContactsContainer.from_esi_dicts(esi_contacts)
         # when
-        obj.remove_contact(contact_2.contact_id)
+        obj.remove_contact(contact_2)
         # then
         expected = {contact_1}
+        self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_remove_several_contacts(self):
+        # given
+        contact_1 = EsiContactFactory()
+        contact_2 = EsiContactFactory()
+        contact_3 = EsiContactFactory()
+        obj = EsiContactsContainer.from_esi_contacts([contact_1, contact_2, contact_3])
+        # when
+        obj.remove_contacts([contact_1, contact_2])
+        # then
+        expected = {contact_3}
         self.assertSetEqual(obj.contacts(), expected)
 
     def test_should_raise_error_when_trying_to_remove_unknown_contact(self):
@@ -249,7 +287,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
         obj = EsiContactsContainer.from_esi_contacts([contact_1])
         # when/then
         with self.assertRaises(ValueError):
-            obj.remove_contact(contact_2.contact_id)
+            obj.remove_contact(contact_2)
 
     def test_should_convert_to_esi_dict(self):
         # given
@@ -279,7 +317,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_find_war_target_id(self):
         # given
-        label_1 = EsiContactLabelFactory(name="war target")
+        label_1 = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         label_2 = EsiContactLabelFactory()
         obj = EsiContactsContainer.from_esi_contacts(labels=[label_1, label_2])
         # when
@@ -299,7 +337,7 @@ class TestEsiContactsClone(NoSocketsTestCase):
 
     def test_should_return_war_targets(self):
         # given
-        wt_label = EsiContactLabelFactory(name="war target")
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
         other_label = EsiContactLabelFactory()
         other_contact = EsiContactFactory(label_ids=[other_label.id])
         war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
@@ -310,6 +348,20 @@ class TestEsiContactsClone(NoSocketsTestCase):
         result = obj.war_targets()
         # then
         self.assertSetEqual(result, {war_target})
+
+    def test_should_remove_war_targets(self):
+        # given
+        wt_label = EsiContactLabelFactory(name=WAR_TARGET_LABEL)
+        other_label = EsiContactLabelFactory()
+        other_contact = EsiContactFactory(label_ids=[other_label.id])
+        war_target = EsiContactFactory(label_ids=[wt_label.id, other_label.id])
+        obj = EsiContactsContainer.from_esi_contacts(
+            contacts=[other_contact, war_target], labels=[wt_label, other_label]
+        )
+        # when
+        obj.remove_war_targets()
+        # then
+        self.assertSetEqual(obj.contacts(), {other_contact})
 
     def test_should_add_eve_contacts(self):
         # given
@@ -341,6 +393,23 @@ class TestEsiContactsClone(NoSocketsTestCase):
             EsiContact.from_eve_contact(contact_2, label_ids),
         }
         self.assertSetEqual(obj.contacts(), expected)
+
+    def test_should_create_clone(self):
+        # given
+        label_1 = EsiContactLabelFactory()
+        label_2 = EsiContactLabelFactory()
+        contact_1 = EsiContactFactory(label_ids=[label_1.id])
+        contact_2 = EsiContactFactory(label_ids=[label_2.id])
+        first = EsiContactsContainer.from_esi_contacts(
+            contacts=[contact_1, contact_2], labels=[label_1, label_2]
+        )
+        # when
+        second = first.clone()
+        # then
+        self.assertEqual(first, second)
+        second.remove_contact(contact_1)
+        self.assertNotIn(contact_1, second.contacts())
+        self.assertIn(contact_1, first.contacts())
 
 
 class TestEsiContactsCloneComparisons(NoSocketsTestCase):

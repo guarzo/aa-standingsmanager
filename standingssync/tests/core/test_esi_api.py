@@ -111,25 +111,23 @@ class TestEsiContactsApi(NoSocketsTestCase):
         mock_token = MockToken(1001, "Bruce Wayne")
         contact_1002 = EsiContact(1002, EsiContact.ContactType.CHARACTER, 5)
         contact_1003 = EsiContact(1003, EsiContact.ContactType.CHARACTER, 5)
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [contact_1002, contact_1003])
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(
+            1001, mock_esi, contacts=[contact_1002, contact_1003]
+        )
         # when
         esi_api.delete_character_contacts(mock_token, [contact_1003])
         # then
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact_1002})
+        self.assertSetEqual(esi_stub.contacts(), {contact_1002})
 
     def test_should_add_contacts(self, mock_esi):
         # given
         mock_token = MockToken(1001, "Bruce Wayne")
         contact = EsiContact.from_eve_entity(EveEntityCharacterFactory(), standing=5.0)
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [])
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(1001, mock_esi)
         # when
         esi_api.add_character_contacts(mock_token, {contact})
         # then
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
+        self.assertSetEqual(esi_stub.contacts(), {contact})
 
     def test_should_update_contact(self, mock_esi):
         # given
@@ -140,13 +138,13 @@ class TestEsiContactsApi(NoSocketsTestCase):
             contact_type=contact.contact_type,
             standing=10,
         )
-        esi_stub = EsiCharacterContactsStub()
-        esi_stub.setup_contacts(1001, [old_esi_contact])
-        esi_stub.setup_esi_mock(mock_esi)
+        esi_stub = EsiCharacterContactsStub.create(
+            1001, mock_esi, contacts=[old_esi_contact]
+        )
         # when
         esi_api.update_character_contacts(mock_token, {contact})
         # then
-        self.assertSetEqual(set(esi_stub.contacts(1001)), {contact})
+        self.assertSetEqual(esi_stub.contacts(), {contact})
 
 
 class TestEsiContactsHelpers(NoSocketsTestCase):

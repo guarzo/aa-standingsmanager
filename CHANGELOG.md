@@ -7,20 +7,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
-## [1.8.0] - tbd
+## [1.8.0] - 2023-02-16
 
 ### Added
 
-- New page showing the current wars of the configured alliance
+- New page showing the current alliance wars
+- Show and filter wars by state on admin site
 - Ability to delete all contacts of a character from the admin site
 
 ### Changed
 
-- Show and filter wars by state on admin site
-
-### Fixed
-
-- Reverted back to original sync logic:  `STANDINGSSYNC_REPLACE_CONTACTS = False` will no longer update  alliance contacts (instead of doing a merge).
+- Reverted back to partial sync logic, i.e. `STANDINGSSYNC_REPLACE_CONTACTS = False` will no longer update  alliance contacts
+- Now requires Python 3.8 or higher
 
 ## [1.7.0] - 2023-02-12
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.8.1] - 2023-02-16
+
+### Changed
+
+- War participants on current wars page now links to ZKB instead of dotlan
+
 ### Fixed
 
 - Breaks when trying to filter by character on admin page

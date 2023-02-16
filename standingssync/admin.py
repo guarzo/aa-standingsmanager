@@ -151,7 +151,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _user(self, obj):
         return obj.character_ownership.user
 
-    @admin.display(ordering="character_ownership__character__name")
+    @admin.display(ordering="character_ownership__character__character_name")
     def _character_name(self, obj):
         return obj.__str__()
 

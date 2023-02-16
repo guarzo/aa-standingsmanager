@@ -1,6 +1,6 @@
-{% if obj.name %}
-    <img src="{{ obj.icon_url }}" height="20" width="20">&nbsp;
-    <a href="{{ obj.profile_url }}" target="_blank">{{ obj.name }}</a>
+{% if has_data %}
+    <img src="{{ icon_url }}" height="{{ icon_size }}" width="{{ icon_size }}">&nbsp;
+    <a href="{{ profile_url }}" target="_blank">{{ name }}</a>
 {% else %}
     [NO DATA]
 {% endif %}

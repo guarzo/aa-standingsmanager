@@ -1,5 +1,6 @@
 from django.template import Context, Template
 from django.test import TestCase
+from eveuniverse.models import EveEntity
 
 from .factories import EveEntityAllianceFactory
 
@@ -28,7 +29,7 @@ class TestTemplateTags(TestCase):
             {% war_participant obj %}
             """
         )
-        obj = EveEntityAllianceFactory(name="")
+        obj = EveEntity.objects.create(id=1)
         context = Context({"obj": obj})
         # when
         result = template.render(context)

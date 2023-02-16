@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+### Fixed
+
+- Breaks when trying to filter by character on admin page
+
 ## [1.8.0] - 2023-02-16
 
 ### Added

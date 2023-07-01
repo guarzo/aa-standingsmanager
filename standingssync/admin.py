@@ -106,7 +106,7 @@ class EveWarAdmin(admin.ModelAdmin):
         return False
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).annotate_state().annotate_is_active()
+        qs = super().get_queryset(request).annotate_state().annotate_is_active()  # type: ignore
         return qs.prefetch_related(
             Prefetch("allies", queryset=EveEntity.objects.select_related())
         ).annotate_state()
@@ -215,7 +215,10 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="character_ownership__character__character_name")
     def _character_name(self, obj):
-        return obj.character_ownership.character.character_name
+        try:
+            return obj.character.character_name
+        except ValueError:
+            return ""
 
     @admin.display(ordering="alliance__alliance_name")
     def _alliance_name(self, obj):

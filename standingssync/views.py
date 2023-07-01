@@ -141,7 +141,7 @@ def add_alliance_manager(request, token):
             tasks.sync_all_wars.delay()
         messages.success(
             request,
-            f"{sync_manager.character_ownership.character.character_name} "
+            f"{sync_manager.character.character_name} "
             f"set as alliance character for {alliance.alliance_name}. "
             "Started syncing of alliance contacts. ",
         )
@@ -158,7 +158,7 @@ def add_character(request, token):
     )
     sync_manager = get_object_or_404(SyncManager, alliance=alliance)
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
-    if token_char.alliance_id == sync_manager.character_ownership.character.alliance_id:
+    if token_char.alliance_id == sync_manager.character.alliance_id:
         messages.warning(
             request,
             "Adding alliance members does not make much sense, "

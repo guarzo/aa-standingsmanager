@@ -191,7 +191,7 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         self.assertTrue(contact.is_war_target)
 
 
-class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncManagerBasics(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_abort_when_no_char(self):
         # given
         sync_manager = SyncManagerFactory(
@@ -224,6 +224,19 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         # when/then
         with self.assertRaises(RuntimeError):
             sync_manager.run_sync()
+
+    def test_should_return_character(self):
+        # given
+        obj = SyncManagerFactory()
+        # when/then
+        self.assertEqual(obj.character, obj.character_ownership.character)  # type: ignore
+
+    def test_should_raise_error_when_no_character(self):
+        # given
+        obj = SyncManagerFactory(character_ownership=None)
+        # when
+        with self.assertRaises(ValueError):
+            _ = obj.character
 
 
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)

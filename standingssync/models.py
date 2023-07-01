@@ -5,7 +5,6 @@ from typing import Optional, Set
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
@@ -86,6 +85,13 @@ class SyncManager(_SyncBaseModel):
     def __str__(self):
         return str(self.alliance)
 
+    @property
+    def character(self) -> EveCharacter:
+        """Return character linked to this manager or raises exception of none exists."""
+        if not self.character_ownership:
+            raise ValueError("No character ownership")
+        return self.character_ownership.character
+
     def contacts_for_sync(self, synced_character: "SyncedCharacter") -> models.QuerySet:
         """Relevant contacts for sync, which excludes the sync character."""
         return self.contacts.exclude(eve_entity_id=synced_character.character_id)
@@ -146,7 +152,7 @@ class SyncManager(_SyncBaseModel):
         token = (
             Token.objects.filter(
                 user=self.character_ownership.user,
-                character_id=self.character_ownership.character.character_id,
+                character_id=self.character.character_id,
             )
             .require_scopes(self.get_esi_scopes())
             .require_valid()
@@ -222,18 +228,12 @@ class SyncedCharacter(_SyncBaseModel):
     )
 
     def __str__(self):
-        try:
-            character_name = self.character_ownership.character.character_name
-        except ObjectDoesNotExist:
-            character_name = f"[{self.pk}]"
+        character_name = self.character_ownership.character.character_name
         return f"{character_name} - {self.manager}"
 
     @property
-    def character(self) -> Optional[EveCharacter]:
-        try:
-            return self.character_ownership.character
-        except ObjectDoesNotExist:
-            return None
+    def character(self) -> EveCharacter:
+        return self.character_ownership.character
 
     @property
     def character_id(self) -> Optional[int]:

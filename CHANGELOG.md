@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Migrate build process to PEP 621
+- Removed local swagger spec file
 
 ### Fixed
 

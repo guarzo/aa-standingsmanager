@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.9.0] - TBD
+
+### Fixed
+
+- Update breaks when alliance contacts contain faction contacts
+
 ## [1.8.1] - 2023-02-16
 
 ### Changed

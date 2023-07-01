@@ -36,6 +36,23 @@ class TestEsiContact(NoSocketsTestCase):
         with self.assertRaises(ValueError):
             EsiContact(1001, "xyz", 5.0)
 
+    def test_should_create_all_types(self):
+        # given
+        params = [
+            ("character", EsiContact.ContactType.CHARACTER),
+            ("corporation", EsiContact.ContactType.CORPORATION),
+            ("alliance", EsiContact.ContactType.ALLIANCE),
+            ("faction", EsiContact.ContactType.FACTION),
+        ]
+        for input, expected in params:
+            with self.subTest(input=input):
+                # when
+                obj = EsiContact(1001, input, 5.0)
+                # then
+                self.assertEqual(obj.contact_id, 1001)
+                self.assertEqual(obj.contact_type, expected)
+                self.assertEqual(obj.standing, 5.0)
+
     def test_should_clone_contact_1(self):
         # given
         a = EsiContact(1, "character", 5.0, [1, 2])
@@ -55,7 +72,7 @@ class TestEsiContact(NoSocketsTestCase):
         self.assertEqual(b.label_ids, a.label_ids)
         self.assertEqual(b.standing, -10)
 
-    def test_should_create_from_dict_1(self):
+    def test_should_create_from_esi_character(self):
         # given
         esi_dict = {"contact_id": 1, "contact_type": "character", "standing": 5.0}
         # when
@@ -63,7 +80,7 @@ class TestEsiContact(NoSocketsTestCase):
         # then
         self.assertEqual(obj, EsiContact(1, "character", 5.0))
 
-    def test_should_create_from_dict_2(self):
+    def test_should_create_from_esi_corporation(self):
         # given
         esi_dict = {"contact_id": 1, "contact_type": "corporation", "standing": 5.0}
         # when
@@ -71,7 +88,7 @@ class TestEsiContact(NoSocketsTestCase):
         # then
         self.assertEqual(obj, EsiContact(1, "corporation", 5.0))
 
-    def test_should_create_from_dict_3(self):
+    def test_should_create_from_esi_alliance(self):
         # given
         esi_dict = {"contact_id": 1, "contact_type": "alliance", "standing": 5.0}
         # when
@@ -79,7 +96,7 @@ class TestEsiContact(NoSocketsTestCase):
         # then
         self.assertEqual(obj, EsiContact(1, "alliance", 5.0))
 
-    def test_should_create_from_dict_4(self):
+    def test_should_create_from_esi_contact_when_labels_are_none(self):
         # given
         esi_dict = {
             "contact_id": 1,
@@ -91,6 +108,14 @@ class TestEsiContact(NoSocketsTestCase):
         obj = EsiContact.from_esi_dict(esi_dict)
         # then
         self.assertEqual(obj, EsiContact(1, "alliance", 5.0))
+
+    def test_should_create_from_esi_faction(self):
+        # given
+        esi_dict = {"contact_id": 1, "contact_type": "faction", "standing": 5.0}
+        # when
+        obj = EsiContact.from_esi_dict(esi_dict)
+        # then
+        self.assertEqual(obj, EsiContact(1, EsiContact.ContactType.FACTION, 5.0))
 
 
 class TestEsiContactLabel(NoSocketsTestCase):

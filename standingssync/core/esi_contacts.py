@@ -37,16 +37,18 @@ class EsiContact:
     """An ESI contact. Immutable."""
 
     class ContactType(str, Enum):
+        ALLIANCE = "alliance"
         CHARACTER = "character"
         CORPORATION = "corporation"
-        ALLIANCE = "alliance"
+        FACTION = "faction"
 
         @classmethod
         def from_esi_contact_type(cls, contact_type) -> "EsiContact.ContactType":
             mapper = {
+                "alliance": cls.ALLIANCE,
                 "character": cls.CHARACTER,
                 "corporation": cls.CORPORATION,
-                "alliance": cls.ALLIANCE,
+                "faction": cls.FACTION,
             }
             return mapper[contact_type]
 
@@ -81,6 +83,7 @@ class EsiContact:
 
     @classmethod
     def from_esi_dict(cls, esi_dict: dict) -> "EsiContact":
+        """Create new objects from an ESI contact."""
         return cls(
             contact_id=esi_dict["contact_id"],
             contact_type=EsiContact.ContactType.from_esi_contact_type(

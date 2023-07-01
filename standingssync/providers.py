@@ -1,3 +1,5 @@
+"""ESI client for standingssync."""
+
 from esi.clients import EsiClientProvider
 
 from . import __version__

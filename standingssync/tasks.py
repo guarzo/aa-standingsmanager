@@ -1,3 +1,5 @@
+"""Tasks for standingssync."""
+
 from celery import shared_task
 
 from eveuniverse.core.esitools import is_esi_online

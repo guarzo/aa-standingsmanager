@@ -1,3 +1,5 @@
+"""Models for standingssync."""
+
 import datetime as dt
 from typing import Optional, Set
 

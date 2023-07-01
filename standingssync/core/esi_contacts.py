@@ -1,3 +1,5 @@
+"""Core logic for handling ESI contacts."""
+
 import hashlib
 import json
 from copy import deepcopy
@@ -37,6 +39,8 @@ class EsiContact:
     """An ESI contact. Immutable."""
 
     class ContactType(str, Enum):
+        """A contact type."""
+
         ALLIANCE = "alliance"
         CHARACTER = "character"
         CORPORATION = "corporation"
@@ -177,7 +181,7 @@ class EsiContactsContainer:
         try:
             return self._contacts[contact_id]
         except KeyError:
-            raise ValueError(f"Contact with ID {contact_id} not found.")
+            raise ValueError(f"Contact with ID {contact_id} not found.") from None
 
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
@@ -191,7 +195,7 @@ class EsiContactsContainer:
         try:
             return self._labels[label_id]
         except KeyError:
-            raise ValueError(f"Label with ID {label_id} not found.")
+            raise ValueError(f"Label with ID {label_id} not found.") from None
 
     def labels(self) -> Set[EsiContactLabel]:
         """Fetch all labels."""

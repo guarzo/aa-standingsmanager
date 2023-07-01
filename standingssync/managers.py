@@ -1,3 +1,5 @@
+"""Managers for standingssync."""
+
 import datetime as dt
 from collections import defaultdict
 from typing import Dict, Optional, Set, Tuple

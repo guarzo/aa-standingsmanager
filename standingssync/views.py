@@ -1,3 +1,5 @@
+"""Views for standingssync."""
+
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
@@ -205,7 +207,7 @@ def remove_character(request, alt_pk):
 @permission_required("standingssync.add_syncedcharacter")
 def wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
-    wars = []
+    all_wars = []
     if sync_manager:
         for war in (
             EveWar.objects.current_wars()
@@ -217,7 +219,7 @@ def wars(request):
             .order_by("-started")
         ):
             allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
-            wars.append(
+            all_wars.append(
                 {
                     "declared": war.declared,
                     "started": war.started,
@@ -232,7 +234,7 @@ def wars(request):
     context = {
         "page_title": "Current Wars",
         "alliance": "Not configured",
-        "wars": wars,
+        "wars": all_wars,
         "war_count": "?",
         "active_wars_count": "?",
         "State": EveWar.State,
@@ -241,8 +243,8 @@ def wars(request):
         context.update(
             {
                 "alliance": sync_manager.alliance,
-                "war_count": len(wars),
-                "active_wars_count": sum([1 for obj in wars if obj["is_active"]]),
+                "war_count": len(all_wars),
+                "active_wars_count": sum([1 for obj in all_wars if obj["is_active"]]),
             }
         )
     return render(request, "standingssync/wars.html", common_context(context))

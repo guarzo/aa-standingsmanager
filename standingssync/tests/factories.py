@@ -1,3 +1,6 @@
+"""Model test factories."""
+
+
 import datetime as dt
 
 import factory

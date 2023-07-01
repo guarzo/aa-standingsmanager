@@ -1,3 +1,5 @@
+"""Admin site for standingssync."""
+
 from django.contrib import admin
 from django.db.models import Prefetch
 from eveuniverse.models import EveEntity

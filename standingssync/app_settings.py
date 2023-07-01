@@ -1,4 +1,6 @@
-from app_utils.django import clean_setting
+"""Settings for standingssync."""
+
+from app_utils.app_settings import clean_setting
 
 STANDINGSSYNC_ADD_WAR_TARGETS = clean_setting("STANDINGSSYNC_ADD_WAR_TARGETS", False)
 """When enabled will automatically add or set war targets

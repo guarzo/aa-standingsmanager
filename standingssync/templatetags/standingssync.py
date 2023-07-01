@@ -1,3 +1,5 @@
+"""Template tags for standingssync."""
+
 from django import template
 from eveuniverse.core import zkillboard
 from eveuniverse.models import EveEntity

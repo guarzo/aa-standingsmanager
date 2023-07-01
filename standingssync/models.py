@@ -131,7 +131,7 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(
                 f"{self}: Can not sync. Character does not have sufficient permission."
             )
-        token = self._fetch_token()
+        token = self.fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
         contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
@@ -144,10 +144,10 @@ class SyncManager(_SyncBaseModel):
             logger.info("%s: Alliance contacts are unchanged.", self)
         self.record_successful_sync()
 
-    def _fetch_token(self) -> Token:
+    def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes."""
         if not self.character_ownership:
-            raise ValueError(f"{self}: Can not fetch token without a character")
+            return None
 
         token = (
             Token.objects.filter(

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
+from esi.models import Token
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveCharacter
@@ -191,7 +192,19 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         self.assertTrue(contact.is_war_target)
 
 
-class TestSyncManagerBasics(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
+    def test_should_return_token(self):
+        # given
+        obj = SyncManagerFactory()
+        # when/then
+        self.assertIsInstance(obj.fetch_token(), Token)
+
+    def test_should_none_when_no_character_ownership(self):
+        # given
+        obj = SyncManagerFactory(character_ownership=None)
+        # when/then
+        self.assertIsNone(obj.fetch_token())
+
     def test_should_abort_when_no_char(self):
         # given
         sync_manager = SyncManagerFactory(
@@ -719,6 +732,16 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         synced_character.delete_all_contacts()
         # then
         self.assertSetEqual(esi_character_contacts.contacts(), set())
+
+    def test_should_do_nothing_when_no_token(self, mock_esi):
+        # given
+        obj = SyncedCharacterFactory()
+        obj.character_ownership.user.token_set.all().delete()
+        with patch(MODELS_PATH + ".esi_api.delete_character_contacts") as esi_api:
+            # when
+            obj.delete_all_contacts()
+            # then
+            self.assertFalse(esi_api.called)
 
 
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):

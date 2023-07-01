@@ -7,7 +7,6 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
-from django.utils.functional import classproperty
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
 from esi.models import Token
@@ -141,6 +140,9 @@ class SyncManager(_SyncBaseModel):
 
     def _fetch_token(self) -> Token:
         """Fetch valid token with required scopes."""
+        if not self.character_ownership:
+            raise ValueError(f"{self}: Can not fetch token without a character")
+
         token = (
             Token.objects.filter(
                 user=self.character_ownership.user,
@@ -234,7 +236,7 @@ class SyncedCharacter(_SyncBaseModel):
     def character_id(self) -> int:
         return self.character.character_id
 
-    def run_sync(self) -> bool:
+    def run_sync(self) -> Optional[bool]:
         """Sync in-game contacts for given character with alliance contacts
         and/or war targets.
 
@@ -453,7 +455,7 @@ class EveWar(models.Model):
         RETRACTED = "retracted"  # activate and about to finish after retraction
         FINISHED = "finished"  # finished war
 
-        @classproperty
+        @classmethod
         def active_states(cls) -> Set["EveWar.State"]:
             return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 

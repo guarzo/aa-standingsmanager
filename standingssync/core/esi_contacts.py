@@ -94,7 +94,7 @@ class EsiContact:
                 esi_dict["contact_type"]
             ),
             standing=esi_dict["standing"],
-            label_ids=esi_dict.get("label_ids") or [],
+            label_ids=esi_dict.get("label_ids") or frozenset(),
         )
 
     @classmethod
@@ -102,16 +102,21 @@ class EsiContact:
         cls, eve_entity: EveEntity, standing: float, label_ids=None
     ) -> "EsiContact":
         """Create new instance from an EveEntity object."""
+        if eve_entity.category is None:
+            raise ValueError(
+                f"{eve_entity}: Can not create from eve entity without category"
+            )
         contact_type_map = {
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
             EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
             EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
+            EveEntity.CATEGORY_FACTION: cls.ContactType.FACTION,
         }
         return cls(
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
             standing=standing,
-            label_ids=label_ids if label_ids else [],
+            label_ids=label_ids if label_ids else frozenset(),
         )
 
     @classmethod
@@ -155,7 +160,9 @@ class EsiContactsContainer:
             label_ids = []
         self._contacts[contact.contact_id] = contact.clone(label_ids=label_ids)
 
-    def add_eve_contacts(self, contacts: List[object], label_ids: List[int] = None):
+    def add_eve_contacts(
+        self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
+    ):
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 

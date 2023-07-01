@@ -2,6 +2,7 @@
 
 
 import datetime as dt
+from typing import Generic, TypeVar
 
 import factory
 import factory.fuzzy
@@ -19,8 +20,17 @@ from app_utils.testdata_factories import (
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
 from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
+T = TypeVar("T")
 
-class EveEntityFactory(factory.django.DjangoModelFactory):
+
+class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
+    def __call__(cls, *args, **kwargs) -> T:
+        return super().__call__(*args, **kwargs)
+
+
+class EveEntityFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
+):
     class Meta:
         model = EveEntity
         django_get_or_create = ("id", "name")
@@ -56,7 +66,21 @@ class EveEntityAllianceFactory(EveEntityFactory):
     category = EveEntity.CATEGORY_ALLIANCE
 
 
-class EveWarFactory(factory.django.DjangoModelFactory):
+class EveEntityFactionFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveEntity]
+):
+    class Meta:
+        model = EveEntity
+        django_get_or_create = ("id", "name")
+
+    id = factory.Sequence(lambda n: 500001 + n)
+    name = factory.Faker("color_name")
+    category = EveEntity.CATEGORY_FACTION
+
+
+class EveWarFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveWar]
+):
     class Meta:
         model = EveWar
 
@@ -82,7 +106,7 @@ class EveWarFactory(factory.django.DjangoModelFactory):
 
         if extracted:
             for ally in extracted:
-                self.allies.add(ally)
+                self.allies.add(ally)  # type: ignore
 
 
 class UserMainManagerFactory(UserMainFactory):
@@ -98,7 +122,9 @@ class UserMainSyncerFactory(UserMainFactory):
     permissions__ = ["standingssync.add_syncedcharacter"]
 
 
-class SyncManagerFactory(factory.django.DjangoModelFactory):
+class SyncManagerFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[SyncManager]
+):
     class Meta:
         model = SyncManager
 
@@ -108,23 +134,25 @@ class SyncManagerFactory(factory.django.DjangoModelFactory):
     @factory.lazy_attribute
     def alliance(self):
         return EveAllianceInfoFactory(
-            alliance_id=self.user.profile.main_character.alliance_id
+            alliance_id=self.user.profile.main_character.alliance_id  # type: ignore
         )
 
     @factory.lazy_attribute
     def character_ownership(self):
-        return self.user.profile.main_character.character_ownership
+        return self.user.profile.main_character.character_ownership  # type: ignore
 
     @factory.post_generation
     def create_eve_entities(self, create, extracted, **kwargs):
         if not create:
             return
         EveEntityAllianceFactory(
-            id=self.alliance.alliance_id, name=self.alliance.alliance_name
+            id=self.alliance.alliance_id, name=self.alliance.alliance_name  # type: ignore
         )
 
 
-class SyncedCharacterFactory(factory.django.DjangoModelFactory):
+class SyncedCharacterFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[SyncedCharacter]
+):
     class Meta:
         model = SyncedCharacter
 
@@ -135,10 +163,12 @@ class SyncedCharacterFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def character_ownership(self):
-        return self.user.profile.main_character.character_ownership
+        return self.user.profile.main_character.character_ownership  # type: ignore
 
 
-class EveContactFactory(factory.django.DjangoModelFactory):
+class EveContactFactory(
+    factory.django.DjangoModelFactory, metaclass=BaseMetaFactory[EveContact]
+):
     class Meta:
         model = EveContact
 
@@ -153,18 +183,18 @@ class EveContactWarTargetFactory(EveContactFactory):
     is_war_target = True
 
 
-class EsiContactDictFactory(factory.base.DictFactory):
+class EsiContactDictFactory(factory.base.DictFactory, metaclass=BaseMetaFactory[dict]):
     contact_id = factory.fuzzy.FuzzyInteger(90_000, 99_999)
     contact_type = factory.fuzzy.FuzzyChoice(["character", "corporation", "alliance"])
     standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
 
 
-class EsiLabelDictFactory(factory.base.DictFactory):
+class EsiLabelDictFactory(factory.base.DictFactory, metaclass=BaseMetaFactory[dict]):
     label_id = factory.fuzzy.FuzzyInteger(1, 9_999)
     label_name = factory.Faker("word")
 
 
-class EsiContactFactory(factory.base.Factory):
+class EsiContactFactory(factory.base.Factory, metaclass=BaseMetaFactory[EsiContact]):
     class Meta:
         model = EsiContact
 
@@ -173,7 +203,9 @@ class EsiContactFactory(factory.base.Factory):
     standing = factory.fuzzy.FuzzyFloat(-10.0, 10.0)
 
 
-class EsiContactLabelFactory(factory.base.DictFactory):
+class EsiContactLabelFactory(
+    factory.base.Factory, metaclass=BaseMetaFactory[EsiContactLabel]
+):
     class Meta:
         model = EsiContactLabel
 

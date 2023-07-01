@@ -2,7 +2,7 @@
 
 import datetime as dt
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from django.contrib.auth.models import User
 from django.db import models, transaction
@@ -21,7 +21,7 @@ logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
 class EveContactQuerySet(models.QuerySet):
-    def grouped_by_standing(self) -> Dict[int, models.Model]:
+    def grouped_by_standing(self) -> Dict[int, Any]:
         """Group alliance contacts by standing and convert into sorted dict."""
         contacts_by_standing = defaultdict(set)
         for contact in self.all():
@@ -68,7 +68,7 @@ class EveWarQuerySet(models.QuerySet):
         """Add is_active field to queryset. Requires prior annotation of state."""
         return self.annotate(
             is_active=Case(
-                When(state__in=self.model.State.active_states, then=Value(True)),
+                When(state__in=self.model.State.active_states(), then=Value(True)),
                 default=Value(False),
             )
         )
@@ -154,7 +154,7 @@ class EveWarManagerBase(models.Manager):
             )
             war.allies.clear()
             if war_info.get("allies"):
-                for ally_info in war_info.get("allies"):
+                for ally_info in war_info.get("allies", []):
                     try:
                         ally = self._get_or_create_eve_entity_from_participant(
                             ally_info

@@ -1,4 +1,4 @@
-"""App for cloning alliance standings and war targets to alts."""
+"""Alliance Auth app for cloning alliance standings and war targets to alts."""
 
 default_app_config = "standingssync.apps.SyncAltContactsConfig"
 

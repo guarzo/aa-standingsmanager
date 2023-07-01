@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
+from esi.models import Token
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveCharacter
@@ -15,8 +16,8 @@ from app_utils.testing import (
 )
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
-from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
     EsiContactFactory,
     EsiContactLabelFactory,
@@ -191,7 +192,19 @@ class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
         self.assertTrue(contact.is_war_target)
 
 
-class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
+    def test_should_return_token(self):
+        # given
+        obj = SyncManagerFactory()
+        # when/then
+        self.assertIsInstance(obj.fetch_token(), Token)
+
+    def test_should_none_when_no_character_ownership(self):
+        # given
+        obj = SyncManagerFactory(character_ownership=None)
+        # when/then
+        self.assertIsNone(obj.fetch_token())
+
     def test_should_abort_when_no_char(self):
         # given
         sync_manager = SyncManagerFactory(
@@ -224,6 +237,19 @@ class TestSyncManagerErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         # when/then
         with self.assertRaises(RuntimeError):
             sync_manager.run_sync()
+
+    def test_should_return_character(self):
+        # given
+        obj = SyncManagerFactory()
+        # when/then
+        self.assertEqual(obj.character, obj.character_ownership.character)  # type: ignore
+
+    def test_should_raise_error_when_no_character(self):
+        # given
+        obj = SyncManagerFactory(character_ownership=None)
+        # when
+        with self.assertRaises(ValueError):
+            _ = obj.character
 
 
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
@@ -405,6 +431,57 @@ class TestSyncManagerAddWarTargets(NoSocketsTestCase):
         # then
         self.assertSetEqual(alliance_contacts.contacts(), {defender})
         self.assertSetEqual(result, {defender.contact_id})
+
+
+class TestSyncCharacter(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.sync_manager = SyncManagerFactory()
+
+    def test_should_return_token(self):
+        # given
+        obj = SyncedCharacterFactory(manager=self.sync_manager)
+        # when
+        result = obj.fetch_token()
+        # then
+        self.assertIsInstance(result, Token)
+
+    def test_should_return_none_and_delete_when_token_invalid(self):
+        # given
+        obj = SyncedCharacterFactory(manager=self.sync_manager)
+        with patch(MODELS_PATH + ".SyncedCharacter._valid_token") as m:
+            m.side_effect = TokenInvalidError
+            # when
+            result = obj.fetch_token()
+        # then
+        self.assertIsNone(result)
+        self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
+
+    def test_should_return_none_and_delete_when_token_has_issues(self):
+        params = [TokenInvalidError, TokenExpiredError]
+        for exception in params:
+            with self.subTest(exception=exception):
+                # given
+                obj = SyncedCharacterFactory(manager=self.sync_manager)
+                # when
+                with patch(MODELS_PATH + ".SyncedCharacter._valid_token") as m:
+                    m.side_effect = exception
+                    result = obj.fetch_token()
+                # then
+                self.assertIsNone(result)
+                self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
+
+    def test_should_return_none_and_delete_when_token_not_found(self):
+        # given
+        obj = SyncedCharacterFactory(manager=self.sync_manager)
+        # when
+        with patch(MODELS_PATH + ".SyncedCharacter._valid_token") as m:
+            m.return_value = None
+            result = obj.fetch_token()
+        # then
+        self.assertIsNone(result)
+        self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
 
 
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
@@ -707,72 +784,21 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # then
         self.assertSetEqual(esi_character_contacts.contacts(), set())
 
+    def test_should_do_nothing_when_no_token(self, mock_esi):
+        # given
+        obj = SyncedCharacterFactory()
+        obj.character_ownership.user.token_set.all().delete()
+        with patch(MODELS_PATH + ".esi_api.delete_character_contacts") as esi_api:
+            # when
+            obj.delete_all_contacts()
+            # then
+            self.assertFalse(esi_api.called)
+
 
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_delete_when_insufficient_permission(self):
         # given
         user, _ = create_user_from_evecharacter(self.character_1.character_id)
-        alt_ownership = add_character_to_user(
-            user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
-        )
-        sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        sync_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership, manager=sync_manager
-        )
-        # when
-        result = sync_character.run_sync()
-        # then
-        self.assertFalse(result)
-        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
-
-    def test_should_delete_when_no_valid_token_found(self):
-        # given
-        user, _ = create_user_from_evecharacter(
-            self.character_1.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
-        )
-        alt_ownership = add_character_to_user(
-            user, character=self.character_2
-        )  # token has wrong scope and will therefore not be found
-        sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        sync_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership, manager=sync_manager
-        )
-        # when
-        result = sync_character.run_sync()
-        # then
-        self.assertFalse(result)
-        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
-
-    @patch(MODELS_PATH + ".Token")
-    def test_should_delete_when_token_is_invalid(self, mock_Token):
-        # given
-        mock_Token.objects.filter.side_effect = TokenInvalidError()
-        user, _ = create_user_from_evecharacter(
-            self.character_1.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
-        )
-        alt_ownership = add_character_to_user(
-            user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
-        )
-        sync_manager = SyncManagerFactory(user=user, version_hash="new")
-        sync_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership, manager=sync_manager
-        )
-        # when
-        result = sync_character.run_sync()
-        # then
-        self.assertFalse(result)
-        self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
-
-    @patch(MODELS_PATH + ".Token")
-    def test_should_delete_when_token_is_expired(self, mock_Token):
-        # given
-        mock_Token.objects.filter.side_effect = TokenExpiredError()
-        user, _ = create_user_from_evecharacter(
-            self.character_1.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
-        )
         alt_ownership = add_character_to_user(
             user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
         )

@@ -10,7 +10,8 @@ from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testdata_factories import UserFactory
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
-from ..models import EveWar, SyncManager
+from standingssync.models import EveWar, SyncManager
+
 from .factories import (
     EveContactFactory,
     EveEntityAllianceFactory,

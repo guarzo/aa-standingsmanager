@@ -1,6 +1,6 @@
 # Standings Sync
 
-This is a plugin app for [Alliance Auth](https://gitlab.com/allianceauth/allianceauth), which enables non-alliance characters like scout alts to have the same standings view in game as their alliance main.
+Alliance Auth app for cloning alliance standings and war targets to alts.
 
 [![release](https://img.shields.io/pypi/v/aa-standingssync?label=release)](https://pypi.org/project/aa-standingssync/)
 [![python](https://img.shields.io/pypi/pyversions/aa-standingssync)](https://pypi.org/project/aa-standingssync/)

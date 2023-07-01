@@ -9,8 +9,9 @@ from esi.models import Token
 from allianceauth.authentication.models import CharacterOwnership
 from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
 
-from .. import views
-from ..models import EveEntity, SyncedCharacter, SyncManager
+from standingssync import views
+from standingssync.models import EveEntity, SyncedCharacter, SyncManager
+
 from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 
@@ -50,6 +51,16 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
         cls.user_3, _ = create_user_from_evecharacter(cls.character_3.character_id)
         cls.factory = RequestFactory()
 
+    def test_should_redirect_to_main_page(self):
+        # given
+        request = self.factory.get(reverse("standingssync:characters"))
+        request.user = self.user_2
+        # when
+        response = views.index(request)
+        # then
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("standingssync:characters"))
+
     def test_user_with_permission_can_open_app(self):
         request = self.factory.get(reverse("standingssync:characters"))
         request.user = self.user_2
@@ -72,12 +83,6 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(mock_messages.success.called)
         self.assertFalse(SyncedCharacter.objects.filter(pk=self.sync_char.pk).exists())
-
-    def test_user_with_permission_can_set_alliance_char(self):
-        pass
-
-    def test_user_wo_permission_can_not_set_alliance_char(self):
-        pass
 
 
 @patch(MODULE_PATH + ".tasks.run_character_sync")
@@ -121,7 +126,7 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
         token.character_id = character.character_id
         request = self.factory.get(reverse("standingssync:add_character"))
         request.user = user
-        request.token = token
+        request.token = token  # type: ignore
         middleware = SessionMiddleware(Mock())
         middleware.process_request(request)
         orig_view = views.add_character.__wrapped__.__wrapped__.__wrapped__
@@ -218,7 +223,7 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
         token.character_id = character.character_id
         request = self.factory.get(reverse("standingssync:add_alliance_manager"))
         request.user = user
-        request.token = token
+        request.token = token  # type: ignore
         middleware = SessionMiddleware(Mock())
         middleware.process_request(request)
         orig_view = views.add_alliance_manager.__wrapped__.__wrapped__.__wrapped__

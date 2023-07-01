@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     replaces = [
         ("standingssync", "0001_initial-new"),
         ("standingssync", "0002_add_war_targets"),

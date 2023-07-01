@@ -1,3 +1,5 @@
+"""Views for standingssync."""
+
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, permission_required
@@ -45,7 +47,7 @@ def index(request):
 @permission_required("standingssync.add_syncedcharacter")
 def characters(request):
     """main page"""
-    sync_manager = SyncManager.objects.fetch_for_user(request.user)
+    sync_manager: SyncManager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = []
     if sync_manager:
         qs = sync_manager.synced_characters_for_user(request.user).select_related(
@@ -53,7 +55,7 @@ def characters(request):
         )
         for synced_character in qs:
             character = synced_character.character
-            organization = character.corporation_name
+            organization = str(character.corporation_name)
             if character.alliance_ticker:
                 organization += f" [{character.alliance_ticker}]"
 
@@ -78,39 +80,41 @@ def characters(request):
                     "pk": synced_character.pk,
                 }
             )
-    context = {
-        "page_title": "My Characters",
-        "synced_characters": synced_characters,
-        "has_synced_chars": len(synced_characters) > 0,
-    }
+
     if sync_manager:
-        context["alliance"] = sync_manager.alliance
-        if STANDINGSSYNC_REPLACE_CONTACTS:
-            alliance_contacts_count = sync_manager.contacts.filter(
-                is_war_target=False
-            ).count()
-        else:
-            alliance_contacts_count = None
-        if STANDINGSSYNC_ADD_WAR_TARGETS:
-            alliance_war_targets_count = sync_manager.contacts.filter(
-                is_war_target=True
-            ).count()
-        else:
-            alliance_war_targets_count = None
+        alliance = sync_manager.alliance
+        alliance_contacts_count = (
+            sync_manager.contacts.filter(is_war_target=False).count()  # type: ignore
+            if STANDINGSSYNC_REPLACE_CONTACTS
+            else None
+        )
+        alliance_war_targets_count = (
+            sync_manager.contacts.filter(is_war_target=True).count()  # type: ignore
+            if STANDINGSSYNC_ADD_WAR_TARGETS
+            else None
+        )
+
     else:
-        context["alliance"] = None
+        alliance = None
         alliance_contacts_count = None
         alliance_war_targets_count = None
 
-    context["alliance_contacts_count"] = alliance_contacts_count
-    context["alliance_war_targets_count"] = alliance_war_targets_count
-    context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
+    context = {
+        "page_title": "My Characters",
+        "synced_characters": synced_characters,
+        "alliance": alliance,
+        "has_synced_chars": len(synced_characters) > 0,
+        "alliance_contacts_count": alliance_contacts_count,
+        "alliance_war_targets_count": alliance_war_targets_count,
+        "war_targets_label_name": STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+    }
+
     return render(request, "standingssync/characters.html", common_context(context))
 
 
 @login_required
 @permission_required("standingssync.add_syncmanager")
-@token_required(SyncManager.get_esi_scopes())
+@token_required(SyncManager.get_esi_scopes())  # type: ignore
 def add_alliance_manager(request, token):
     """Add or update sync manager for an alliance."""
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
@@ -136,7 +140,7 @@ def add_alliance_manager(request, token):
             tasks.sync_all_wars.delay()
         messages.success(
             request,
-            f"{sync_manager.character_ownership.character.character_name} "
+            f"{sync_manager.character.character_name} "
             f"set as alliance character for {alliance.alliance_name}. "
             "Started syncing of alliance contacts. ",
         )
@@ -145,7 +149,7 @@ def add_alliance_manager(request, token):
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
-@token_required(scopes=SyncedCharacter.get_esi_scopes())
+@token_required(scopes=SyncedCharacter.get_esi_scopes())  # type: ignore
 def add_character(request, token):
     """add character to receive alliance contacts"""
     alliance = get_object_or_404(
@@ -153,7 +157,7 @@ def add_character(request, token):
     )
     sync_manager = get_object_or_404(SyncManager, alliance=alliance)
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
-    if token_char.alliance_id == sync_manager.character_ownership.character.alliance_id:
+    if token_char.alliance_id == sync_manager.character.alliance_id:
         messages.warning(
             request,
             "Adding alliance members does not make much sense, "
@@ -205,7 +209,7 @@ def remove_character(request, alt_pk):
 @permission_required("standingssync.add_syncedcharacter")
 def wars(request):
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
-    wars = []
+    all_wars = []
     if sync_manager:
         for war in (
             EveWar.objects.current_wars()
@@ -217,7 +221,7 @@ def wars(request):
             .order_by("-started")
         ):
             allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
-            wars.append(
+            all_wars.append(
                 {
                     "declared": war.declared,
                     "started": war.started,
@@ -232,7 +236,7 @@ def wars(request):
     context = {
         "page_title": "Current Wars",
         "alliance": "Not configured",
-        "wars": wars,
+        "wars": all_wars,
         "war_count": "?",
         "active_wars_count": "?",
         "State": EveWar.State,
@@ -241,8 +245,8 @@ def wars(request):
         context.update(
             {
                 "alliance": sync_manager.alliance,
-                "war_count": len(wars),
-                "active_wars_count": sum([1 for obj in wars if obj["is_active"]]),
+                "war_count": len(all_wars),
+                "active_wars_count": sum([1 for obj in all_wars if obj["is_active"]]),
             }
         )
     return render(request, "standingssync/wars.html", common_context(context))

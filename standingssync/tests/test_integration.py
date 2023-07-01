@@ -8,8 +8,8 @@ from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactLabel
+from standingssync.tasks import run_manager_sync
 
-from ..tasks import run_manager_sync
 from .factories import (
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,

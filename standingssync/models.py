@@ -1,11 +1,11 @@
+"""Models for standingssync."""
+
 import datetime as dt
 from typing import Optional, Set
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
-from django.utils.functional import classproperty
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
 from esi.models import Token
@@ -85,6 +85,13 @@ class SyncManager(_SyncBaseModel):
     def __str__(self):
         return str(self.alliance)
 
+    @property
+    def character(self) -> EveCharacter:
+        """Return character linked to this manager or raises exception of none exists."""
+        if not self.character_ownership:
+            raise ValueError("No character ownership")
+        return self.character_ownership.character
+
     def contacts_for_sync(self, synced_character: "SyncedCharacter") -> models.QuerySet:
         """Relevant contacts for sync, which excludes the sync character."""
         return self.contacts.exclude(eve_entity_id=synced_character.character_id)
@@ -124,7 +131,7 @@ class SyncManager(_SyncBaseModel):
             raise RuntimeError(
                 f"{self}: Can not sync. Character does not have sufficient permission."
             )
-        token = self._fetch_token()
+        token = self.fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
         contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
@@ -137,12 +144,15 @@ class SyncManager(_SyncBaseModel):
             logger.info("%s: Alliance contacts are unchanged.", self)
         self.record_successful_sync()
 
-    def _fetch_token(self) -> Token:
+    def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes."""
+        if not self.character_ownership:
+            return None
+
         token = (
             Token.objects.filter(
                 user=self.character_ownership.user,
-                character_id=self.character_ownership.character.character_id,
+                character_id=self.character.character_id,
             )
             .require_scopes(self.get_esi_scopes())
             .require_valid()
@@ -162,7 +172,7 @@ class SyncManager(_SyncBaseModel):
         for war_target in war_targets:
             try:
                 contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
-            except KeyError:  # eve_entity has no category
+            except ValueError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:
                 war_target_ids.add(war_target.id)
@@ -218,10 +228,7 @@ class SyncedCharacter(_SyncBaseModel):
     )
 
     def __str__(self):
-        try:
-            character_name = self.character_ownership.character.character_name
-        except ObjectDoesNotExist:
-            character_name = f"[{self.pk}]"
+        character_name = self.character_ownership.character.character_name
         return f"{character_name} - {self.manager}"
 
     @property
@@ -229,10 +236,10 @@ class SyncedCharacter(_SyncBaseModel):
         return self.character_ownership.character
 
     @property
-    def character_id(self) -> int:
-        return self.character.character_id
+    def character_id(self) -> Optional[int]:
+        return self.character.character_id if self.character else None
 
-    def run_sync(self) -> bool:
+    def run_sync(self) -> Optional[bool]:
         """Sync in-game contacts for given character with alliance contacts
         and/or war targets.
 
@@ -249,7 +256,7 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         if not self._has_standing_with_alliance():
             return False
-        token = self._fetch_token()
+        token = self.fetch_token()
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
             return False
@@ -322,25 +329,29 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         return True
 
-    def _fetch_token(self) -> Optional[Token]:
+    def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes.
 
         Will deactivate this character if any severe issues are encountered.
         """
         try:
             token = self._valid_token()
+
         except TokenInvalidError:
             logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
             return None
+
         except TokenExpiredError:
             logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
             return None
+
         if token is None:
             logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
             return None
+
         return token
 
     def _valid_token(self) -> Optional[Token]:
@@ -406,6 +417,13 @@ class SyncedCharacter(_SyncBaseModel):
     def delete_all_contacts(self):
         """Delete all contacts of this character."""
         token = self._valid_token()
+        if not token:
+            logger.warning(
+                "%s: Can not delete contacts, because no valid token found.",
+                self,
+            )
+            return
+
         contacts_clone = self._fetch_current_contacts(token)
         contacts = contacts_clone.contacts()
         logger.info("%s: Deleting all %d contacts", self, len(contacts))
@@ -451,7 +469,7 @@ class EveWar(models.Model):
         RETRACTED = "retracted"  # activate and about to finish after retraction
         FINISHED = "finished"  # finished war
 
-        @classproperty
+        @classmethod
         def active_states(cls) -> Set["EveWar.State"]:
             return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 

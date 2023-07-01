@@ -1,9 +1,11 @@
+"""Core logic for handling ESI contacts."""
+
 import hashlib
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
@@ -37,16 +39,20 @@ class EsiContact:
     """An ESI contact. Immutable."""
 
     class ContactType(str, Enum):
+        """A contact type."""
+
+        ALLIANCE = "alliance"
         CHARACTER = "character"
         CORPORATION = "corporation"
-        ALLIANCE = "alliance"
+        FACTION = "faction"
 
         @classmethod
         def from_esi_contact_type(cls, contact_type) -> "EsiContact.ContactType":
             mapper = {
+                "alliance": cls.ALLIANCE,
                 "character": cls.CHARACTER,
                 "corporation": cls.CORPORATION,
-                "alliance": cls.ALLIANCE,
+                "faction": cls.FACTION,
             }
             return mapper[contact_type]
 
@@ -81,13 +87,14 @@ class EsiContact:
 
     @classmethod
     def from_esi_dict(cls, esi_dict: dict) -> "EsiContact":
+        """Create new objects from an ESI contact."""
         return cls(
             contact_id=esi_dict["contact_id"],
             contact_type=EsiContact.ContactType.from_esi_contact_type(
                 esi_dict["contact_type"]
             ),
             standing=esi_dict["standing"],
-            label_ids=esi_dict.get("label_ids") or [],
+            label_ids=esi_dict.get("label_ids") or frozenset(),
         )
 
     @classmethod
@@ -99,16 +106,21 @@ class EsiContact:
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
             EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
             EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
+            EveEntity.CATEGORY_FACTION: cls.ContactType.FACTION,
         }
+        if eve_entity.category not in contact_type_map:
+            raise ValueError(
+                f"{eve_entity}: Can not create from eve entity without category"
+            )
         return cls(
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
             standing=standing,
-            label_ids=label_ids if label_ids else [],
+            label_ids=label_ids if label_ids else frozenset(),
         )
 
     @classmethod
-    def from_eve_contact(cls, eve_contact: object, label_ids=None) -> "EsiContact":
+    def from_eve_contact(cls, eve_contact: Any, label_ids=None) -> "EsiContact":
         """Create new instance from an EveContact object."""
         contact_type_map = {
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
@@ -119,7 +131,7 @@ class EsiContact:
             contact_id=eve_contact.eve_entity.id,
             contact_type=contact_type_map[eve_contact.eve_entity.category],
             standing=eve_contact.standing,
-            label_ids=label_ids if label_ids else [],
+            label_ids=label_ids if label_ids else frozenset(),
         )
 
 
@@ -148,7 +160,9 @@ class EsiContactsContainer:
             label_ids = []
         self._contacts[contact.contact_id] = contact.clone(label_ids=label_ids)
 
-    def add_eve_contacts(self, contacts: List[object], label_ids: List[int] = None):
+    def add_eve_contacts(
+        self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
+    ):
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
@@ -174,7 +188,7 @@ class EsiContactsContainer:
         try:
             return self._contacts[contact_id]
         except KeyError:
-            raise ValueError(f"Contact with ID {contact_id} not found.")
+            raise ValueError(f"Contact with ID {contact_id} not found.") from None
 
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
@@ -188,7 +202,7 @@ class EsiContactsContainer:
         try:
             return self._labels[label_id]
         except KeyError:
-            raise ValueError(f"Label with ID {label_id} not found.")
+            raise ValueError(f"Label with ID {label_id} not found.") from None
 
     def labels(self) -> Set[EsiContactLabel]:
         """Fetch all labels."""
@@ -267,8 +281,8 @@ class EsiContactsContainer:
     @classmethod
     def from_esi_contacts(
         cls,
-        contacts: Iterable[EsiContact] = None,
-        labels: Iterable[EsiContactLabel] = None,
+        contacts: Optional[Iterable[EsiContact]] = None,
+        labels: Optional[Iterable[EsiContactLabel]] = None,
     ) -> "EsiContactsContainer":
         """Create new object from Esi contacts."""
         obj = cls()
@@ -283,8 +297,8 @@ class EsiContactsContainer:
     @classmethod
     def from_esi_dicts(
         cls,
-        contacts: Iterable[dict] = None,
-        labels: Iterable[dict] = None,
+        contacts: Optional[Iterable[dict]] = None,
+        labels: Optional[Iterable[dict]] = None,
     ) -> "EsiContactsContainer":
         """Create new object from ESI contacts and labels."""
         obj = cls()

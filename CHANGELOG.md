@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.9.0] - 2023-07-01
+
+### Changed
+
+- Migrate build process to PEP 621
+- Removed local swagger spec file
+- Migrate to AA 3 and support support for AA 2
+- Add support for Python 3.11
+- Fixed various pylint issues
+- Fixed various typing issues
+
+### Fixed
+
+- Update breaks when alliance contacts contain faction contacts
+
 ## [1.8.1] - 2023-02-16
 
 ### Changed

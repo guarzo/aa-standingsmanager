@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [1.9.0] - TBD
 
+### Changed
+
+- Migrate build process to PEP 621
+
 ### Fixed
 
 - Update breaks when alliance contacts contain faction contacts

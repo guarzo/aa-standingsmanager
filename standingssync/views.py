@@ -47,7 +47,7 @@ def index(request):
 @permission_required("standingssync.add_syncedcharacter")
 def characters(request):
     """main page"""
-    sync_manager = SyncManager.objects.fetch_for_user(request.user)
+    sync_manager: SyncManager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = []
     if sync_manager:
         qs = sync_manager.synced_characters_for_user(request.user).select_related(
@@ -55,7 +55,10 @@ def characters(request):
         )
         for synced_character in qs:
             character = synced_character.character
-            organization = character.corporation_name
+            if not character:
+                break
+
+            organization = str(character.corporation_name)
             if character.alliance_ticker:
                 organization += f" [{character.alliance_ticker}]"
 

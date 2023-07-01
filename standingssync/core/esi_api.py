@@ -1,7 +1,7 @@
 """Wrapper for handling all access to the ESI API."""
 
 from collections import defaultdict
-from typing import Callable, Dict, FrozenSet, Iterable, List, Set
+from typing import Callable, Dict, FrozenSet, Iterable, Optional, Set
 
 from esi.models import Token
 
@@ -114,7 +114,7 @@ def _update_character_contacts_esi(
     token: Token,
     contacts_by_standing: Dict[float, Iterable[int]],
     esi_method: Callable,
-    label_ids: list = None,
+    label_ids: Optional[list] = None,
 ) -> None:
     """Add new or update existing character contacts on ESI."""
     max_items = 100
@@ -133,8 +133,8 @@ def _update_character_contacts_esi(
 
 
 def _group_for_esi_update(
-    contacts: List["EsiContact"],
-) -> Dict[FrozenSet, Dict[float, Set[int]]]:
+    contacts: Iterable["EsiContact"],
+) -> Dict[FrozenSet, Dict[float, Iterable[int]]]:
     """Group contacts for ESI update."""
     contacts_grouped = dict()
     for contact in contacts:

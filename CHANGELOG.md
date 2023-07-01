@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Removed local swagger spec file
 - Migrate to AA 3 and support support for AA 2
 - Add support for Python 3.11
+- Fixed various pylint issues
+- Fixed various typing issues
 
 ### Fixed
 

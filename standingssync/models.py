@@ -166,7 +166,7 @@ class SyncManager(_SyncBaseModel):
         for war_target in war_targets:
             try:
                 contacts.add_contact(EsiContact.from_eve_entity(war_target, -10.0))
-            except KeyError:  # eve_entity has no category
+            except ValueError:  # eve_entity has no category
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:
                 war_target_ids.add(war_target.id)
@@ -229,12 +229,15 @@ class SyncedCharacter(_SyncBaseModel):
         return f"{character_name} - {self.manager}"
 
     @property
-    def character(self) -> EveCharacter:
-        return self.character_ownership.character
+    def character(self) -> Optional[EveCharacter]:
+        try:
+            return self.character_ownership.character
+        except ObjectDoesNotExist:
+            return None
 
     @property
-    def character_id(self) -> int:
-        return self.character.character_id
+    def character_id(self) -> Optional[int]:
+        return self.character.character_id if self.character else None
 
     def run_sync(self) -> Optional[bool]:
         """Sync in-game contacts for given character with alliance contacts
@@ -410,6 +413,13 @@ class SyncedCharacter(_SyncBaseModel):
     def delete_all_contacts(self):
         """Delete all contacts of this character."""
         token = self._valid_token()
+        if not token:
+            logger.warning(
+                "%s: Can not delete contacts, because no valid token found.",
+                self,
+            )
+            return
+
         contacts_clone = self._fetch_current_contacts(token)
         contacts = contacts_clone.contacts()
         logger.info("%s: Deleting all %d contacts", self, len(contacts))

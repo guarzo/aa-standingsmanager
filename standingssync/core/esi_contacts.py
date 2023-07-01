@@ -5,7 +5,7 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
@@ -102,16 +102,16 @@ class EsiContact:
         cls, eve_entity: EveEntity, standing: float, label_ids=None
     ) -> "EsiContact":
         """Create new instance from an EveEntity object."""
-        if eve_entity.category is None:
-            raise ValueError(
-                f"{eve_entity}: Can not create from eve entity without category"
-            )
         contact_type_map = {
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
             EveEntity.CATEGORY_CHARACTER: cls.ContactType.CHARACTER,
             EveEntity.CATEGORY_CORPORATION: cls.ContactType.CORPORATION,
             EveEntity.CATEGORY_FACTION: cls.ContactType.FACTION,
         }
+        if eve_entity.category not in contact_type_map:
+            raise ValueError(
+                f"{eve_entity}: Can not create from eve entity without category"
+            )
         return cls(
             contact_id=eve_entity.id,
             contact_type=contact_type_map[eve_entity.category],
@@ -120,7 +120,7 @@ class EsiContact:
         )
 
     @classmethod
-    def from_eve_contact(cls, eve_contact: object, label_ids=None) -> "EsiContact":
+    def from_eve_contact(cls, eve_contact: Any, label_ids=None) -> "EsiContact":
         """Create new instance from an EveContact object."""
         contact_type_map = {
             EveEntity.CATEGORY_ALLIANCE: cls.ContactType.ALLIANCE,
@@ -131,7 +131,7 @@ class EsiContact:
             contact_id=eve_contact.eve_entity.id,
             contact_type=contact_type_map[eve_contact.eve_entity.category],
             standing=eve_contact.standing,
-            label_ids=label_ids if label_ids else [],
+            label_ids=label_ids if label_ids else frozenset(),
         )
 
 
@@ -281,8 +281,8 @@ class EsiContactsContainer:
     @classmethod
     def from_esi_contacts(
         cls,
-        contacts: Iterable[EsiContact] = None,
-        labels: Iterable[EsiContactLabel] = None,
+        contacts: Optional[Iterable[EsiContact]] = None,
+        labels: Optional[Iterable[EsiContactLabel]] = None,
     ) -> "EsiContactsContainer":
         """Create new object from Esi contacts."""
         obj = cls()
@@ -297,8 +297,8 @@ class EsiContactsContainer:
     @classmethod
     def from_esi_dicts(
         cls,
-        contacts: Iterable[dict] = None,
-        labels: Iterable[dict] = None,
+        contacts: Optional[Iterable[dict]] = None,
+        labels: Optional[Iterable[dict]] = None,
     ) -> "EsiContactsContainer":
         """Create new object from ESI contacts and labels."""
         obj = cls()

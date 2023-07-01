@@ -10,8 +10,9 @@ from app_utils.testing import (
     generate_invalid_pk,
 )
 
-from .. import tasks
-from ..models import SyncedCharacter, SyncManager
+from standingssync import tasks
+from standingssync.models import SyncedCharacter, SyncManager
+
 from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
 from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
 

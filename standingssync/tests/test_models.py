@@ -16,8 +16,8 @@ from app_utils.testing import (
 )
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
+from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
 
-from ..models import EveContact, EveWar, SyncedCharacter, SyncManager
 from .factories import (
     EsiContactFactory,
     EsiContactLabelFactory,

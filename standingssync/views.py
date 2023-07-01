@@ -83,39 +83,41 @@ def characters(request):
                     "pk": synced_character.pk,
                 }
             )
-    context = {
-        "page_title": "My Characters",
-        "synced_characters": synced_characters,
-        "has_synced_chars": len(synced_characters) > 0,
-    }
+
     if sync_manager:
-        context["alliance"] = sync_manager.alliance
-        if STANDINGSSYNC_REPLACE_CONTACTS:
-            alliance_contacts_count = sync_manager.contacts.filter(
-                is_war_target=False
-            ).count()
-        else:
-            alliance_contacts_count = None
-        if STANDINGSSYNC_ADD_WAR_TARGETS:
-            alliance_war_targets_count = sync_manager.contacts.filter(
-                is_war_target=True
-            ).count()
-        else:
-            alliance_war_targets_count = None
+        alliance = sync_manager.alliance
+        alliance_contacts_count = (
+            sync_manager.contacts.filter(is_war_target=False).count()  # type: ignore
+            if STANDINGSSYNC_REPLACE_CONTACTS
+            else None
+        )
+        alliance_war_targets_count = (
+            sync_manager.contacts.filter(is_war_target=True).count()  # type: ignore
+            if STANDINGSSYNC_ADD_WAR_TARGETS
+            else None
+        )
+
     else:
-        context["alliance"] = None
+        alliance = None
         alliance_contacts_count = None
         alliance_war_targets_count = None
 
-    context["alliance_contacts_count"] = alliance_contacts_count
-    context["alliance_war_targets_count"] = alliance_war_targets_count
-    context["war_targets_label_name"] = STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
+    context = {
+        "page_title": "My Characters",
+        "synced_characters": synced_characters,
+        "alliance": alliance,
+        "has_synced_chars": len(synced_characters) > 0,
+        "alliance_contacts_count": alliance_contacts_count,
+        "alliance_war_targets_count": alliance_war_targets_count,
+        "war_targets_label_name": STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+    }
+
     return render(request, "standingssync/characters.html", common_context(context))
 
 
 @login_required
 @permission_required("standingssync.add_syncmanager")
-@token_required(SyncManager.get_esi_scopes())
+@token_required(SyncManager.get_esi_scopes())  # type: ignore
 def add_alliance_manager(request, token):
     """Add or update sync manager for an alliance."""
     token_char = get_object_or_404(EveCharacter, character_id=token.character_id)
@@ -150,7 +152,7 @@ def add_alliance_manager(request, token):
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
-@token_required(scopes=SyncedCharacter.get_esi_scopes())
+@token_required(scopes=SyncedCharacter.get_esi_scopes())  # type: ignore
 def add_character(request, token):
     """add character to receive alliance contacts"""
     alliance = get_object_or_404(

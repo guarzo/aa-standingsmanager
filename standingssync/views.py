@@ -55,9 +55,6 @@ def characters(request):
         )
         for synced_character in qs:
             character = synced_character.character
-            if not character:
-                break
-
             organization = str(character.corporation_name)
             if character.alliance_ticker:
                 organization += f" [{character.alliance_ticker}]"

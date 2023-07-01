@@ -84,12 +84,6 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
         self.assertTrue(mock_messages.success.called)
         self.assertFalse(SyncedCharacter.objects.filter(pk=self.sync_char.pk).exists())
 
-    def test_user_with_permission_can_set_alliance_char(self):
-        pass
-
-    def test_user_wo_permission_can_not_set_alliance_char(self):
-        pass
-
 
 @patch(MODULE_PATH + ".tasks.run_character_sync")
 @patch(MODULE_PATH + ".messages")

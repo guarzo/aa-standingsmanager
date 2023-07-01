@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - Migrate build process to PEP 621
 - Removed local swagger spec file
+- Migrate to AA 3 and support support for AA 2
 
 ### Fixed
 

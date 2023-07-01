@@ -256,7 +256,7 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         if not self._has_standing_with_alliance():
             return False
-        token = self._fetch_token()
+        token = self.fetch_token()
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
             return False
@@ -329,25 +329,29 @@ class SyncedCharacter(_SyncBaseModel):
             return False
         return True
 
-    def _fetch_token(self) -> Optional[Token]:
+    def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes.
 
         Will deactivate this character if any severe issues are encountered.
         """
         try:
             token = self._valid_token()
+
         except TokenInvalidError:
             logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
             return None
+
         except TokenExpiredError:
             logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
             return None
+
         if token is None:
             logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
             return None
+
         return token
 
     def _valid_token(self) -> Optional[Token]:

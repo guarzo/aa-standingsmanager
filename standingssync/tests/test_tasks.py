@@ -106,7 +106,7 @@ class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
         # given
         mock_update.return_value = True
         # when
-        tasks.run_character_sync(self.synced_character_2)
+        tasks.run_character_sync(self.synced_character_2.pk)
         # then
         self.assertTrue(mock_update.called)
 
@@ -116,7 +116,7 @@ class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
         mock_update.side_effect = RuntimeError
         # when
         with self.assertRaises(RuntimeError):
-            tasks.run_character_sync(self.synced_character_2)
+            tasks.run_character_sync(self.synced_character_2.pk)
 
 
 @patch(TASKS_PATH + ".run_character_sync")

@@ -68,9 +68,6 @@ disable = [
     "too-few-public-methods",
     "import-outside-toplevel",
     "cyclic-import",
-    "duplicate-code",
     "fixme",
     "imported-auth-user",
-    "missing-class-docstring",    #FIXME
-    "missing-function-docstring", #FIXME
 ]

@@ -46,8 +46,10 @@ class _SyncBaseModel(models.Model):
 
     @property
     def is_sync_fresh(self) -> bool:
+        """Return True, when sync is not stale, else False."""
         if not self.last_sync_at:
             return False
+
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
         return self.last_sync_at > deadline
 
@@ -102,15 +104,18 @@ class SyncManager(_SyncBaseModel):
             return self.contacts.get(eve_entity_id=character.character_id).standing
         except EveContact.DoesNotExist:
             pass
+
         try:
             return self.contacts.get(eve_entity_id=character.corporation_id).standing
         except EveContact.DoesNotExist:
             pass
+
         if character.alliance_id:
             try:
                 return self.contacts.get(eve_entity_id=character.alliance_id).standing
             except EveContact.DoesNotExist:
                 pass
+
         return 0.0
 
     def synced_characters_for_user(
@@ -141,6 +146,7 @@ class SyncManager(_SyncBaseModel):
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
         war_target_ids = self._add_war_targets(current_contacts)
         new_version_hash = current_contacts.version_hash()
+
         if force_update or new_version_hash != self.version_hash:
             self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
         else:
@@ -182,34 +188,31 @@ class SyncManager(_SyncBaseModel):
                 war_target_ids.add(war_target.id)
         return war_target_ids
 
+    @transaction.atomic()
     def _save_new_contacts(
         self,
         current_contacts: EsiContactsContainer,
         war_target_ids: Set[int],
         new_version_hash: str,
     ):
-        with transaction.atomic():
-            self.contacts.all().delete()
-            contacts = [
-                EveContact(
-                    manager=self,
-                    eve_entity=EveEntity.objects.get_or_create(id=contact.contact_id)[
-                        0
-                    ],
-                    standing=contact.standing,
-                    is_war_target=contact.contact_id in war_target_ids,
-                )
-                for contact in current_contacts.contacts()
-            ]
-            EveContact.objects.bulk_create(contacts, batch_size=500)
-            self.version_hash = new_version_hash
-            self.save()
-            logger.info(
-                "%s: Stored alliance update with %d contacts", self, len(contacts)
+        self.contacts.all().delete()
+        contacts = [
+            EveContact(
+                manager=self,
+                eve_entity=EveEntity.objects.get_or_create(id=contact.contact_id)[0],
+                standing=contact.standing,
+                is_war_target=contact.contact_id in war_target_ids,
             )
+            for contact in current_contacts.contacts()
+        ]
+        EveContact.objects.bulk_create(contacts, batch_size=500)
+        self.version_hash = new_version_hash
+        self.save()
+        logger.info("%s: Stored alliance update with %d contacts", self, len(contacts))
 
     @classmethod
     def get_esi_scopes(cls) -> list:
+        """Return ESI scopes needed for this model."""
         return ["esi-alliances.read_contacts.v1"]
 
 
@@ -237,10 +240,12 @@ class SyncedCharacter(_SyncBaseModel):
 
     @property
     def character(self) -> EveCharacter:
+        """Return EveCharacter used to sync."""
         return self.character_ownership.character
 
     @property
     def character_id(self) -> Optional[int]:
+        """Return character ID of the EveCharacter used to sync."""
         return self.character.character_id if self.character else None
 
     def run_sync(self) -> Optional[bool]:
@@ -274,7 +279,17 @@ class SyncedCharacter(_SyncBaseModel):
         current_contacts = self._fetch_current_contacts(token)
         self._update_wt_label_info(current_contacts)
 
-        # new contacts
+        new_contacts = self._identify_new_contacts(current_contacts)
+
+        self._update_contacts_on_esi(token, current_contacts, new_contacts)
+
+        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
+            store_json(new_contacts.to_dict(), "new_contacts")
+
+        self.record_successful_sync()
+        return True
+
+    def _identify_new_contacts(self, current_contacts):
         if STANDINGSSYNC_REPLACE_CONTACTS:
             new_contacts = EsiContactsContainer.from_esi_contacts(
                 labels=current_contacts.labels()
@@ -295,7 +310,9 @@ class SyncedCharacter(_SyncBaseModel):
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
-        # update contacts on ESI
+        return new_contacts
+
+    def _update_contacts_on_esi(self, token, current_contacts, new_contacts):
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
         if removed:
             logger.info("%s: Deleting %d added contacts", self, len(removed))
@@ -313,12 +330,6 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
         else:
             logger.info("%s: Contacts update completed.", self)
-
-        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
-            store_json(new_contacts.to_dict(), "new_contacts")
-
-        self.record_successful_sync()
-        return True
 
     def _update_wt_label_info(self, current_contacts: EsiContactsContainer):
         """Update info about WT label if it has changed."""
@@ -440,6 +451,7 @@ class SyncedCharacter(_SyncBaseModel):
 
     @staticmethod
     def get_esi_scopes() -> list:
+        """Return required ESI scopes."""
         return ["esi-characters.read_contacts.v1", "esi-characters.write_contacts.v1"]
 
 
@@ -472,6 +484,8 @@ class EveWar(models.Model):
     """An EveOnline war"""
 
     class State(models.TextChoices):
+        """A war state."""
+
         PENDING = "pending"  # declared, but not started yet
         ONGOING = "ongoing"  # active and without finish date
         CONCLUDING = "concluding"  # active and about to finish normally
@@ -480,6 +494,7 @@ class EveWar(models.Model):
 
         @classmethod
         def active_states(cls) -> Set["EveWar.State"]:
+            """Return all states representing an active war."""
             return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 
     id = models.PositiveIntegerField(primary_key=True)

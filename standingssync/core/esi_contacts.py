@@ -24,13 +24,16 @@ class EsiContactLabel:
         object.__setattr__(self, "name", str(self.name))
 
     def to_dict(self) -> dict:
+        """Return as dict."""
         return {self.id: self.name}
 
     def to_esi_dict(self) -> dict:
+        """Return as dict in ESI format."""
         return {"label_id": self.id, "label_name": self.name}
 
     @classmethod
-    def from_esi_dict(cls, esi_dict: dict):
+    def from_esi_dict(cls, esi_dict: dict) -> "EsiContactLabel":
+        """Create new obj from ESI dict."""
         return cls(id=esi_dict["label_id"], name=esi_dict["label_name"])
 
 
@@ -48,6 +51,7 @@ class EsiContact:
 
         @classmethod
         def from_esi_contact_type(cls, contact_type) -> "EsiContact.ContactType":
+            """Create from an ESI contact type."""
             mapper = {
                 "alliance": cls.ALLIANCE,
                 "character": cls.CHARACTER,
@@ -76,6 +80,7 @@ class EsiContact:
         return new_obj
 
     def to_esi_dict(self) -> dict:
+        """Return as a dict."""
         obj = {
             "contact_id": self.contact_id,
             "contact_type": self.ContactType(self.contact_type).value,
@@ -163,6 +168,7 @@ class EsiContactsContainer:
     def add_eve_contacts(
         self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
     ):
+        """Add eve contacts to this container."""
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
@@ -226,11 +232,13 @@ class EsiContactsContainer:
         self.remove_contacts(self.war_targets())
 
     def clone(self) -> "EsiContactsContainer":
+        """Return a clone of this object."""
         other = self.__class__.from_esi_contacts(
             contacts=self.contacts(), labels=self.labels()
         )
         return other
 
+    # pylint: disable = protected-access
     def contacts_difference(
         self, other: "EsiContactsContainer"
     ) -> Tuple[Set[EsiContact], Set[EsiContact], Set[EsiContact]]:

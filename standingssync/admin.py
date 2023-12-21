@@ -1,5 +1,7 @@
 """Admin site for standingssync."""
 
+# pylint: disable = missing-class-docstring, missing-function-docstring
+
 from django.contrib import admin
 from django.db.models import Prefetch
 from eveuniverse.models import EveEntity

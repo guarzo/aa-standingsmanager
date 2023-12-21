@@ -125,11 +125,13 @@ class SyncManager(_SyncBaseModel):
         """Synced characters of the given user."""
         return self.synced_characters.filter(character_ownership__user=user)
 
-    def run_sync(self, force_update: bool = False) -> None:
+    def run_sync(self, force_update: bool = False) -> bool:
         """Run sync for this manager.
 
         Args:
-        - force_update: when true will always update contacts in database
+            - force_update: when true will always update contacts in database
+
+        Returns True when contacts where updated, else False.
         """
         if self.character_ownership is None:
             raise RuntimeError(f"{self}: Can not sync. No character configured.")
@@ -151,10 +153,13 @@ class SyncManager(_SyncBaseModel):
         if force_update or new_version_hash != self.version_hash:
             self._save_new_contacts(contacts, war_target_ids, new_version_hash)
             EveEntity.objects.bulk_resolve_ids(contacts.contact_ids())
+            was_updated = True
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
+            was_updated = False
 
         self.record_successful_sync()
+        return was_updated
 
     def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes."""

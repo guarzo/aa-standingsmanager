@@ -8,7 +8,7 @@ from esi.models import Token
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveCharacter
-from app_utils.esi_testing import BravadoOperationStub
+from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoint
 from app_utils.testing import (
     NoSocketsTestCase,
     add_character_to_user,
@@ -16,7 +16,7 @@ from app_utils.testing import (
 )
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
-from standingssync.models import EveContact, EveWar, SyncedCharacter, SyncManager
+from standingssync.models import SyncedCharacter, SyncManager
 
 from .factories import (
     EsiContactFactory,
@@ -28,8 +28,14 @@ from .factories import (
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
+    UserMainManagerFactory,
 )
-from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, LoadTestDataMixin
+from .utils import (
+    ALLIANCE_CONTACTS,
+    EsiCharacterContactsStub,
+    LoadTestDataMixin,
+    load_eve_entities,
+)
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
@@ -128,70 +134,6 @@ class TestGetEffectiveStanding(LoadTestDataMixin, NoSocketsTestCase):
         self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
 
 
-@patch(ESI_API_PATH + ".esi")
-class TestSyncManagerRunSync(LoadTestDataMixin, NoSocketsTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user, _ = create_user_from_evecharacter(
-            cls.character_1.character_id, permissions=["standingssync.add_syncmanager"]
-        )
-        add_character_to_user(
-            cls.user, cls.character_1, scopes=SyncManager.get_esi_scopes()
-        )
-
-    def test_should_sync_contacts(self, mock_esi):
-        # given
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.side_effect = (
-            lambda *args, **kwargs: BravadoOperationStub(ALLIANCE_CONTACTS)
-        )
-        sync_manager = SyncManagerFactory(user=self.user)
-        # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False):
-            sync_manager.run_sync()
-        # then
-        sync_manager.refresh_from_db()
-        expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
-        expected_contact_ids.add(self.character_1.alliance_id)
-        result_contact_ids = set(
-            sync_manager.contacts.values_list("eve_entity_id", flat=True)
-        )
-        self.assertSetEqual(expected_contact_ids, result_contact_ids)
-        contact = sync_manager.contacts.get(eve_entity_id=3015)
-        self.assertEqual(contact.standing, 10.0)
-        self.assertFalse(contact.is_war_target)
-
-    def test_should_sync_contacts_and_war_targets(self, mock_esi):
-        # given
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.side_effect = (
-            lambda *args, **kwargs: BravadoOperationStub(ALLIANCE_CONTACTS)
-        )
-        sync_manager = SyncManagerFactory(user=self.user)
-        EveWar.objects.create(
-            id=8,
-            aggressor=EveEntity.objects.get(id=3015),
-            defender=EveEntity.objects.get(id=3001),
-            declared=now() - dt.timedelta(days=3),
-            started=now() - dt.timedelta(days=2),
-            is_mutual=False,
-            is_open_for_allies=False,
-        )
-        # when
-        with patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True):
-            sync_manager.run_sync()
-        # then
-        sync_manager.refresh_from_db()
-        expected_contact_ids = {x["contact_id"] for x in ALLIANCE_CONTACTS}
-        expected_contact_ids.add(self.character_1.alliance_id)
-        result_contact_ids = set(
-            sync_manager.contacts.values_list("eve_entity_id", flat=True)
-        )
-        self.assertSetEqual(expected_contact_ids, result_contact_ids)
-        contact = sync_manager.contacts.get(eve_entity_id=3015)
-        self.assertEqual(contact.standing, -10.0)
-        self.assertTrue(contact.is_war_target)
-
-
 class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_return_token(self):
         # given
@@ -261,19 +203,7 @@ class TestSyncManager2(NoSocketsTestCase):
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertTrue(sync_manager.is_sync_fresh)
 
-
-@patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
-@patch(ESI_API_PATH + ".esi")
-class TestSyncManagerRunSync2(NoSocketsTestCase):
-    @staticmethod
-    def _war_target_contact_ids() -> Set[int]:
-        return set(
-            EveContact.objects.filter(is_war_target=True).values_list(
-                "eve_entity_id", flat=True
-            )
-        )
-
-    def test_should_report_sync_as_not_ok(self, dummy):
+    def test_should_report_sync_as_not_ok(self):
         # given
         my_dt = now()
         sync_manager = SyncManagerFactory(last_sync_at=my_dt - dt.timedelta(minutes=61))
@@ -281,6 +211,148 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
             self.assertFalse(sync_manager.is_sync_fresh)
 
+
+def war_target_contact_ids(sync_manager: SyncManager) -> Set[int]:
+    query = sync_manager.contacts.filter(is_war_target=True).values_list(
+        "eve_entity_id", flat=True
+    )
+
+    return set(query)
+
+
+@patch(ESI_API_PATH + ".esi")
+class TestSyncManagerRunSync(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = UserMainManagerFactory()
+        cls.alliance_id = cls.user.profile.main_character.alliance_id
+        load_eve_entities()
+        cls.endpoints = [
+            EsiEndpoint(
+                "Contacts",
+                "get_alliances_alliance_id_contacts",
+                "alliance_id",
+                needs_token=True,
+                data={
+                    str(cls.alliance_id): ALLIANCE_CONTACTS,
+                },
+            )
+        ]
+        cls.esi_client_stub = EsiClientStub.create_from_endpoints(cls.endpoints)
+        cls.expected_contact_ids = {obj["contact_id"] for obj in ALLIANCE_CONTACTS}
+        cls.expected_contact_ids.add(cls.alliance_id)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_add_new_contacts_from_scratch_no_wt(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+
+        # when
+        sync_manager.run_sync()
+
+        # then
+        sync_manager.refresh_from_db()
+        result_contact_ids = set(
+            sync_manager.contacts.values_list("eve_entity_id", flat=True)
+        )
+        self.assertSetEqual(self.expected_contact_ids, result_contact_ids)
+        contact = sync_manager.contacts.get(eve_entity_id=3015)
+        self.assertEqual(contact.standing, 10.0)
+        self.assertFalse(contact.is_war_target)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_update_existing_contacts_no_wt(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+        EveContactFactory(
+            manager=sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=1002),
+            standing=-5,
+        )
+
+        # when
+        sync_manager.run_sync()
+
+        # then
+        sync_manager.refresh_from_db()
+        result_contact_ids = set(
+            sync_manager.contacts.values_list("eve_entity_id", flat=True)
+        )
+        self.assertSetEqual(self.expected_contact_ids, result_contact_ids)
+        contact = sync_manager.contacts.get(eve_entity_id=1002)
+        self.assertEqual(contact.standing, 10.0)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_remove_obsolete_contacts_no_wt(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+        new_contact = EveContactFactory(
+            manager=sync_manager, eve_entity=EveEntityCharacterFactory(), standing=-5
+        )
+
+        # when
+        sync_manager.run_sync()
+
+        # then
+        sync_manager.refresh_from_db()
+        result_contact_ids = set(
+            sync_manager.contacts.values_list("eve_entity_id", flat=True)
+        )
+        self.assertSetEqual(self.expected_contact_ids, result_contact_ids)
+        self.assertFalse(
+            sync_manager.contacts.filter(
+                eve_entity_id=new_contact.eve_entity_id
+            ).exists()
+        )
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    def test_should_add_new_contacts_from_scratch_with_wt(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+        EveWarFactory(
+            aggressor=EveEntity.objects.get(id=3015),
+            defender=EveEntity.objects.get(id=self.alliance_id),
+        )
+
+        # when
+        sync_manager.run_sync()
+
+        # then
+        sync_manager.refresh_from_db()
+        result_contact_ids = set(
+            sync_manager.contacts.values_list("eve_entity_id", flat=True)
+        )
+        self.assertSetEqual(self.expected_contact_ids, result_contact_ids)
+        contact = sync_manager.contacts.get(eve_entity_id=3015)
+        self.assertEqual(contact.standing, -10.0)
+        self.assertTrue(contact.is_war_target)
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    def test_should_not_update_contacts_when_unchanged(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+        sync_manager.run_sync()
+
+        # when/then
+        self.assertFalse(sync_manager.run_sync())
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
+    def test_should_update_contacts_when_unchanged_but_forced(self, mock_esi):
+        # given
+        mock_esi.client = self.esi_client_stub
+        sync_manager = SyncManagerFactory(user=self.user)
+        sync_manager.run_sync()
+
+        # when/then
+        self.assertTrue(sync_manager.run_sync(force_update=True))
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_add_war_target_contact_as_aggressor_1(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -293,8 +365,9 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id})
+        self.assertSetEqual(war_target_contact_ids(sync_manager), {war.defender.id})
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_add_war_target_contact_as_aggressor_2(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -309,8 +382,11 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), {war.defender.id, ally.id})
+        self.assertSetEqual(
+            war_target_contact_ids(sync_manager), {war.defender.id, ally.id}
+        )
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_add_war_target_contact_as_defender(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -323,8 +399,9 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
+        self.assertSetEqual(war_target_contact_ids(sync_manager), {war.aggressor.id})
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_add_war_target_contact_as_ally(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -337,8 +414,9 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), {war.aggressor.id})
+        self.assertSetEqual(war_target_contact_ids(sync_manager), {war.aggressor.id})
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_not_add_war_target_contact_from_unrelated_war(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -350,8 +428,9 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), set())
+        self.assertSetEqual(war_target_contact_ids(sync_manager), set())
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_remove_outdated_war_target_contacts(self, mock_esi):
         # given
         mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
@@ -366,20 +445,7 @@ class TestSyncManagerRunSync2(NoSocketsTestCase):
         # when
         sync_manager.run_sync()
         # then
-        self.assertSetEqual(self._war_target_contact_ids(), set())
-
-    def test_do_not_store_contacts_when_unchanged(self, mock_esi):
-        # given
-        mock_esi.client.Contacts.get_alliances_alliance_id_contacts.return_value = (
-            BravadoOperationStub(ALLIANCE_CONTACTS)
-        )
-        sync_manager = SyncManagerFactory(
-            version_hash="33f9b95322860e4d6d2914117bff4929"
-        )
-        # when
-        sync_manager.run_sync()
-        # then
-        self.assertEqual(sync_manager.contacts.count(), 0)
+        self.assertSetEqual(war_target_contact_ids(sync_manager), set())
 
 
 class TestSyncManagerAddWarTargets(NoSocketsTestCase):

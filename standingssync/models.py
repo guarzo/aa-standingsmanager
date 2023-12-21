@@ -142,13 +142,14 @@ class SyncManager(_SyncBaseModel):
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
 
-        contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
-        war_target_ids = self._add_war_targets(current_contacts)
-        new_version_hash = current_contacts.version_hash()
+        esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
+        war_target_ids = self._add_war_targets(contacts)
+        new_version_hash = contacts.version_hash()
 
         if force_update or new_version_hash != self.version_hash:
-            self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
+            self._save_new_contacts(contacts, war_target_ids, new_version_hash)
+            EveEntity.objects.bulk_resolve_ids(contacts.contact_ids())
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
 

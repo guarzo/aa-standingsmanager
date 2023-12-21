@@ -196,6 +196,10 @@ class EsiContactsContainer:
         except KeyError:
             raise ValueError(f"Contact with ID {contact_id} not found.") from None
 
+    def contact_ids(self) -> Set[int]:
+        result = set(self._contacts)
+        return result
+
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
         return set(self._contacts.values())

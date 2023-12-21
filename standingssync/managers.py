@@ -1,5 +1,7 @@
 """Managers for standingssync."""
 
+# pylint: disable = redefined-builtin
+
 import datetime as dt
 from collections import defaultdict
 from typing import Any, Dict, Set, Tuple
@@ -39,28 +41,29 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 class EveWarQuerySet(models.QuerySet):
     def annotate_state(self) -> models.QuerySet:
         """Add state field to queryset."""
-        State = self.model.State
+        from .models import EveWar
+
         return self.annotate(
             state=Case(
-                When(started__gt=now(), then=Value(State.PENDING.value)),
+                When(started__gt=now(), then=Value(EveWar.State.PENDING.value)),
                 When(
                     started__lte=now(),
                     finished__isnull=True,
-                    then=Value(State.ONGOING.value),
+                    then=Value(EveWar.State.ONGOING.value),
                 ),
                 When(
                     started__lte=now(),
                     finished__gt=now(),
                     retracted__isnull=False,
-                    then=Value(State.RETRACTED.value),
+                    then=Value(EveWar.State.RETRACTED.value),
                 ),
                 When(
                     started__lte=now(),
                     finished__gt=now(),
                     retracted__isnull=True,
-                    then=Value(State.CONCLUDING.value),
+                    then=Value(EveWar.State.CONCLUDING.value),
                 ),
-                default=Value(State.FINISHED.value),
+                default=Value(EveWar.State.FINISHED.value),
             )
         )
 

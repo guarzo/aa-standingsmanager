@@ -136,7 +136,7 @@ def _group_for_esi_update(
     contacts: Iterable["EsiContact"],
 ) -> Dict[FrozenSet, Dict[float, Iterable[int]]]:
     """Group contacts for ESI update."""
-    contacts_grouped = dict()
+    contacts_grouped = {}
     for contact in contacts:
         if contact.label_ids not in contacts_grouped:
             contacts_grouped[contact.label_ids] = defaultdict(set)
@@ -164,13 +164,11 @@ def fetch_war_ids() -> Set[int]:
         war_ids_page = esi.client.Wars.get_wars(max_war_id=max_war_id).results(
             ignore_cache=True
         )
-    war_ids = set(
-        [
-            war_id
-            for war_id in war_ids
-            if war_id >= STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
-        ]
-    )
+    war_ids = {
+        war_id
+        for war_id in war_ids
+        if war_id >= STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
+    }
     war_ids = war_ids.union(set(STANDINGSSYNC_SPECIAL_WAR_IDS))
     return war_ids
 

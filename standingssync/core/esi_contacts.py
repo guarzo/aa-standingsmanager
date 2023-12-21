@@ -265,7 +265,7 @@ class EsiContactsContainer:
             for obj in sorted(self._labels.values(), key=lambda o: o.id)
         ]
 
-    def _to_dict(self) -> dict:
+    def to_dict(self) -> dict:
         """Convert this object into a stable dictionary."""
         data = {
             "contacts": self.contacts_to_esi_dicts(),
@@ -275,7 +275,7 @@ class EsiContactsContainer:
 
     def version_hash(self) -> str:
         """Calculate hash for current contacts & label in order to identify changes."""
-        data = self._to_dict()
+        data = self.to_dict()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod

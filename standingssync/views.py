@@ -189,7 +189,7 @@ def add_character(request, token):
             )
             tasks.run_character_sync.delay(sync_character.pk)
             messages.success(
-                request, "Sync activated for {}!".format(token_char.character_name)
+                request, f"Sync activated for {token_char.character_name}!"
             )
     return redirect("standingssync:characters")
 
@@ -201,7 +201,7 @@ def remove_character(request, alt_pk):
     alt = get_object_or_404(SyncedCharacter, pk=alt_pk)
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
-    messages.success(request, "Sync deactivated for {}".format(alt_name))
+    messages.success(request, f"Sync deactivated for {alt_name}")
     return redirect("standingssync:characters")
 
 
@@ -246,7 +246,7 @@ def wars(request):
             {
                 "alliance": sync_manager.alliance,
                 "war_count": len(all_wars),
-                "active_wars_count": sum([1 for obj in all_wars if obj["is_active"]]),
+                "active_wars_count": sum(1 for obj in all_wars if obj["is_active"]),
             }
         )
     return render(request, "standingssync/wars.html", common_context(context))

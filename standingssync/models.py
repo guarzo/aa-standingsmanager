@@ -254,12 +254,15 @@ class SyncedCharacter(_SyncBaseModel):
         logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
+
         if not self._has_standing_with_alliance():
             return False
+
         token = self.fetch_token()
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
             return False
+
         if not self.manager.contacts_for_sync(self).exists():
             logger.info("%s: No contacts to sync", self)
             return None
@@ -293,9 +296,11 @@ class SyncedCharacter(_SyncBaseModel):
         if removed:
             logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
+
         if added:
             logger.info("%s: Adding %d missing contacts", self, len(added))
             esi_api.add_character_contacts(token, added)
+
         if changed:
             logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
@@ -306,7 +311,7 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info("%s: Contacts update completed.", self)
 
         if settings.DEBUG:
-            store_json(new_contacts._to_dict(), "new_contacts")
+            store_json(new_contacts.to_dict(), "new_contacts")
 
         self.record_successful_sync()
         return True
@@ -408,7 +413,7 @@ class SyncedCharacter(_SyncBaseModel):
         labels = esi_api.fetch_character_contact_labels(token)
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts, labels)
         if settings.DEBUG:
-            store_json(current_contacts._to_dict(), "current_contacts")
+            store_json(current_contacts.to_dict(), "current_contacts")
             logger.debug(
                 "%s: new version hash: %s", self, current_contacts.version_hash()
             )

@@ -23,6 +23,12 @@ All wars with smaller IDs are known to be already finished.
 This is an optimization to avoid having to fetch >700K wars from ESI.
 """
 
+STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
+    "STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED", False
+)
+"""Wether to store contacts received from ESI to disk. This is for debugging."""
+
+
 STANDINGSSYNC_REPLACE_CONTACTS = clean_setting("STANDINGSSYNC_REPLACE_CONTACTS", True)
 """When enabled will replace contacts of synced characters with alliance contacts."""
 

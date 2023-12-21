@@ -3,7 +3,6 @@
 import datetime as dt
 from typing import Optional, Set
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models, transaction
 from django.utils.timezone import now
@@ -22,6 +21,7 @@ from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
+    STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
 from .core import esi_api
@@ -127,13 +127,16 @@ class SyncManager(_SyncBaseModel):
         """
         if self.character_ownership is None:
             raise RuntimeError(f"{self}: Can not sync. No character configured.")
+
         if not self.character_ownership.user.has_perm("standingssync.add_syncmanager"):
             raise RuntimeError(
                 f"{self}: Can not sync. Character does not have sufficient permission."
             )
+
         token = self.fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
+
         contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
         war_target_ids = self._add_war_targets(current_contacts)
@@ -142,6 +145,7 @@ class SyncManager(_SyncBaseModel):
             self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
+
         self.record_successful_sync()
 
     def fetch_token(self) -> Optional[Token]:
@@ -310,7 +314,7 @@ class SyncedCharacter(_SyncBaseModel):
         else:
             logger.info("%s: Contacts update completed.", self)
 
-        if settings.DEBUG:
+        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
             store_json(new_contacts.to_dict(), "new_contacts")
 
         self.record_successful_sync()
@@ -412,11 +416,11 @@ class SyncedCharacter(_SyncBaseModel):
         contacts = esi_api.fetch_character_contacts(token)
         labels = esi_api.fetch_character_contact_labels(token)
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts, labels)
-        if settings.DEBUG:
+
+        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
             store_json(current_contacts.to_dict(), "current_contacts")
-            logger.debug(
-                "%s: new version hash: %s", self, current_contacts.version_hash()
-            )
+
+        logger.debug("%s: new version hash: %s", self, current_contacts.version_hash())
         return current_contacts
 
     def delete_all_contacts(self):

@@ -129,7 +129,7 @@ class TestGetEffectiveStanding(LoadTestDataMixin, NoSocketsTestCase):
 
 
 @patch(ESI_API_PATH + ".esi")
-class TestSyncManagerEsi(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncManagerRunSync(LoadTestDataMixin, NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -252,9 +252,19 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
             _ = obj.character
 
 
+class TestSyncManager2(NoSocketsTestCase):
+    def test_should_report_sync_as_ok(self):
+        # given
+        my_dt = now()
+        sync_manager = SyncManagerFactory(last_sync_at=my_dt - dt.timedelta(minutes=1))
+        # when/then
+        with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
+            self.assertTrue(sync_manager.is_sync_fresh)
+
+
 @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
 @patch(ESI_API_PATH + ".esi")
-class TestSyncManager2(NoSocketsTestCase):
+class TestSyncManagerRunSync2(NoSocketsTestCase):
     @staticmethod
     def _war_target_contact_ids() -> Set[int]:
         return set(
@@ -262,14 +272,6 @@ class TestSyncManager2(NoSocketsTestCase):
                 "eve_entity_id", flat=True
             )
         )
-
-    def test_should_report_sync_as_ok(self, dummy):
-        # given
-        my_dt = now()
-        sync_manager = SyncManagerFactory(last_sync_at=my_dt - dt.timedelta(minutes=1))
-        # when/then
-        with patch(MODELS_PATH + ".STANDINGSSYNC_SYNC_TIMEOUT", 60):
-            self.assertTrue(sync_manager.is_sync_fresh)
 
     def test_should_report_sync_as_not_ok(self, dummy):
         # given

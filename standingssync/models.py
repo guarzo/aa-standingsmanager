@@ -4,6 +4,7 @@ import datetime as dt
 from typing import Optional, Set
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
@@ -239,7 +240,10 @@ class SyncedCharacter(_SyncBaseModel):
     )
 
     def __str__(self):
-        character_name = self.character_ownership.character.character_name
+        try:
+            character_name = self.character.character_name
+        except ObjectDoesNotExist:
+            character_name = "?"
         return f"{character_name} - {self.manager}"
 
     @property

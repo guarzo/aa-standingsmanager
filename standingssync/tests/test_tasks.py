@@ -177,7 +177,7 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(TASKS_PATH + ".run_war_sync")
 @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
-class TestSyncAllWars(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncAllWars(LoadTestDataMixin, TestCase):
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
     ):

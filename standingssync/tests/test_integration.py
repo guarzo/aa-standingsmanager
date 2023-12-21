@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.test import override_settings
+from django.test import TestCase, override_settings
 from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveAllianceInfo
@@ -202,7 +202,7 @@ class TestTasksE2E(NoSocketsTestCase):
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
 
-class TestUI(NoSocketsTestCase):
+class TestUI(TestCase):
     def test_should_open_main_page_wo_syn_manager(self):
         # given
         user = UserMainSyncerFactory()

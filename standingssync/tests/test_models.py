@@ -447,7 +447,15 @@ class TestSyncCharacter(NoSocketsTestCase):
         # then
         self.assertIsInstance(result, Token)
 
-    def test_should_return_none_and_delete_when_token_invalid(self):
+
+@patch(MODELS_PATH + ".notify")
+class TestSyncCharacterFetchToken(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.sync_manager = SyncManagerFactory()
+
+    def test_should_return_none_and_delete_when_token_invalid(self, mock_notify):
         # given
         obj = SyncedCharacterFactory(manager=self.sync_manager)
         with patch(MODELS_PATH + ".SyncedCharacter._valid_token") as m:
@@ -457,8 +465,9 @@ class TestSyncCharacter(NoSocketsTestCase):
         # then
         self.assertIsNone(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
+        self.assertTrue(mock_notify)
 
-    def test_should_return_none_and_delete_when_token_has_issues(self):
+    def test_should_return_none_and_delete_when_token_has_issues(self, mock_notify):
         params = [TokenInvalidError, TokenExpiredError]
         for exception in params:
             with self.subTest(exception=exception):
@@ -471,8 +480,9 @@ class TestSyncCharacter(NoSocketsTestCase):
                 # then
                 self.assertIsNone(result)
                 self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
+                self.assertTrue(mock_notify)
 
-    def test_should_return_none_and_delete_when_token_not_found(self):
+    def test_should_return_none_and_delete_when_token_not_found(self, mock_notify):
         # given
         obj = SyncedCharacterFactory(manager=self.sync_manager)
         # when
@@ -482,6 +492,7 @@ class TestSyncCharacter(NoSocketsTestCase):
         # then
         self.assertIsNone(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=obj.pk).exists())
+        self.assertTrue(mock_notify)
 
 
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
@@ -795,8 +806,9 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             self.assertFalse(esi_api.called)
 
 
+@patch(MODELS_PATH + ".notify")
 class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
-    def test_should_delete_when_insufficient_permission(self):
+    def test_should_delete_when_insufficient_permission(self, mock_notify):
         # given
         user, _ = create_user_from_evecharacter(self.character_1.character_id)
         alt_ownership = add_character_to_user(
@@ -813,7 +825,7 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
 
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1)
-    def test_should_delete_when_character_has_no_standing(self):
+    def test_should_delete_when_character_has_no_standing(self, mock_notify):
         # given
         user, _ = create_user_from_evecharacter(
             self.character_1.character_id,

@@ -80,6 +80,7 @@ def sync_all_wars():
         )
         for war_id in fetch_active_war_ids_esi:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 

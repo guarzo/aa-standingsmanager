@@ -177,6 +177,7 @@ class SyncManager(_SyncBaseModel):
         """
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
+
         war_targets = EveWar.objects.alliance_war_targets(self.alliance)
         war_target_ids = set()
         for war_target in war_targets:
@@ -186,8 +187,10 @@ class SyncManager(_SyncBaseModel):
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:
                 war_target_ids.add(war_target.id)
+
         return war_target_ids
 
+    # TODO: Replace delete & create with update & delete
     @transaction.atomic()
     def _save_new_contacts(
         self,

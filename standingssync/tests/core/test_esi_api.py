@@ -6,13 +6,12 @@ from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core import esi_api
 from standingssync.core.esi_contacts import EsiContact
-
-from ..factories import (
+from standingssync.tests.factories import (
     EsiContactFactory,
     EsiContactLabelFactory,
     EveEntityCharacterFactory,
 )
-from ..utils import EsiCharacterContactsStub
+from standingssync.tests.utils import EsiCharacterContactsStub
 
 MODULE_PATH = "standingssync.core.esi_api"
 

@@ -7,8 +7,7 @@ from standingssync.core.esi_contacts import (
     EsiContactLabel,
     EsiContactsContainer,
 )
-
-from ..factories import (
+from standingssync.tests.factories import (
     EsiContactFactory,
     EsiContactLabelFactory,
     EveContactFactory,

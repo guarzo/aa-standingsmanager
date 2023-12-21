@@ -169,7 +169,7 @@ class EveWarManagerBase(models.Manager):
                     war.allies.add(ally)
                     entity_ids.add(ally.id)
 
-        EveEntity.objects.bulk_create_esi(entity_ids)
+        EveEntity.objects.bulk_resolve_ids(entity_ids)
         return war, created
 
     @staticmethod

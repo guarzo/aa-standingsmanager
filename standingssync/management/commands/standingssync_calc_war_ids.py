@@ -1,9 +1,9 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Min
 
-from ... import __title__, __version__
-from ...models import EveWar
-from ...providers import esi
+from standingssync import __title__, __version__
+from standingssync.models import EveWar
+from standingssync.providers import esi
 
 
 class Command(BaseCommand):

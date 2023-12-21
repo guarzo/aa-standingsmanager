@@ -264,7 +264,6 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
 
@@ -319,16 +318,16 @@ class SyncedCharacter(_SyncBaseModel):
     def _update_contacts_on_esi(self, token, current_contacts, new_contacts):
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
         if removed:
-            logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
+            logger.info("%s: Deleted %d added contacts", self, len(removed))
 
         if added:
-            logger.info("%s: Adding %d missing contacts", self, len(added))
             esi_api.add_character_contacts(token, added)
+            logger.info("%s: Added %d missing contacts", self, len(added))
 
         if changed:
-            logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
+            logger.info("%s: Updated %d changed contacts", self, len(changed))
 
         if not added and not removed and not changed:
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
@@ -351,6 +350,7 @@ class SyncedCharacter(_SyncBaseModel):
             )
             self._deactivate_sync("you no longer have permission for this service")
             return False
+
         return True
 
     def fetch_token(self) -> Optional[Token]:
@@ -362,18 +362,18 @@ class SyncedCharacter(_SyncBaseModel):
             token = self._valid_token()
 
         except TokenInvalidError:
-            logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
+            logger.info("%s: sync deactivated due to invalid token", self)
             return None
 
         except TokenExpiredError:
-            logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
+            logger.info("%s: sync deactivated due to expired token", self)
             return None
 
         if token is None:
-            logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
+            logger.info("%s: can not find suitable token for synced char", self)
             return None
 
         return token
@@ -417,7 +417,8 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info(
                 "%s: sync deactivated because character is no longer considered blue. "
                 f"It's standing is: {character_eff_standing}, "
-                f"while STANDINGSSYNC_CHAR_MIN_STANDING is: {STANDINGSSYNC_CHAR_MIN_STANDING} ",
+                "while STANDINGSSYNC_CHAR_MIN_STANDING is: "
+                f"{STANDINGSSYNC_CHAR_MIN_STANDING} ",
                 self,
             )
             self._deactivate_sync(
@@ -425,6 +426,7 @@ class SyncedCharacter(_SyncBaseModel):
                 f"The standing value is: {character_eff_standing:.1f} "
             )
             return False
+
         return True
 
     def _fetch_current_contacts(self, token: Token) -> EsiContactsContainer:
@@ -443,15 +445,14 @@ class SyncedCharacter(_SyncBaseModel):
         token = self._valid_token()
         if not token:
             logger.warning(
-                "%s: Can not delete contacts, because no valid token found.",
-                self,
+                "%s: Can not delete contacts, because no valid token found.", self
             )
             return
 
         contacts_clone = self._fetch_current_contacts(token)
         contacts = contacts_clone.contacts()
-        logger.info("%s: Deleting all %d contacts", self, len(contacts))
         esi_api.delete_character_contacts(token, contacts)
+        logger.info("%s: Deleted all %d contacts", self, len(contacts))
 
     @staticmethod
     def get_esi_scopes() -> list:

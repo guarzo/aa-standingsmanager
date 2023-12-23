@@ -131,6 +131,8 @@ class SyncManagerFactory(
     class Params:
         user = factory.SubFactory(UserMainManagerFactory)
 
+    version_hash = factory.fuzzy.FuzzyText(length=32)
+
     @factory.lazy_attribute
     def alliance(self):
         return EveAllianceInfoFactory(

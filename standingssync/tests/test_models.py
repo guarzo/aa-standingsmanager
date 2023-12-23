@@ -9,11 +9,7 @@ from eveuniverse.models import EveEntity
 
 from allianceauth.eveonline.models import EveCharacter
 from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoint
-from app_utils.testing import (
-    NoSocketsTestCase,
-    add_character_to_user,
-    create_user_from_evecharacter,
-)
+from app_utils.testing import NoSocketsTestCase
 
 from standingssync.core.esi_contacts import EsiContact, EsiContactsContainer
 from standingssync.models import SyncedCharacter, SyncManager
@@ -25,17 +21,14 @@ from .factories import (
     EveContactWarTargetFactory,
     EveEntityAllianceFactory,
     EveEntityCharacterFactory,
+    EveEntityCorporationFactory,
     EveWarFactory,
     SyncedCharacterFactory,
     SyncManagerFactory,
     UserMainManagerFactory,
+    UserMainSyncerFactory,
 )
-from .utils import (
-    ALLIANCE_CONTACTS,
-    EsiCharacterContactsStub,
-    LoadTestDataMixin,
-    load_eve_entities,
-)
+from .utils import ALLIANCE_CONTACTS, EsiCharacterContactsStub, load_eve_entities
 
 ESI_CONTACTS_PATH = "standingssync.core.esi_contacts"
 ESI_API_PATH = "standingssync.core.esi_api"
@@ -43,142 +36,24 @@ MODELS_PATH = "standingssync.models"
 WAR_TARGET_LABEL = "WAR TARGETS"
 
 
-class TestGetEffectiveStanding(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncManager(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.user = UserMainManagerFactory()
+        cls.alliance_id = cls.user.profile.main_character.alliance_id
 
-        user, _ = create_user_from_evecharacter(
-            cls.character_1.character_id, permissions=["standingssync.add_syncmanager"]
-        )
-        cls.sync_manager = SyncManagerFactory(user=user)
-        contacts = [
-            {"contact_id": 1001, "contact_type": "character", "standing": -10},
-            {"contact_id": 2001, "contact_type": "corporation", "standing": 10},
-            {"contact_id": 3001, "contact_type": "alliance", "standing": 5},
-        ]
-        for contact in contacts:
-            EveContactFactory(
-                manager=cls.sync_manager,
-                eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
-                standing=contact["standing"],
-            )
-
-    def test_char_with_character_standing(self):
-        c1 = EveCharacter(
-            character_id=1001,
-            character_name="Char 1",
-            corporation_id=201,
-            corporation_name="Corporation 1",
-            corporation_ticker="C1",
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c1), -10)
-
-    def test_char_with_corporation_standing(self):
-        c2 = EveCharacter(
-            character_id=1002,
-            character_name="Char 2",
-            corporation_id=2001,
-            corporation_name="Corporation 1",
-            corporation_ticker="C1",
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c2), 10)
-
-    def test_char_with_alliance_standing(self):
-        c3 = EveCharacter(
-            character_id=1003,
-            character_name="Char 3",
-            corporation_id=2003,
-            corporation_name="Corporation 3",
-            corporation_ticker="C2",
-            alliance_id=3001,
-            alliance_name="Alliance 1",
-            alliance_ticker="A1",
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c3), 5)
-
-    def test_char_without_standing_and_has_alliance(self):
-        c4 = EveCharacter(
-            character_id=1003,
-            character_name="Char 3",
-            corporation_id=2003,
-            corporation_name="Corporation 3",
-            corporation_ticker="C2",
-            alliance_id=3002,
-            alliance_name="Alliance 2",
-            alliance_ticker="A2",
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
-
-    def test_char_without_standing_and_without_alliance_1(self):
-        c4 = EveCharacter(
-            character_id=1003,
-            character_name="Char 3",
-            corporation_id=2003,
-            corporation_name="Corporation 3",
-            corporation_ticker="C2",
-            alliance_id=None,
-            alliance_name=None,
-            alliance_ticker=None,
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
-
-    def test_char_without_standing_and_without_alliance_2(self):
-        c4 = EveCharacter(
-            character_id=1003,
-            character_name="Char 3",
-            corporation_id=2003,
-            corporation_name="Corporation 3",
-            corporation_ticker="C2",
-        )
-        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
-
-
-class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
     def test_should_return_token(self):
         # given
         obj = SyncManagerFactory()
         # when/then
         self.assertIsInstance(obj.fetch_token(), Token)
 
-    def test_should_none_when_no_character_ownership(self):
+    def test_should_return_none_when_no_character_ownership(self):
         # given
         obj = SyncManagerFactory(character_ownership=None)
         # when/then
         self.assertIsNone(obj.fetch_token())
-
-    def test_should_abort_when_no_char(self):
-        # given
-        sync_manager = SyncManagerFactory(
-            alliance=self.alliance_1, character_ownership=None
-        )
-        # when/then
-        with self.assertRaises(RuntimeError):
-            sync_manager.run_sync()
-
-    def test_should_abort_when_insufficient_permission(self):
-        # given
-        user, _ = create_user_from_evecharacter(self.character_1.character_id)
-        add_character_to_user(
-            user, self.character_1, scopes=SyncManager.get_esi_scopes()
-        )
-        sync_manager = SyncManagerFactory(user=user)
-        # when/then
-        with self.assertRaises(RuntimeError):
-            sync_manager.run_sync()
-
-    def test_should_report_error_when_character_has_no_valid_token(self):
-        # given
-        user, _ = create_user_from_evecharacter(
-            self.character_1.character_id, permissions=["standingssync.add_syncmanager"]
-        )
-        add_character_to_user(
-            user, self.character_1  # Token without valid scope will not be found
-        )
-        sync_manager = SyncManagerFactory(user=user)
-        # when/then
-        with self.assertRaises(RuntimeError):
-            sync_manager.run_sync()
 
     def test_should_return_character(self):
         # given
@@ -193,8 +68,6 @@ class TestSyncManager(LoadTestDataMixin, NoSocketsTestCase):
         with self.assertRaises(ValueError):
             _ = obj.character
 
-
-class TestSyncManager2(NoSocketsTestCase):
     def test_should_report_sync_as_ok(self):
         # given
         my_dt = now()
@@ -216,7 +89,6 @@ def war_target_contact_ids(sync_manager: SyncManager) -> Set[int]:
     query = sync_manager.contacts.filter(is_war_target=True).values_list(
         "eve_entity_id", flat=True
     )
-
     return set(query)
 
 
@@ -447,6 +319,35 @@ class TestSyncManagerRunSync(NoSocketsTestCase):
         # then
         self.assertSetEqual(war_target_contact_ids(sync_manager), set())
 
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_abort_when_no_char(self, mock_esi):
+        # given
+        sync_manager = SyncManagerFactory(character_ownership=None)
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.run_sync()
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_abort_when_insufficient_permission(self, mock_esi):
+        # given
+        user = UserMainManagerFactory(permissions__=[])
+        sync_manager = SyncManagerFactory(user=user)
+
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.run_sync()
+
+    @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
+    def test_should_report_error_when_character_has_no_valid_token(self, mock_esi):
+        # given
+        user = UserMainManagerFactory()
+        sync_manager = SyncManagerFactory(user=user)
+        user.token_set.all().delete()
+
+        # when/then
+        with self.assertRaises(RuntimeError):
+            sync_manager.run_sync()
+
 
 class TestSyncManagerAddWarTargets(NoSocketsTestCase):
     def test_should_add_war_targets(self):
@@ -499,6 +400,91 @@ class TestSyncManagerAddWarTargets(NoSocketsTestCase):
         # then
         self.assertSetEqual(alliance_contacts.contacts(), {defender})
         self.assertSetEqual(result, {defender.contact_id})
+
+
+class TestSyncManagerEffectiveStanding(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.sync_manager = SyncManagerFactory()
+        contacts = [
+            (EveEntityCharacterFactory(id=1001), -10),
+            (EveEntityCorporationFactory(id=2001), 10),
+            (EveEntityAllianceFactory(id=3001), 5),
+        ]
+        for contact, standing in contacts:
+            EveContactFactory(
+                manager=cls.sync_manager, eve_entity=contact, standing=standing
+            )
+
+    def test_char_with_character_standing(self):
+        c1 = EveCharacter(
+            character_id=1001,
+            character_name="Char 1",
+            corporation_id=201,
+            corporation_name="Corporation 1",
+            corporation_ticker="C1",
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c1), -10)
+
+    def test_char_with_corporation_standing(self):
+        c2 = EveCharacter(
+            character_id=1002,
+            character_name="Char 2",
+            corporation_id=2001,
+            corporation_name="Corporation 1",
+            corporation_ticker="C1",
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c2), 10)
+
+    def test_char_with_alliance_standing(self):
+        c3 = EveCharacter(
+            character_id=1003,
+            character_name="Char 3",
+            corporation_id=2003,
+            corporation_name="Corporation 3",
+            corporation_ticker="C2",
+            alliance_id=3001,
+            alliance_name="Alliance 1",
+            alliance_ticker="A1",
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c3), 5)
+
+    def test_char_without_standing_and_has_alliance(self):
+        c4 = EveCharacter(
+            character_id=1003,
+            character_name="Char 3",
+            corporation_id=2003,
+            corporation_name="Corporation 3",
+            corporation_ticker="C2",
+            alliance_id=3002,
+            alliance_name="Alliance 2",
+            alliance_ticker="A2",
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
+
+    def test_char_without_standing_and_without_alliance_1(self):
+        c4 = EveCharacter(
+            character_id=1003,
+            character_name="Char 3",
+            corporation_id=2003,
+            corporation_name="Corporation 3",
+            corporation_ticker="C2",
+            alliance_id=None,
+            alliance_name=None,
+            alliance_ticker=None,
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
+
+    def test_char_without_standing_and_without_alliance_2(self):
+        c4 = EveCharacter(
+            character_id=1003,
+            character_name="Char 3",
+            corporation_id=2003,
+            corporation_name="Corporation 3",
+            corporation_ticker="C2",
+        )
+        self.assertEqual(self.sync_manager.effective_standing_with_character(c4), 0.0)
 
 
 class TestSyncCharacter(NoSocketsTestCase):
@@ -875,19 +861,23 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
 
 
 @patch(MODELS_PATH + ".notify")
-class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
+class TestSyncCharacterErrorCases(NoSocketsTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.sync_manager = SyncManagerFactory()
+
     def test_should_delete_when_insufficient_permission(self, mock_notify):
         # given
-        user, _ = create_user_from_evecharacter(self.character_1.character_id)
-        alt_ownership = add_character_to_user(
-            user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
-        )
-        sync_manager = SyncManagerFactory(user=user, version_hash="new")
+        user = UserMainSyncerFactory(permissions__=[])
+        character_ownership = user.profile.main_character.character_ownership
         sync_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership, manager=sync_manager
+            character_ownership=character_ownership, manager=self.sync_manager
         )
+
         # when
         result = sync_character.run_sync()
+
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())
@@ -895,24 +885,20 @@ class TestSyncCharacterErrorCases(LoadTestDataMixin, NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.1)
     def test_should_delete_when_character_has_no_standing(self, mock_notify):
         # given
-        user, _ = create_user_from_evecharacter(
-            self.character_1.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
-        )
-        alt_ownership = add_character_to_user(
-            user, character=self.character_2, scopes=SyncedCharacter.get_esi_scopes()
-        )
-        sync_manager = SyncManagerFactory(user=user, version_hash="new")
+        user = UserMainSyncerFactory()
+        character = user.profile.main_character
         sync_character = SyncedCharacterFactory(
-            character_ownership=alt_ownership, manager=sync_manager
+            character_ownership=character.character_ownership, manager=self.sync_manager
         )
         EveContactFactory(
-            manager=sync_manager,
-            eve_entity=EveEntity.objects.get(id=sync_character.character_id),
+            manager=self.sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=character.character_id),
             standing=-10,
         )
+
         # when
         result = sync_character.run_sync()
+
         # then
         self.assertFalse(result)
         self.assertFalse(SyncedCharacter.objects.filter(pk=sync_character.pk).exists())

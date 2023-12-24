@@ -140,6 +140,7 @@ class EsiContact:
         )
 
 
+# pylint: disable = too-many-public-methods
 @dataclass
 class EsiContactsContainer:
     """Container of ESI contacts with their labels."""
@@ -197,6 +198,7 @@ class EsiContactsContainer:
             raise ValueError(f"Contact with ID {contact_id} not found.") from None
 
     def contact_ids(self) -> Set[int]:
+        """Return all contact IDs"""
         result = set(self._contacts)
         return result
 

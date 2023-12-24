@@ -870,10 +870,7 @@ class TestSyncCharacterErrorCases(NoSocketsTestCase):
     def test_should_delete_when_insufficient_permission(self, mock_notify):
         # given
         user = UserMainSyncerFactory(permissions__=[])
-        character_ownership = user.profile.main_character.character_ownership
-        sync_character = SyncedCharacterFactory(
-            character_ownership=character_ownership, manager=self.sync_manager
-        )
+        sync_character = SyncedCharacterFactory(user=user, manager=self.sync_manager)
 
         # when
         result = sync_character.run_sync()
@@ -887,9 +884,7 @@ class TestSyncCharacterErrorCases(NoSocketsTestCase):
         # given
         user = UserMainSyncerFactory()
         character = user.profile.main_character
-        sync_character = SyncedCharacterFactory(
-            character_ownership=character.character_ownership, manager=self.sync_manager
-        )
+        sync_character = SyncedCharacterFactory(manager=self.sync_manager, user=user)
         EveContactFactory(
             manager=self.sync_manager,
             eve_entity=EveEntityCharacterFactory(id=character.character_id),

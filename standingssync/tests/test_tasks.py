@@ -43,7 +43,7 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
 
     def test_should_start_all_tasks(self, mock_update_all_wars, mock_run_manager_sync):
         # given
-        sync_manager = SyncManagerFactory(user=self.user_1, version_hash="new")
+        sync_manager = SyncManagerFactory(user=self.user_1)
         # when
         with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
             TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True

@@ -7,54 +7,63 @@ from django.urls import reverse
 from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
-from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
+from allianceauth.eveonline.models import EveCharacter
+from app_utils.testdata_factories import (
+    EveAllianceInfoFactory,
+    EveCharacterFactory,
+    UserMainFactory,
+)
+from app_utils.testing import (
+    NoSocketsTestCase,
+    add_character_to_user,
+    create_user_from_evecharacter,
+)
 
 from standingssync import views
 from standingssync.models import EveEntity, SyncedCharacter, SyncManager
 
-from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
-from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
+from .factories import (
+    EveContactFactory,
+    EveEntityCharacterFactory,
+    SyncedCharacterFactory,
+    SyncManagerFactory,
+    UserMainManagerFactory,
+    UserMainSyncerFactory,
+)
+from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin, load_eve_entities
 
 MODULE_PATH = "standingssync.views"
 
 
-class TestMainScreen(LoadTestDataMixin, TestCase):
+class TestMainScreen(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        load_eve_entities()
 
-        # user 1 is the manager
-        cls.user_1, _ = create_user_from_evecharacter(cls.character_1.character_id)
-        # sync manager with contacts
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
+        cls.factory = RequestFactory()
+
+        cls.user_manager = UserMainManagerFactory()
+        cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
         for contact in ALLIANCE_CONTACTS:
             EveContactFactory(
                 manager=cls.sync_manager,
                 eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
                 standing=contact["standing"],
             )
-
-        # user 2 is a normal user and has two alts and permission
-        cls.user_2, _ = create_user_from_evecharacter(
-            cls.character_2.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
+        cls.user_normal = UserMainSyncerFactory(
+            main_character__alliance_id=cls.sync_manager.alliance.alliance_id
         )
-        cls.alt_ownership_1 = CharacterOwnership.objects.create(
-            character=cls.character_4, owner_hash="x4", user=cls.user_2
-        )
-        cls.user_2 = User.objects.get(pk=cls.user_2.pk)
         cls.sync_char = SyncedCharacterFactory(
-            manager=cls.sync_manager, character_ownership=cls.alt_ownership_1
+            manager=cls.sync_manager, user=cls.user_manager
         )
 
-        # user 3 has no permission
-        cls.user_3, _ = create_user_from_evecharacter(cls.character_3.character_id)
-        cls.factory = RequestFactory()
+        cls.user_no_permission = UserMainFactory()
 
     def test_should_redirect_to_main_page(self):
         # given
         request = self.factory.get(reverse("standingssync:characters"))
-        request.user = self.user_2
+        request.user = self.user_normal
         # when
         response = views.index(request)
         # then
@@ -63,13 +72,13 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
 
     def test_user_with_permission_can_open_app(self):
         request = self.factory.get(reverse("standingssync:characters"))
-        request.user = self.user_2
+        request.user = self.user_normal
         response = views.characters(request)
         self.assertEqual(response.status_code, 200)
 
     def test_user_wo_permission_can_not_open_app(self):
         request = self.factory.get(reverse("standingssync:characters"))
-        request.user = self.user_3
+        request.user = self.user_no_permission
         response = views.characters(request)
         self.assertEqual(response.status_code, 302)
 
@@ -78,7 +87,7 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
         request = self.factory.get(
             reverse("standingssync:remove_character", args=(self.sync_char.pk,))
         )
-        request.user = self.user_2
+        request.user = self.user_normal
         response = views.remove_character(request, self.sync_char.pk)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(mock_messages.success.called)
@@ -87,42 +96,26 @@ class TestMainScreen(LoadTestDataMixin, TestCase):
 
 @patch(MODULE_PATH + ".tasks.run_character_sync")
 @patch(MODULE_PATH + ".messages")
-class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
+class TestAddSyncChar(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        load_eve_entities()
 
-        # user 1 is the manager
-        cls.user_1, _ = create_user_from_evecharacter(
-            cls.character_1.character_id, permissions=["standingssync.add_syncmanager"]
-        )
-        # sync manager with contacts
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
-        for contact in ALLIANCE_CONTACTS:
-            EveContactFactory(
-                manager=cls.sync_manager,
-                eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
-                standing=contact["standing"],
-            )
-
-        # user 2 is a normal user and has three alts
-        cls.user_2, _ = create_user_from_evecharacter(
-            cls.character_2.character_id,
-            permissions=["standingssync.add_syncedcharacter"],
-        )
-        cls.alt_ownership_1 = CharacterOwnership.objects.create(
-            character=cls.character_4, owner_hash="x4", user=cls.user_2
-        )
-        cls.alt_ownership_2 = CharacterOwnership.objects.create(
-            character=cls.character_5, owner_hash="x5", user=cls.user_2
-        )
-        CharacterOwnership.objects.create(
-            character=cls.character_6, owner_hash="x6", user=cls.user_2
-        )
         cls.factory = RequestFactory()
 
-    def make_request(self, user, character):
-        token = Mock(spec=Token)
+        alliance = EveAllianceInfoFactory()
+        character = EveCharacterFactory(corporation__alliance=alliance)
+        cls.user_manager = UserMainManagerFactory(main_character__character=character)
+        cls.sync_manager = SyncManagerFactory(user=cls.user_manager)
+
+        cls.character_normal = EveCharacterFactory(corporation__alliance=alliance)
+        cls.user_normal = UserMainSyncerFactory(
+            main_character__character=cls.character_normal
+        )
+
+    def make_request(self, user: User, character: EveCharacter):
+        token: Token = user.token_set.get(character_id=character.character_id)
         token.character_id = character.character_id
         request = self.factory.get(reverse("standingssync:add_character"))
         request.user = user
@@ -132,51 +125,80 @@ class TestAddSyncChar(LoadTestDataMixin, NoSocketsTestCase):
         orig_view = views.add_character.__wrapped__.__wrapped__.__wrapped__
         return orig_view(request, token)
 
+    def test_user_can_add_blue_alt(self, mock_messages, mock_run_character_sync):
+        # given
+        alt_character = EveCharacterFactory()
+        add_character_to_user(self.user_normal, alt_character)
+        EveContactFactory(
+            manager=self.sync_manager,
+            eve_entity=EveEntityCharacterFactory(id=alt_character.character_id),
+            standing=10,
+        )
+
+        # when
+        response = self.make_request(self.user_normal, alt_character)
+
+        # then
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("standingssync:characters"))
+        self.assertTrue(mock_messages.success.called)
+        self.assertTrue(mock_run_character_sync.delay.called)
+        self.assertTrue(
+            SyncedCharacter.objects.filter(manager=self.sync_manager)
+            .filter(character_ownership__character=alt_character)
+            .exists()
+        )
+
     def test_users_can_not_add_alliance_members(
         self, mock_messages, mock_run_character_sync
     ):
-        response = self.make_request(self.user_2, self.character_2)
+        # when
+        response = self.make_request(self.user_normal, self.character_normal)
+
+        # then
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
 
-    def test_user_can_add_blue_alt(self, mock_messages, mock_run_character_sync):
-        response = self.make_request(self.user_2, self.character_4)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("standingssync:characters"))
-        self.assertTrue(mock_messages.success.called)
-        self.assertTrue(mock_run_character_sync.delay.called)
-        self.assertTrue(
-            SyncedCharacter.objects.filter(manager=self.sync_manager)
-            .filter(character_ownership__character=self.character_4)
-            .exists()
-        )
-
     @patch(MODULE_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0)
     def test_user_can_add_neutral_alt(self, mock_messages, mock_run_character_sync):
-        response = self.make_request(self.user_2, self.character_6)
+        # given
+        alt_character = EveCharacterFactory()
+        add_character_to_user(self.user_normal, alt_character)
+
+        # when
+        response = self.make_request(self.user_normal, alt_character)
+
+        # then
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.success.called)
         self.assertTrue(mock_run_character_sync.delay.called)
         self.assertTrue(
             SyncedCharacter.objects.filter(manager=self.sync_manager)
-            .filter(character_ownership__character=self.character_6)
+            .filter(character_ownership__character=alt_character)
             .exists()
         )
 
     def test_user_can_not_add_non_blue_alt(
         self, mock_messages, mock_run_character_sync
     ):
-        response = self.make_request(self.user_2, self.character_5)
+        # given
+        alt_character = EveCharacterFactory()
+        add_character_to_user(self.user_normal, alt_character)
+
+        # when
+        response = self.make_request(self.user_normal, alt_character)
+
+        # then
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("standingssync:characters"))
         self.assertTrue(mock_messages.warning.called)
         self.assertFalse(mock_run_character_sync.delay.called)
         self.assertFalse(
             SyncedCharacter.objects.filter(manager=self.sync_manager)
-            .filter(character_ownership__character=self.character_5)
+            .filter(character_ownership__character=alt_character)
             .exists()
         )
 
@@ -197,7 +219,7 @@ class TestAddAllianceManager(LoadTestDataMixin, NoSocketsTestCase):
             ],
         )
         # sync manager with contacts
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
+        cls.sync_manager = SyncManagerFactory(user=cls.user_1)
         for contact in ALLIANCE_CONTACTS:
             EveContactFactory(
                 manager=cls.sync_manager,

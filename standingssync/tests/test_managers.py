@@ -32,18 +32,17 @@ class TestEveContactManager(NoSocketsTestCase):
         super().setUpClass()
         load_eve_entities()
 
-        cls.sync_manager = SyncManagerFactory()
+    def test_grouped_by_standing(self):
+        # given
+        sync_manager = SyncManagerFactory()
         for contact in ALLIANCE_CONTACTS:
             EveContactFactory(
-                manager=cls.sync_manager,
+                manager=sync_manager,
                 eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
                 standing=contact["standing"],
             )
 
-    def test_grouped_by_standing(self):
-        contacts = {
-            int(obj.eve_entity_id): obj for obj in self.sync_manager.contacts.all()
-        }
+        contacts = {int(obj.eve_entity_id): obj for obj in sync_manager.contacts.all()}
         expected = {
             -10.0: {contacts[1005], contacts[1012], contacts[3011], contacts[2011]},
             -5.0: {contacts[1013], contacts[3012], contacts[2012]},
@@ -57,7 +56,11 @@ class TestEveContactManager(NoSocketsTestCase):
                 contacts[2015],
             },
         }
-        result = self.sync_manager.contacts.grouped_by_standing()
+
+        # when
+        result = sync_manager.contacts.grouped_by_standing()
+
+        # then
         self.maxDiff = None
         self.assertDictEqual(result, expected)
         self.assertListEqual(list(result.keys()), list(expected.keys()))

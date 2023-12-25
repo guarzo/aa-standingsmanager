@@ -1,20 +1,17 @@
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
-from eveuniverse.models import EveEntity
 
-from allianceauth.authentication.models import CharacterOwnership
-from app_utils.testing import (
-    NoSocketsTestCase,
-    create_user_from_evecharacter,
-    generate_invalid_pk,
-)
+from app_utils.testing import NoSocketsTestCase
 
 from standingssync import tasks
-from standingssync.models import SyncedCharacter, SyncManager
+from standingssync.models import SyncManager
 
-from .factories import EveContactFactory, SyncedCharacterFactory, SyncManagerFactory
-from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
+from .factories import (
+    SyncedCharacterFactory,
+    SyncManagerFactory,
+    UserMainManagerFactory,
+)
 
 MANAGERS_PATH = "standingssync.managers"
 MODELS_PATH = "standingssync.models"
@@ -23,12 +20,11 @@ TASKS_PATH = "standingssync.tasks"
 
 @patch(TASKS_PATH + ".run_manager_sync")
 @patch(TASKS_PATH + ".sync_all_wars")
-class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
+class TestRunRegularSync(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # given
-        cls.user_1, _ = create_user_from_evecharacter(cls.character_1.character_id)
+        cls.user = UserMainManagerFactory()
 
     def test_should_not_sync_wars_if_disabled(
         self, mock_update_all_wars, mock_run_manager_sync
@@ -43,7 +39,7 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
 
     def test_should_start_all_tasks(self, mock_update_all_wars, mock_run_manager_sync):
         # given
-        sync_manager = SyncManagerFactory(user=self.user_1)
+        sync_manager = SyncManagerFactory(user=self.user)
         # when
         with patch(TASKS_PATH + ".is_esi_online", lambda: True), patch(
             TASKS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True
@@ -65,79 +61,36 @@ class TestRunRegularSync(LoadTestDataMixin, NoSocketsTestCase):
         self.assertFalse(mock_run_manager_sync.apply_async.called)
 
 
-class TestCharacterSync(LoadTestDataMixin, NoSocketsTestCase):
+@patch(TASKS_PATH + ".SyncedCharacter.run_sync")
+class TestCharacterSync(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.synced_character = SyncedCharacterFactory()
 
-        # 1 user with 1 alt character
-        cls.user_1, _ = create_user_from_evecharacter(cls.character_1.character_id)
-        alt_ownership_2 = CharacterOwnership.objects.create(
-            character=cls.character_2, owner_hash="x2", user=cls.user_1
-        )
-        alt_ownership_3 = CharacterOwnership.objects.create(
-            character=cls.character_3, owner_hash="x3", user=cls.user_1
-        )
-
-        # sync manager with contacts
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
-        for contact in ALLIANCE_CONTACTS:
-            EveContactFactory(
-                manager=cls.sync_manager,
-                eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
-                standing=contact["standing"],
-            )
-
-        # sync char
-        cls.synced_character_2 = SyncedCharacterFactory(
-            character_ownership=alt_ownership_2, manager=cls.sync_manager
-        )
-        cls.synced_character_3 = SyncedCharacterFactory(
-            character_ownership=alt_ownership_3, manager=cls.sync_manager
-        )
-
-    def test_run_character_sync_wrong_pk(self):
-        """calling for an non existing sync character should raise an exception"""
-        with self.assertRaises(SyncedCharacter.DoesNotExist):
-            tasks.run_character_sync(generate_invalid_pk(SyncedCharacter))
-
-    @patch(TASKS_PATH + ".SyncedCharacter.run_sync")
     def test_should_call_update(self, mock_update):
         # given
         mock_update.return_value = True
         # when
-        tasks.run_character_sync(self.synced_character_2.pk)
+        tasks.run_character_sync(self.synced_character.pk)
         # then
         self.assertTrue(mock_update.called)
 
-    @patch(TASKS_PATH + ".SyncedCharacter.run_sync")
     def test_should_raise_exception(self, mock_update):
         # given
         mock_update.side_effect = RuntimeError
         # when
         with self.assertRaises(RuntimeError):
-            tasks.run_character_sync(self.synced_character_2.pk)
+            tasks.run_character_sync(self.synced_character.pk)
 
 
 @patch(TASKS_PATH + ".run_character_sync")
-class TestManagerSync(LoadTestDataMixin, TestCase):
+class TestManagerSync(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
 
-        # create environment
-        # 1 user has permission for manager sync
-        cls.user_1, cls.main_ownership_1 = create_user_from_evecharacter(
-            cls.character_1.character_id, permissions=["standingssync.add_syncmanager"]
-        )
-
-        # user 1 has no permission for manager sync and has 1 alt
-        cls.user_2, cls.main_ownership_2 = create_user_from_evecharacter(
-            cls.character_2.character_id
-        )
-        cls.alt_ownership_2 = CharacterOwnership.objects.create(
-            character=cls.character_4, owner_hash="x4", user=cls.user_2
-        )
+        cls.user_manager = UserMainManagerFactory()
 
     # run for non existing sync manager
     def test_run_sync_wrong_pk(self, mock_run_character_sync):
@@ -150,7 +103,8 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
     ):
         # given
         mock_update_from_esi.side_effect = RuntimeError
-        sync_manager = SyncManagerFactory(user=self.user_1)
+        sync_manager = SyncManagerFactory(user=self.user_manager)
+
         # when/then
         with self.assertRaises(RuntimeError):
             tasks.run_manager_sync(sync_manager.pk)
@@ -162,12 +116,12 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
     ):
         # given
         mock_update_from_esi.return_value = "abc"
-        sync_manager = SyncManagerFactory(user=self.user_1)
-        synced_character = SyncedCharacterFactory(
-            character_ownership=self.alt_ownership_2, manager=sync_manager
-        )
+        sync_manager = SyncManagerFactory(user=self.user_manager)
+        synced_character = SyncedCharacterFactory(manager=sync_manager)
+
         # when
         tasks.run_manager_sync(sync_manager.pk)
+
         # then
         sync_manager.refresh_from_db()
         _, kwargs = mock_run_character_sync.apply_async.call_args
@@ -177,7 +131,7 @@ class TestManagerSync(LoadTestDataMixin, TestCase):
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
 @patch(TASKS_PATH + ".run_war_sync")
 @patch(TASKS_PATH + ".EveWar.objects.fetch_active_war_ids_esi")
-class TestSyncAllWars(LoadTestDataMixin, TestCase):
+class TestSyncAllWars(TestCase):
     def test_should_start_tasks_for_each_war_id(
         self, mock_calc_relevant_war_ids, mock_update_war
     ):
@@ -221,7 +175,7 @@ class TestSyncAllWars(LoadTestDataMixin, TestCase):
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-class TestRunWarSync(LoadTestDataMixin, NoSocketsTestCase):
+class TestRunWarSync(NoSocketsTestCase):
     @patch(TASKS_PATH + ".EveWar.objects.update_or_create_from_esi")
     def test_should_update_war(self, mock_update_from_esi):
         # when

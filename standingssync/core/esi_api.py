@@ -11,8 +11,8 @@ from app_utils.logging import LoggerAddTag
 
 from standingssync import __title__
 from standingssync.app_settings import (
-    STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID,
-    STANDINGSSYNC_SPECIAL_WAR_IDS,
+    STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS,
+    STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID,
 )
 from standingssync.providers import esi
 
@@ -163,7 +163,7 @@ def fetch_war_ids() -> Set[int]:
         war_ids += war_ids_page
         if (
             len(war_ids_page) < FETCH_WARS_MAX_ITEMS
-            or min(war_ids_page) < STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
+            or min(war_ids_page) < STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
         ):
             break
         max_war_id = min(war_ids)
@@ -176,9 +176,9 @@ def fetch_war_ids() -> Set[int]:
     war_ids = {
         war_id
         for war_id in war_ids
-        if war_id >= STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
+        if war_id >= STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
     }
-    war_ids = war_ids.union(set(STANDINGSSYNC_SPECIAL_WAR_IDS))
+    war_ids = war_ids.union(set(STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS))
 
     return war_ids
 

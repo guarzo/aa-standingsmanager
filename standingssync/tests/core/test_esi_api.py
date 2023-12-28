@@ -169,8 +169,8 @@ class TestEsiContactsHelpers(NoSocketsTestCase):
 
 
 class TestEsiWarsApi(NoSocketsTestCase):
-    @patch(MODULE_PATH + ".STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID", 4)
-    @patch(MODULE_PATH + ".STANDINGSSYNC_SPECIAL_WAR_IDS", [1, 2])
+    @patch(MODULE_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID", 4)
+    @patch(MODULE_PATH + ".STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS", [1, 2])
     @patch(MODULE_PATH + ".esi")
     def test_should_fetch_war_ids_with_paging(self, mock_esi):
         def esi_get_wars(max_war_id=None):

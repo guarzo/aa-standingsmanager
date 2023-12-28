@@ -3,8 +3,8 @@
 import datetime as dt
 from typing import Optional, Set
 
-from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils.timezone import now
 from esi.errors import TokenExpiredError, TokenInvalidError
@@ -22,6 +22,7 @@ from .app_settings import (
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
+    STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED,
     STANDINGSSYNC_SYNC_TIMEOUT,
 )
 from .core import esi_api
@@ -46,8 +47,10 @@ class _SyncBaseModel(models.Model):
 
     @property
     def is_sync_fresh(self) -> bool:
+        """Return True, when sync is not stale, else False."""
         if not self.last_sync_at:
             return False
+
         deadline = now() - dt.timedelta(minutes=STANDINGSSYNC_SYNC_TIMEOUT)
         return self.last_sync_at > deadline
 
@@ -102,15 +105,18 @@ class SyncManager(_SyncBaseModel):
             return self.contacts.get(eve_entity_id=character.character_id).standing
         except EveContact.DoesNotExist:
             pass
+
         try:
             return self.contacts.get(eve_entity_id=character.corporation_id).standing
         except EveContact.DoesNotExist:
             pass
+
         if character.alliance_id:
             try:
                 return self.contacts.get(eve_entity_id=character.alliance_id).standing
             except EveContact.DoesNotExist:
                 pass
+
         return 0.0
 
     def synced_characters_for_user(
@@ -119,30 +125,41 @@ class SyncManager(_SyncBaseModel):
         """Synced characters of the given user."""
         return self.synced_characters.filter(character_ownership__user=user)
 
-    def run_sync(self, force_update: bool = False) -> None:
+    def run_sync(self, force_update: bool = False) -> bool:
         """Run sync for this manager.
 
         Args:
-        - force_update: when true will always update contacts in database
+            - force_update: when true will always update contacts in database
+
+        Returns True when contacts where updated, else False.
         """
         if self.character_ownership is None:
             raise RuntimeError(f"{self}: Can not sync. No character configured.")
+
         if not self.character_ownership.user.has_perm("standingssync.add_syncmanager"):
             raise RuntimeError(
                 f"{self}: Can not sync. Character does not have sufficient permission."
             )
+
         token = self.fetch_token()
         if not token:
             raise RuntimeError(f"{self}: Can not sync. No valid token found.")
-        contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
-        current_contacts = EsiContactsContainer.from_esi_contacts(contacts)
-        war_target_ids = self._add_war_targets(current_contacts)
-        new_version_hash = current_contacts.version_hash()
+
+        esi_contacts = esi_api.fetch_alliance_contacts(self.alliance.alliance_id, token)
+        contacts = EsiContactsContainer.from_esi_contacts(esi_contacts)
+        war_target_ids = self._add_war_targets(contacts)
+        new_version_hash = contacts.version_hash()
+
         if force_update or new_version_hash != self.version_hash:
-            self._save_new_contacts(current_contacts, war_target_ids, new_version_hash)
+            self._save_new_contacts(contacts, war_target_ids, new_version_hash)
+            EveEntity.objects.bulk_resolve_ids(contacts.contact_ids())
+            was_updated = True
         else:
             logger.info("%s: Alliance contacts are unchanged.", self)
+            was_updated = False
+
         self.record_successful_sync()
+        return was_updated
 
     def fetch_token(self) -> Optional[Token]:
         """Fetch valid token with required scopes."""
@@ -167,6 +184,7 @@ class SyncManager(_SyncBaseModel):
         """
         if not STANDINGSSYNC_ADD_WAR_TARGETS:
             return set()
+
         war_targets = EveWar.objects.alliance_war_targets(self.alliance)
         war_target_ids = set()
         for war_target in war_targets:
@@ -176,36 +194,35 @@ class SyncManager(_SyncBaseModel):
                 logger.warning("Skipping unresolved war target: %s", war_target)
             else:
                 war_target_ids.add(war_target.id)
+
         return war_target_ids
 
+    # TODO: Replace delete & create with update & delete
+    @transaction.atomic()
     def _save_new_contacts(
         self,
         current_contacts: EsiContactsContainer,
         war_target_ids: Set[int],
         new_version_hash: str,
     ):
-        with transaction.atomic():
-            self.contacts.all().delete()
-            contacts = [
-                EveContact(
-                    manager=self,
-                    eve_entity=EveEntity.objects.get_or_create(id=contact.contact_id)[
-                        0
-                    ],
-                    standing=contact.standing,
-                    is_war_target=contact.contact_id in war_target_ids,
-                )
-                for contact in current_contacts.contacts()
-            ]
-            EveContact.objects.bulk_create(contacts, batch_size=500)
-            self.version_hash = new_version_hash
-            self.save()
-            logger.info(
-                "%s: Stored alliance update with %d contacts", self, len(contacts)
+        self.contacts.all().delete()
+        contacts = [
+            EveContact(
+                manager=self,
+                eve_entity=EveEntity.objects.get_or_create(id=contact.contact_id)[0],
+                standing=contact.standing,
+                is_war_target=contact.contact_id in war_target_ids,
             )
+            for contact in current_contacts.contacts()
+        ]
+        EveContact.objects.bulk_create(contacts, batch_size=500)
+        self.version_hash = new_version_hash
+        self.save()
+        logger.info("%s: Stored alliance update with %d contacts", self, len(contacts))
 
     @classmethod
     def get_esi_scopes(cls) -> list:
+        """Return ESI scopes needed for this model."""
         return ["esi-alliances.read_contacts.v1"]
 
 
@@ -228,15 +245,20 @@ class SyncedCharacter(_SyncBaseModel):
     )
 
     def __str__(self):
-        character_name = self.character_ownership.character.character_name
+        try:
+            character_name = self.character.character_name
+        except ObjectDoesNotExist:
+            character_name = "?"
         return f"{character_name} - {self.manager}"
 
     @property
     def character(self) -> EveCharacter:
+        """Return EveCharacter used to sync."""
         return self.character_ownership.character
 
     @property
     def character_id(self) -> Optional[int]:
+        """Return character ID of the EveCharacter used to sync."""
         return self.character.character_id if self.character else None
 
     def run_sync(self) -> Optional[bool]:
@@ -251,15 +273,17 @@ class SyncedCharacter(_SyncBaseModel):
         - None when no update was needed
         - True when update was done successfully
         """
-        logger.info("%s: Updating character", self)
         if not self._has_owner_permissions():
             return False
+
         if not self._has_standing_with_alliance():
             return False
+
         token = self.fetch_token()
         if not token:
             logger.error("%s: Can not sync. No valid token found.", self)
             return False
+
         if not self.manager.contacts_for_sync(self).exists():
             logger.info("%s: No contacts to sync", self)
             return None
@@ -267,7 +291,17 @@ class SyncedCharacter(_SyncBaseModel):
         current_contacts = self._fetch_current_contacts(token)
         self._update_wt_label_info(current_contacts)
 
-        # new contacts
+        new_contacts = self._identify_new_contacts(current_contacts)
+
+        self._update_contacts_on_esi(token, current_contacts, new_contacts)
+
+        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
+            store_json(new_contacts.to_dict(), "new_contacts")
+
+        self.record_successful_sync()
+        return True
+
+    def _identify_new_contacts(self, current_contacts):
         if STANDINGSSYNC_REPLACE_CONTACTS:
             new_contacts = EsiContactsContainer.from_esi_contacts(
                 labels=current_contacts.labels()
@@ -288,28 +322,26 @@ class SyncedCharacter(_SyncBaseModel):
                 label_ids=[wt_label_id] if wt_label_id else None,
             )
 
-        # update contacts on ESI
+        return new_contacts
+
+    def _update_contacts_on_esi(self, token, current_contacts, new_contacts):
         added, removed, changed = current_contacts.contacts_difference(new_contacts)
         if removed:
-            logger.info("%s: Deleting %d added contacts", self, len(removed))
             esi_api.delete_character_contacts(token, removed)
+            logger.info("%s: Deleted %d added contacts", self, len(removed))
+
         if added:
-            logger.info("%s: Adding %d missing contacts", self, len(added))
             esi_api.add_character_contacts(token, added)
+            logger.info("%s: Added %d missing contacts", self, len(added))
+
         if changed:
-            logger.info("%s: Updating %d changed contacts", self, len(changed))
             esi_api.update_character_contacts(token, changed)
+            logger.info("%s: Updated %d changed contacts", self, len(changed))
 
         if not added and not removed and not changed:
             logger.info("%s: Nothing updated. Contacts were already up-to-date.", self)
         else:
             logger.info("%s: Contacts update completed.", self)
-
-        if settings.DEBUG:
-            store_json(new_contacts._to_dict(), "new_contacts")
-
-        self.record_successful_sync()
-        return True
 
     def _update_wt_label_info(self, current_contacts: EsiContactsContainer):
         """Update info about WT label if it has changed."""
@@ -327,6 +359,7 @@ class SyncedCharacter(_SyncBaseModel):
             )
             self._deactivate_sync("you no longer have permission for this service")
             return False
+
         return True
 
     def fetch_token(self) -> Optional[Token]:
@@ -338,18 +371,18 @@ class SyncedCharacter(_SyncBaseModel):
             token = self._valid_token()
 
         except TokenInvalidError:
-            logger.info("%s: sync deactivated due to invalid token", self)
             self._deactivate_sync("your token is no longer valid")
+            logger.info("%s: sync deactivated due to invalid token", self)
             return None
 
         except TokenExpiredError:
-            logger.info("%s: sync deactivated due to expired token", self)
             self._deactivate_sync("your token has expired")
+            logger.info("%s: sync deactivated due to expired token", self)
             return None
 
         if token is None:
-            logger.info("%s: can not find suitable token for synced char", self)
             self._deactivate_sync("you do not have a token anymore")
+            logger.info("%s: can not find suitable token for synced char", self)
             return None
 
         return token
@@ -393,7 +426,8 @@ class SyncedCharacter(_SyncBaseModel):
             logger.info(
                 "%s: sync deactivated because character is no longer considered blue. "
                 f"It's standing is: {character_eff_standing}, "
-                f"while STANDINGSSYNC_CHAR_MIN_STANDING is: {STANDINGSSYNC_CHAR_MIN_STANDING} ",
+                "while STANDINGSSYNC_CHAR_MIN_STANDING is: "
+                f"{STANDINGSSYNC_CHAR_MIN_STANDING} ",
                 self,
             )
             self._deactivate_sync(
@@ -401,17 +435,18 @@ class SyncedCharacter(_SyncBaseModel):
                 f"The standing value is: {character_eff_standing:.1f} "
             )
             return False
+
         return True
 
     def _fetch_current_contacts(self, token: Token) -> EsiContactsContainer:
         contacts = esi_api.fetch_character_contacts(token)
         labels = esi_api.fetch_character_contact_labels(token)
         current_contacts = EsiContactsContainer.from_esi_contacts(contacts, labels)
-        if settings.DEBUG:
-            store_json(current_contacts._to_dict(), "current_contacts")
-            logger.debug(
-                "%s: new version hash: %s", self, current_contacts.version_hash()
-            )
+
+        if STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED:
+            store_json(current_contacts.to_dict(), "current_contacts")
+
+        logger.debug("%s: new version hash: %s", self, current_contacts.version_hash())
         return current_contacts
 
     def delete_all_contacts(self):
@@ -419,18 +454,18 @@ class SyncedCharacter(_SyncBaseModel):
         token = self._valid_token()
         if not token:
             logger.warning(
-                "%s: Can not delete contacts, because no valid token found.",
-                self,
+                "%s: Can not delete contacts, because no valid token found.", self
             )
             return
 
         contacts_clone = self._fetch_current_contacts(token)
         contacts = contacts_clone.contacts()
-        logger.info("%s: Deleting all %d contacts", self, len(contacts))
         esi_api.delete_character_contacts(token, contacts)
+        logger.info("%s: Deleted all %d contacts", self, len(contacts))
 
     @staticmethod
     def get_esi_scopes() -> list:
+        """Return required ESI scopes."""
         return ["esi-characters.read_contacts.v1", "esi-characters.write_contacts.v1"]
 
 
@@ -463,6 +498,8 @@ class EveWar(models.Model):
     """An EveOnline war"""
 
     class State(models.TextChoices):
+        """A war state."""
+
         PENDING = "pending"  # declared, but not started yet
         ONGOING = "ongoing"  # active and without finish date
         CONCLUDING = "concluding"  # active and about to finish normally
@@ -471,6 +508,7 @@ class EveWar(models.Model):
 
         @classmethod
         def active_states(cls) -> Set["EveWar.State"]:
+            """Return all states representing an active war."""
             return {cls.ONGOING, cls.CONCLUDING, cls.RETRACTED}
 
     id = models.PositiveIntegerField(primary_key=True)

@@ -7,8 +7,7 @@ from standingssync.core.esi_contacts import (
     EsiContactLabel,
     EsiContactsContainer,
 )
-
-from ..factories import (
+from standingssync.tests.factories import (
     EsiContactFactory,
     EsiContactLabelFactory,
     EveContactFactory,
@@ -171,7 +170,7 @@ class TestEsiContactLabel(NoSocketsTestCase):
 
 
 @patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
-class TestEsiContactsClone(NoSocketsTestCase):
+class TestEsiContactsContainer(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when
         obj = EsiContactsContainer()
@@ -458,6 +457,16 @@ class TestEsiContactsClone(NoSocketsTestCase):
         second.remove_contact(contact_1)
         self.assertNotIn(contact_1, second.contacts())
         self.assertIn(contact_1, first.contacts())
+
+    def test_should_return_all_contact_ids(self):
+        # given
+        c1 = EsiContactFactory()
+        c2 = EsiContactFactory()
+        contacts = EsiContactsContainer.from_esi_contacts([c1, c2])
+        # when
+        result = contacts.contact_ids()
+        # then
+        self.assertSetEqual(result, {c1.contact_id, c2.contact_id})
 
 
 class TestEsiContactsCloneComparisons(NoSocketsTestCase):

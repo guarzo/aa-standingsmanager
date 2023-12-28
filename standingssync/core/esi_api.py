@@ -11,8 +11,8 @@ from app_utils.logging import LoggerAddTag
 
 from standingssync import __title__
 from standingssync.app_settings import (
-    STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID,
-    STANDINGSSYNC_SPECIAL_WAR_IDS,
+    STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS,
+    STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID,
 )
 from standingssync.providers import esi
 
@@ -44,10 +44,14 @@ def fetch_alliance_contacts(alliance_id: int, token: Token) -> Set[EsiContact]:
 
 def fetch_character_contacts(token: Token) -> Set[EsiContact]:
     """Fetch character contacts from ESI."""
-    logger.info("%s: Fetching current contacts", token.character_name)
     character_contacts_raw = esi.client.Contacts.get_characters_character_id_contacts(
         token=token.valid_access_token(), character_id=token.character_id
     ).results(ignore_cache=True)
+    logger.info(
+        "%s: Fetched %d current contacts",
+        token.character_name,
+        len(character_contacts_raw),
+    )
     character_contacts = {
         EsiContact.from_esi_dict(contact) for contact in character_contacts_raw
     }
@@ -56,10 +60,10 @@ def fetch_character_contacts(token: Token) -> Set[EsiContact]:
 
 def fetch_character_contact_labels(token: Token) -> Set[EsiContactLabel]:
     """Fetch contact labels for character from ESI."""
-    logger.info("%s: Fetching current labels", token.character_name)
     labels_raw = esi.client.Contacts.get_characters_character_id_contacts_labels(
         character_id=token.character_id, token=token.valid_access_token()
     ).results(ignore_cache=True)
+    logger.info("%s: Fetched %d current labels", token.character_name, len(labels_raw))
     labels = {EsiContactLabel.from_esi_dict(label) for label in labels_raw}
     return labels
 
@@ -76,6 +80,8 @@ def delete_character_contacts(token: Token, contacts: Iterable[EsiContact]):
             contact_ids=contact_ids_chunk,
         ).results()
 
+    logger.info("%s: Deleted %d contacts", token.character_name, len(contact_ids))
+
 
 def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
     """Add new contacts on ESI for a character."""
@@ -84,6 +90,7 @@ def add_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None
         contacts=contacts,
         esi_method=esi.client.Contacts.post_characters_character_id_contacts,
     )
+    logger.info("%s: Added %d contacts", token.character_name, len(contacts))
 
 
 def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> None:
@@ -93,6 +100,7 @@ def update_character_contacts(token: Token, contacts: Iterable[EsiContact]) -> N
         contacts=contacts,
         esi_method=esi.client.Contacts.put_characters_character_id_contacts,
     )
+    logger.info("%s: Updated %d contacts", token.character_name, len(contacts))
 
 
 def _update_character_contacts(
@@ -136,13 +144,12 @@ def _group_for_esi_update(
     contacts: Iterable["EsiContact"],
 ) -> Dict[FrozenSet, Dict[float, Iterable[int]]]:
     """Group contacts for ESI update."""
-    contacts_grouped = dict()
+    contacts_grouped = {}
     for contact in contacts:
         if contact.label_ids not in contacts_grouped:
             contacts_grouped[contact.label_ids] = defaultdict(set)
         contacts_grouped[contact.label_ids][contact.standing].add(contact.contact_id)
     return contacts_grouped
-    # return dict(sorted(contacts_by_standing.items()))
 
 
 def fetch_war_ids() -> Set[int]:
@@ -150,33 +157,34 @@ def fetch_war_ids() -> Set[int]:
 
     Will ignore older wars which are known to be already finished.
     """
-    logger.info("Fetching war IDs from ESI")
     war_ids = []
     war_ids_page = esi.client.Wars.get_wars().results(ignore_cache=True)
     while True:
         war_ids += war_ids_page
         if (
             len(war_ids_page) < FETCH_WARS_MAX_ITEMS
-            or min(war_ids_page) < STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
+            or min(war_ids_page) < STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
         ):
             break
         max_war_id = min(war_ids)
         war_ids_page = esi.client.Wars.get_wars(max_war_id=max_war_id).results(
             ignore_cache=True
         )
-    war_ids = set(
-        [
-            war_id
-            for war_id in war_ids
-            if war_id >= STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID
-        ]
-    )
-    war_ids = war_ids.union(set(STANDINGSSYNC_SPECIAL_WAR_IDS))
+
+    logger.info("Fetched %d war IDs from ESI", len(war_ids))
+
+    war_ids = {
+        war_id
+        for war_id in war_ids
+        if war_id >= STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID
+    }
+    war_ids = war_ids.union(set(STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS))
+
     return war_ids
 
 
 def fetch_war(war_id: int) -> dict:
     """Fetch details about a war from ESI."""
-    logger.info("%d: Retrieving war", war_id)
     war_info = esi.client.Wars.get_wars_war_id(war_id=war_id).results(ignore_cache=True)
+    logger.info("Retrieved war details for ID %s", war_id)
     return war_info

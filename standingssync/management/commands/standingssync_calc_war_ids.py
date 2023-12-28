@@ -1,9 +1,9 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Min
 
-from ... import __title__, __version__
-from ...models import EveWar
-from ...providers import esi
+from standingssync import __title__, __version__
+from standingssync.models import EveWar
+from standingssync.providers import esi
 
 
 class Command(BaseCommand):
@@ -29,8 +29,8 @@ class Command(BaseCommand):
         )
         self.stdout.write("Calculated new war ID values for settings are:")
         self.stdout.write(
-            f"STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID = {min_unfinished_war_id}"
+            f"STANDINGSSYNC_UNFINISHED_WARS_MINIMUM_ID = {min_unfinished_war_id}"
         )
         self.stdout.write(
-            f"STANDINGSSYNC_SPECIAL_WAR_IDS = {special_unfinished_war_ids}"
+            f"STANDINGSSYNC_UNFINISHED_WARS_EXCEPTION_IDS = {special_unfinished_war_ids}"
         )

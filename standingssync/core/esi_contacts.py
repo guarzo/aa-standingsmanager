@@ -24,13 +24,16 @@ class EsiContactLabel:
         object.__setattr__(self, "name", str(self.name))
 
     def to_dict(self) -> dict:
+        """Return as dict."""
         return {self.id: self.name}
 
     def to_esi_dict(self) -> dict:
+        """Return as dict in ESI format."""
         return {"label_id": self.id, "label_name": self.name}
 
     @classmethod
-    def from_esi_dict(cls, esi_dict: dict):
+    def from_esi_dict(cls, esi_dict: dict) -> "EsiContactLabel":
+        """Create new obj from ESI dict."""
         return cls(id=esi_dict["label_id"], name=esi_dict["label_name"])
 
 
@@ -48,6 +51,7 @@ class EsiContact:
 
         @classmethod
         def from_esi_contact_type(cls, contact_type) -> "EsiContact.ContactType":
+            """Create from an ESI contact type."""
             mapper = {
                 "alliance": cls.ALLIANCE,
                 "character": cls.CHARACTER,
@@ -76,6 +80,7 @@ class EsiContact:
         return new_obj
 
     def to_esi_dict(self) -> dict:
+        """Return as a dict."""
         obj = {
             "contact_id": self.contact_id,
             "contact_type": self.ContactType(self.contact_type).value,
@@ -135,6 +140,7 @@ class EsiContact:
         )
 
 
+# pylint: disable = too-many-public-methods
 @dataclass
 class EsiContactsContainer:
     """Container of ESI contacts with their labels."""
@@ -163,6 +169,7 @@ class EsiContactsContainer:
     def add_eve_contacts(
         self, contacts: Iterable[object], label_ids: Optional[List[int]] = None
     ):
+        """Add eve contacts to this container."""
         for contact in contacts:
             self.add_contact(EsiContact.from_eve_contact(contact, label_ids=label_ids))
 
@@ -189,6 +196,11 @@ class EsiContactsContainer:
             return self._contacts[contact_id]
         except KeyError:
             raise ValueError(f"Contact with ID {contact_id} not found.") from None
+
+    def contact_ids(self) -> Set[int]:
+        """Return all contact IDs"""
+        result = set(self._contacts)
+        return result
 
     def contacts(self) -> Set[EsiContact]:
         """Fetch all contacts."""
@@ -226,11 +238,13 @@ class EsiContactsContainer:
         self.remove_contacts(self.war_targets())
 
     def clone(self) -> "EsiContactsContainer":
+        """Return a clone of this object."""
         other = self.__class__.from_esi_contacts(
             contacts=self.contacts(), labels=self.labels()
         )
         return other
 
+    # pylint: disable = protected-access
     def contacts_difference(
         self, other: "EsiContactsContainer"
     ) -> Tuple[Set[EsiContact], Set[EsiContact], Set[EsiContact]]:
@@ -265,7 +279,7 @@ class EsiContactsContainer:
             for obj in sorted(self._labels.values(), key=lambda o: o.id)
         ]
 
-    def _to_dict(self) -> dict:
+    def to_dict(self) -> dict:
         """Convert this object into a stable dictionary."""
         data = {
             "contacts": self.contacts_to_esi_dicts(),
@@ -275,7 +289,7 @@ class EsiContactsContainer:
 
     def version_hash(self) -> str:
         """Calculate hash for current contacts & label in order to identify changes."""
-        data = self._to_dict()
+        data = self.to_dict()
         return hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
 
     @classmethod

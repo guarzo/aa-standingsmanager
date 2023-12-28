@@ -27,6 +27,7 @@ MY_DATETIME_FORMAT = "Y-M-d H:i"
 
 
 def common_context(ctx: dict) -> dict:
+    """Return common context used by several views."""
     result = {
         "app_title": __title__,
         "page_title": "PLACEHOLDER",
@@ -40,13 +41,14 @@ def common_context(ctx: dict) -> dict:
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def index(request):
+    """Render index page."""
     return redirect("standingssync:characters")
 
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def characters(request):
-    """main page"""
+    """Render main page."""
     sync_manager: SyncManager = SyncManager.objects.fetch_for_user(request.user)
     synced_characters = []
     if sync_manager:
@@ -189,7 +191,7 @@ def add_character(request, token):
             )
             tasks.run_character_sync.delay(sync_character.pk)
             messages.success(
-                request, "Sync activated for {}!".format(token_char.character_name)
+                request, f"Sync activated for {token_char.character_name}!"
             )
     return redirect("standingssync:characters")
 
@@ -201,17 +203,18 @@ def remove_character(request, alt_pk):
     alt = get_object_or_404(SyncedCharacter, pk=alt_pk)
     alt_name = alt.character_ownership.character.character_name
     alt.delete()
-    messages.success(request, "Sync deactivated for {}".format(alt_name))
+    messages.success(request, f"Sync deactivated for {alt_name}")
     return redirect("standingssync:characters")
 
 
 @login_required
 @permission_required("standingssync.add_syncedcharacter")
 def wars(request):
+    """Render wars page."""
     sync_manager = SyncManager.objects.fetch_for_user(request.user)
     all_wars = []
     if sync_manager:
-        for war in (
+        query = (
             EveWar.objects.current_wars()
             .alliance_wars(alliance=sync_manager.alliance)
             .prefetch_related(Prefetch("allies", to_attr="allies_sorted"))
@@ -219,7 +222,8 @@ def wars(request):
             .annotate_state()
             .annotate_is_active()
             .order_by("-started")
-        ):
+        )
+        for war in query:
             allies = sorted(list(war.allies_sorted), key=lambda o: o.name)
             all_wars.append(
                 {
@@ -233,6 +237,7 @@ def wars(request):
                     "is_active": war.is_active,
                 }
             )
+
     context = {
         "page_title": "Current Wars",
         "alliance": "Not configured",
@@ -241,14 +246,16 @@ def wars(request):
         "active_wars_count": "?",
         "State": EveWar.State,
     }
+
     if sync_manager:
         context.update(
             {
                 "alliance": sync_manager.alliance,
                 "war_count": len(all_wars),
-                "active_wars_count": sum([1 for obj in all_wars if obj["is_active"]]),
+                "active_wars_count": sum(1 for obj in all_wars if obj["is_active"]),
             }
         )
+
     return render(request, "standingssync/wars.html", common_context(context))
 
 

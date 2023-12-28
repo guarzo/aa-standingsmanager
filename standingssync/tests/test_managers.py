@@ -4,11 +4,10 @@ from unittest.mock import patch
 from django.utils.timezone import now
 from eveuniverse.models import EveEntity
 
-from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveAllianceInfo
 from app_utils.esi_testing import BravadoOperationStub
 from app_utils.testdata_factories import UserFactory
-from app_utils.testing import NoSocketsTestCase, create_user_from_evecharacter
+from app_utils.testing import NoSocketsTestCase
 
 from standingssync.models import EveWar, SyncManager
 
@@ -17,52 +16,51 @@ from .factories import (
     EveEntityAllianceFactory,
     EveEntityCorporationFactory,
     EveWarFactory,
-    SyncedCharacterFactory,
     SyncManagerFactory,
     UserMainSyncerFactory,
 )
-from .utils import ALLIANCE_CONTACTS, LoadTestDataMixin
+from .utils import ALLIANCE_CONTACTS, load_eve_entities
 
 ESI_WARS_PATH = "standingssync.core.esi_api"
 MANAGERS_PATH = "standingssync.managers"
 MODELS_PATH = "standingssync.models"
 
 
-class TestEveContactManager(LoadTestDataMixin, NoSocketsTestCase):
+class TestEveContactManager(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        load_eve_entities()
 
-        # 1 user with 1 alt character
-        cls.user_1, _ = create_user_from_evecharacter(cls.character_1.character_id)
-        cls.alt_ownership = CharacterOwnership.objects.create(
-            character=cls.character_2, owner_hash="x2", user=cls.user_1
-        )
-
-        # sync manager with contacts
-        cls.sync_manager = SyncManagerFactory(user=cls.user_1, version_hash="new")
+    def test_grouped_by_standing(self):
+        # given
+        sync_manager = SyncManagerFactory()
         for contact in ALLIANCE_CONTACTS:
             EveContactFactory(
-                manager=cls.sync_manager,
+                manager=sync_manager,
                 eve_entity=EveEntity.objects.get(id=contact["contact_id"]),
                 standing=contact["standing"],
             )
 
-        # sync char
-        cls.synced_character = SyncedCharacterFactory(
-            character_ownership=cls.alt_ownership, manager=cls.sync_manager
-        )
-
-    def test_grouped_by_standing(self):
-        c = {int(x.eve_entity_id): x for x in self.sync_manager.contacts.all()}
+        contacts = {int(obj.eve_entity_id): obj for obj in sync_manager.contacts.all()}
         expected = {
-            -10.0: {c[1005], c[1012], c[3011], c[2011]},
-            -5.0: {c[1013], c[3012], c[2012]},
-            0.0: {c[1014], c[3013], c[2014]},
-            5.0: {c[1015], c[3014], c[2013]},
-            10.0: {c[1002], c[1004], c[1016], c[3015], c[2015]},
+            -10.0: {contacts[1005], contacts[1012], contacts[3011], contacts[2011]},
+            -5.0: {contacts[1013], contacts[3012], contacts[2012]},
+            0.0: {contacts[1014], contacts[3013], contacts[2014]},
+            5.0: {contacts[1015], contacts[3014], contacts[2013]},
+            10.0: {
+                contacts[1002],
+                contacts[1004],
+                contacts[1016],
+                contacts[3015],
+                contacts[2015],
+            },
         }
-        result = self.sync_manager.contacts.grouped_by_standing()
+
+        # when
+        result = sync_manager.contacts.grouped_by_standing()
+
+        # then
         self.maxDiff = None
         self.assertDictEqual(result, expected)
         self.assertListEqual(list(result.keys()), list(expected.keys()))
@@ -109,11 +107,17 @@ class TestEveWarManagerWarTargets(NoSocketsTestCase):
         self.assertSetEqual({obj.id for obj in result}, {aggressor.id})
 
 
-class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
+class TestEveWarManager(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        # given
+        EveEntityCorporationFactory(id=2003)
+        EveEntityAllianceFactory(id=3001)
+        EveEntityAllianceFactory(id=3002)
+        EveEntityAllianceFactory(id=3003)
+        EveEntityAllianceFactory(id=3011)
+        EveEntityAllianceFactory(id=3012)
+
         cls.war_declared = now() - dt.timedelta(days=3)
         cls.war_started = now() - dt.timedelta(days=2)
         EveWarFactory(
@@ -124,8 +128,6 @@ class TestEveWarManager(LoadTestDataMixin, NoSocketsTestCase):
             started=cls.war_started,
             allies=[EveEntity.objects.get(id=3012)],
         )
-        EveEntityAllianceFactory(id=3002)
-        EveEntityAllianceFactory(id=3003)
 
     def test_should_return_finished_wars(self):
         # given

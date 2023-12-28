@@ -1,5 +1,7 @@
 """Managers for standingssync."""
 
+# pylint: disable = redefined-builtin, missing-class-docstring
+
 import datetime as dt
 from collections import defaultdict
 from typing import Any, Dict, Set, Tuple
@@ -39,28 +41,29 @@ EveContactManager = EveContactManagerBase.from_queryset(EveContactQuerySet)
 class EveWarQuerySet(models.QuerySet):
     def annotate_state(self) -> models.QuerySet:
         """Add state field to queryset."""
-        State = self.model.State
+        from .models import EveWar
+
         return self.annotate(
             state=Case(
-                When(started__gt=now(), then=Value(State.PENDING.value)),
+                When(started__gt=now(), then=Value(EveWar.State.PENDING.value)),
                 When(
                     started__lte=now(),
                     finished__isnull=True,
-                    then=Value(State.ONGOING.value),
+                    then=Value(EveWar.State.ONGOING.value),
                 ),
                 When(
                     started__lte=now(),
                     finished__gt=now(),
                     retracted__isnull=False,
-                    then=Value(State.RETRACTED.value),
+                    then=Value(EveWar.State.RETRACTED.value),
                 ),
                 When(
                     started__lte=now(),
                     finished__gt=now(),
                     retracted__isnull=True,
-                    then=Value(State.CONCLUDING.value),
+                    then=Value(EveWar.State.CONCLUDING.value),
                 ),
-                default=Value(State.FINISHED.value),
+                default=Value(EveWar.State.FINISHED.value),
             )
         )
 
@@ -74,7 +77,7 @@ class EveWarQuerySet(models.QuerySet):
         )
 
     def current_wars(self) -> models.QuerySet:
-        """Filter for current wars.
+        """Add filter for current wars.
 
         This includes wars that are about to start,
         active wars and wars that ended recently.
@@ -86,13 +89,14 @@ class EveWarQuerySet(models.QuerySet):
         ).distinct()
 
     def active_wars(self) -> models.QuerySet:
-        """Filter for active wars."""
+        """Add filter for active wars."""
         qs = self.filter(started__lt=now())
         return (
             qs.filter(finished__gt=now()) | qs.filter(finished__isnull=True)
         ).distinct()
 
     def finished_wars(self) -> models.QuerySet:
+        """Add filter for finished wars."""
         return self.filter(finished__lte=now())
 
     def alliance_wars(self, alliance: EveAllianceInfo) -> models.QuerySet:
@@ -129,7 +133,6 @@ class EveWarManagerBase(models.Manager):
     def update_or_create_from_esi(self, id: int) -> Tuple[Any, bool]:
         """Updates existing or creates new objects from ESI with given ID."""
 
-        logger.info("Retrieving war details for ID %s", id)
         entity_ids = set()
         war_info = esi_api.fetch_war(war_id=id)
         aggressor = self._get_or_create_eve_entity_from_participant(
@@ -165,7 +168,7 @@ class EveWarManagerBase(models.Manager):
                     war.allies.add(ally)
                     entity_ids.add(ally.id)
 
-        EveEntity.objects.bulk_create_esi(entity_ids)
+        EveEntity.objects.bulk_resolve_ids(entity_ids)
         return war, created
 
     @staticmethod
@@ -193,12 +196,14 @@ class SyncManagerManager(models.Manager):
         """Fetch sync manager for given user. Return None if no match is found."""
         if not user.profile.main_character:
             return None
+
         try:
             alliance = EveAllianceInfo.objects.get(
                 alliance_id=user.profile.main_character.alliance_id
             )
         except EveAllianceInfo.DoesNotExist:
             return None
+
         try:
             return self.get(alliance=alliance)
         except self.model.DoesNotExist:

@@ -1,5 +1,7 @@
 """Admin site for standingssync."""
 
+# pylint: disable = missing-class-docstring, missing-function-docstring
+
 from django.contrib import admin
 from django.db.models import Prefetch
 from eveuniverse.models import EveEntity
@@ -155,7 +157,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="character_ownership__character__character_name")
     def _character_name(self, obj):
-        return obj.__str__()
+        return str(obj)
 
     @admin.display(boolean=True, description="Has WT label")
     def _has_war_targets_label(self, obj):
@@ -167,23 +169,21 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
 
     @admin.display(description="Start sync for selected synced characters")
     def sync_characters(self, request, queryset):
-        names = list()
+        names = []
         for obj in queryset:
             tasks.run_character_sync.delay(obj.pk)
             names.append(str(obj))
-        self.message_user(
-            request, "Started normal syncing for: {}".format(", ".join(names))
-        )
+        names_text = ", ".join(names)
+        self.message_user(request, f"Started normal syncing for: {names_text}")
 
     @admin.display(description="Delete all contacts of selected synced characters")
     def delete_all_contacts(self, request, queryset):
-        names = list()
+        names = []
         for obj in queryset:
             tasks.character_delete_all_contacts.delay(obj.pk)
             names.append(str(obj))
-        self.message_user(
-            request, "Started deleting contacts for: {}".format(", ".join(names))
-        )
+        names_text = ", ".join(names)
+        self.message_user(request, f"Started deleting contacts for: {names_text}")
 
 
 @admin.register(SyncManager)
@@ -226,15 +226,15 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     @admin.display(description="Alliance contacts")
     def _alliance_contacts_count(self, obj):
-        return "{:,}".format(obj.contacts.filter(is_war_target=False).count())
+        return f"{obj.contacts.filter(is_war_target=False).count():,}"
 
     @admin.display(description="War targets")
     def _wt_contacts_count(self, obj):
-        return "{:,}".format(obj.contacts.filter(is_war_target=True).count())
+        return f"{obj.contacts.filter(is_war_target=True).count():,}"
 
     @admin.display(description="Synced Characters")
     def _synced_characters_count(self, obj):
-        return "{:,}".format(obj.synced_characters.count())
+        return f"{obj.synced_characters.count():,}"
 
     @admin.display(boolean=True)
     def _is_fresh(self, obj):
@@ -242,9 +242,9 @@ class SyncManagerAdmin(admin.ModelAdmin):
 
     @admin.display(description="Start sync for selected managers")
     def start_sync_managers(self, request, queryset):
-        names = list()
+        names = []
         for obj in queryset:
             tasks.run_manager_sync.delay(manager_pk=obj.pk, force_update=True)
             names.append(str(obj))
-        text = "Started syncing for: {} ".format(", ".join(names))
+        text = f"Started syncing for: {', '.join(names)} "
         self.message_user(request, text)

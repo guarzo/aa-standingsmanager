@@ -6,4 +6,4 @@ from . import __version__
 class SyncAltContactsConfig(AppConfig):
     name = "standingssync"
     label = "standingssync"
-    verbose_name = "Standings Sync v{}".format(__version__)
+    verbose_name = f"Standings Sync v{__version__}"

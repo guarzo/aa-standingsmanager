@@ -3,7 +3,6 @@
 from celery import shared_task
 
 from eveuniverse.core.esitools import is_esi_online
-from eveuniverse.models import EveEntity
 from eveuniverse.tasks import update_unresolved_eve_entities
 
 from allianceauth.services.hooks import get_extension_logger
@@ -43,7 +42,6 @@ def run_manager_sync(manager_pk: int, force_update: bool = False):
     """
     sync_manager = SyncManager.objects.get(pk=manager_pk)
     sync_manager.run_sync(force_update)
-    EveEntity.objects.bulk_update_new_esi()
     sync_characters = sync_manager.synced_characters.values_list("pk", flat=True)
     for character_pk in sync_characters:
         run_character_sync.apply_async(
@@ -80,6 +78,7 @@ def sync_all_wars():
         )
         for war_id in fetch_active_war_ids_esi:
             run_war_sync.apply_async(args=[war_id], priority=DEFAULT_TASK_PRIORITY)
+
     update_unresolved_eve_entities.apply_async(priority=DEFAULT_TASK_PRIORITY)
 
 

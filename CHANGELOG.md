@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - yyyy-mm-dd
 
+## [1.10.0] - 2023-12-28
+
+### Changed
+
+- Added support for AA4
+- Added pylint checks
+- Storing ESI contacts to disk can now be enabled through the new setting `STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED`, an not longer by enabling DEBUG mode.
+- Improved test suite
+- Refactoring
+
 ## [1.9.0] - 2023-07-01
 
 ### Changed

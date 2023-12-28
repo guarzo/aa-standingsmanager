@@ -133,7 +133,6 @@ class EveWarManagerBase(models.Manager):
     def update_or_create_from_esi(self, id: int) -> Tuple[Any, bool]:
         """Updates existing or creates new objects from ESI with given ID."""
 
-        logger.info("Retrieving war details for ID %s", id)
         entity_ids = set()
         war_info = esi_api.fetch_war(war_id=id)
         aggressor = self._get_or_create_eve_entity_from_participant(

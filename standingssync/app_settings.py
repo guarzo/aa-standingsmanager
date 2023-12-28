@@ -12,6 +12,7 @@ STANDINGSSYNC_CHAR_MIN_STANDING = clean_setting(
 )
 """Minimum standing a character needs to have in order to get alliance contacts.
 Any char with a standing smaller than this value will be rejected.
+Set to `0.0` if you want to allow neutral alts to sync.
 """
 
 STANDINGSSYNC_MINIMUM_UNFINISHED_WAR_ID = clean_setting(
@@ -34,7 +35,7 @@ STANDINGSSYNC_REPLACE_CONTACTS = clean_setting("STANDINGSSYNC_REPLACE_CONTACTS",
 
 STANDINGSSYNC_SYNC_TIMEOUT = clean_setting("STANDINGSSYNC_SYNC_TIMEOUT", 180)  # 3 hours
 """Duration in minutes after which a delayed sync for managers and characters
-is reported as down.
+is reported as down. This value should be aligned with the frequency of the sync task.
 """
 
 STANDINGSSYNC_SPECIAL_WAR_IDS = clean_setting(
@@ -76,4 +77,7 @@ STANDINGSSYNC_SPECIAL_WAR_IDS = clean_setting(
 STANDINGSSYNC_WAR_TARGETS_LABEL_NAME = clean_setting(
     "STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS"
 )
-"""Name of EVE contact label for war targets."""
+"""Name of EVE contact label for war targets.
+Needs to be created by the user for each synced character. Required to ensure that
+war targets are deleted once they become invalid. Not case sensitive.
+"""

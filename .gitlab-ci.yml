@@ -15,7 +15,7 @@ pre-commit-check:
     - pip install pre-commit
     - pre-commit run --all-files
 
-.tox_setup:
+.tox-setup:
   before_script:
     - apt-get update
     - apt-get install redis-server -y
@@ -25,7 +25,7 @@ pre-commit-check:
 
 pylint:
   stage: checks
-  extends: .tox_setup
+  extends: .tox-setup
   image: python:3.11-bullseye
   script:
     - tox -e pylint
@@ -57,7 +57,7 @@ test-py311-dj40:
   - bash <(curl -s https://codecov.io/bash)
 
 test-py311-dj42:
-  extends: .tox_setup
+  extends: .tox-setup
   image: python:3.11-bullseye
   script:
     - tox -e py311-django42

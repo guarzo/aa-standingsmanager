@@ -37,6 +37,7 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 

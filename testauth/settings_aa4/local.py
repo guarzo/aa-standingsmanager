@@ -74,15 +74,55 @@ DEFAULT_FROM_EMAIL = ""
 LOGGING = None
 STATICFILES_DIRS = []
 
+from unittest.mock import Mock
+
 # Use fakeredis for testing/linting (no Redis server required)
 import fakeredis  # noqa: E402
+
+# Create a fake Redis server instance that supports INFO command
+_fake_redis_server = fakeredis.FakeServer()
+_fake_redis_server.connected = True
+
+
+# Monkey-patch fakeredis to support INFO command
+class FakeRedisWithInfo(fakeredis.FakeStrictRedis):
+    """FakeRedis with INFO command support for AllianceAuth system checks."""
+
+    def info(self, section=None):
+        """Return mock Redis INFO output."""
+        return {
+            "redis_version": "7.0.0",
+            "redis_mode": "standalone",
+            "os": "Linux",
+            "arch_bits": 64,
+            "multiplexing_api": "epoll",
+            "process_id": 1,
+            "tcp_port": 6379,
+        }
+
+
+# Patch django_redis to use our FakeRedisWithInfo
+import django_redis  # noqa: E402
+from django_redis.client import default  # noqa: E402
+
+_original_get_client = default.DefaultClient.get_client
+
+
+def _patched_get_client(self, write=True, tried=None):
+    """Return FakeRedisWithInfo instead of real Redis client."""
+    return FakeRedisWithInfo(server=_fake_redis_server)
+
+
+default.DefaultClient.get_client = _patched_get_client
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": "redis://127.0.0.1:6379/1",
         "OPTIONS": {
-            "REDIS_CLIENT_CLASS": "fakeredis.FakeRedis",
+            "CONNECTION_POOL_KWARGS": {
+                "connection_class": fakeredis.FakeConnection,
+            },
         },
     }
 }
@@ -90,9 +130,12 @@ CACHES = {
 # Silence system checks for tests
 SILENCED_SYSTEM_CHECKS = [
     "allianceauth.checks.A003",
+    "allianceauth.checks.B001",
+    "allianceauth.checks.B002",
     "allianceauth.checks.B003",
     "allianceauth.checks.B004",
     "allianceauth.checks.B010",
+    "allianceauth.checks.system_package_redis",  # Redis version check (not compatible with fakeredis)
     "esi.E003",
 ]
 ESI_USER_CONTACT_EMAIL = "test@test.com"

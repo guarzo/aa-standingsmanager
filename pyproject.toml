@@ -3,12 +3,13 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "aa-standingssync"
+name = "aa-standingssync-zoo"
 dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
 authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
+maintainers = [{ name = "guarzo" }]
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
@@ -32,7 +33,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.com/ErikKalkoken/aa-standingssync"
+Homepage = "https://github.com/guarzo/aa-standingssync-zoo"
+Source = "https://github.com/guarzo/aa-standingssync-zoo"
+Issues = "https://github.com/guarzo/aa-standingssync-zoo/issues"
 
 [tool.flit.module]
 name = "standingssync"

@@ -73,3 +73,13 @@ DEFAULT_FROM_EMAIL = ""
 # workarounds to suppress warnings
 LOGGING = None
 STATICFILES_DIRS = []
+
+# Silence system checks for tests
+SILENCED_SYSTEM_CHECKS = [
+    "allianceauth.checks.A003",
+    "allianceauth.checks.B003",
+    "allianceauth.checks.B004",
+    "allianceauth.checks.B010",
+    "esi.E003",
+]
+ESI_USER_CONTACT_EMAIL = "test@test.com"

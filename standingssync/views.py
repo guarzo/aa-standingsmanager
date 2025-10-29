@@ -14,7 +14,11 @@ from app_utils.logging import LoggerAddTag
 
 from . import __title__, tasks
 from .app_settings import (
+    CONTACTS_MODE_MERGE,
+    CONTACTS_MODE_PRESERVE,
+    CONTACTS_MODE_REPLACE,
     STANDINGSSYNC_ADD_WAR_TARGETS,
+    STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
     STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
@@ -72,6 +76,14 @@ def characters(request):
                     f"Please create a contact label with the name: "
                     f"{STANDINGSSYNC_WAR_TARGETS_LABEL_NAME}"
                 )
+            if (
+                STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_MERGE
+                and not synced_character.has_alliance_contacts_label
+            ):
+                errors.append(
+                    f"Please create a contact label with the name: "
+                    f"{STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME}"
+                )
             synced_characters.append(
                 {
                     "id": character.character_id,
@@ -87,7 +99,7 @@ def characters(request):
         alliance = sync_manager.alliance
         alliance_contacts_count = (
             sync_manager.contacts.filter(is_war_target=False).count()  # type: ignore
-            if STANDINGSSYNC_REPLACE_CONTACTS
+            if STANDINGSSYNC_REPLACE_CONTACTS != CONTACTS_MODE_PRESERVE
             else None
         )
         alliance_war_targets_count = (
@@ -109,6 +121,11 @@ def characters(request):
         "alliance_contacts_count": alliance_contacts_count,
         "alliance_war_targets_count": alliance_war_targets_count,
         "war_targets_label_name": STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+        "alliance_contacts_label_name": STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME,
+        "sync_mode": STANDINGSSYNC_REPLACE_CONTACTS,
+        "sync_mode_replace": CONTACTS_MODE_REPLACE,
+        "sync_mode_merge": CONTACTS_MODE_MERGE,
+        "sync_mode_preserve": CONTACTS_MODE_PRESERVE,
     }
 
     return render(request, "standingssync/characters.html", common_context(context))

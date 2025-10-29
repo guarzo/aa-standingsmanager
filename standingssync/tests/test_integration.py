@@ -29,7 +29,7 @@ MODELS_PATH = "standingssync.models"
 @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_API_PATH + ".esi")
 class TestTasksE2E(NoSocketsTestCase):
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "replace")
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     def test_should_sync_manager_and_character_no_wt(self, mock_esi):
         # given
@@ -62,7 +62,7 @@ class TestTasksE2E(NoSocketsTestCase):
             sync_character.character.character_id, esi_character_contacts.contact_ids()
         )
 
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "replace")
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_sync_manager_and_character_with_wt_as_defender(self, mock_esi):
         # given
@@ -102,7 +102,7 @@ class TestTasksE2E(NoSocketsTestCase):
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", True)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "replace")
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_sync_manager_and_character_with_wt_as_aggressor(self, mock_esi):
         # given
@@ -153,7 +153,7 @@ class TestTasksE2E(NoSocketsTestCase):
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", False)
+    @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "preserve")
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     def test_should_sync_manager_and_character_with_wt_as_aggressor_2(self, mock_esi):
         # given

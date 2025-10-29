@@ -2,21 +2,21 @@
 
 Alliance Auth app for cloning alliance standings and war targets to alts.
 
-[![release](https://img.shields.io/pypi/v/aa-standingssync?label=release)](https://pypi.org/project/aa-standingssync/)
-[![python](https://img.shields.io/pypi/pyversions/aa-standingssync)](https://pypi.org/project/aa-standingssync/)
-[![django](https://img.shields.io/pypi/djversions/aa-standingssync?label=django)](https://pypi.org/project/aa-standingssync/)
-[![pipeline](https://gitlab.com/ErikKalkoken/aa-standingssync/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/aa-standingssync/-/pipelines)
-[![codecov](https://codecov.io/gl/ErikKalkoken/aa-standingssync/branch/master/graph/badge.svg?token=gHBi42fbSs)](https://codecov.io/gl/ErikKalkoken/aa-standingssync)
-[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/aa-standingssync/-/blob/master/LICENSE)
+[![release](https://img.shields.io/pypi/v/aa-standingssync-zoo?label=release)](https://pypi.org/project/aa-standingssync-zoo/)
+[![python](https://img.shields.io/pypi/pyversions/aa-standingssync-zoo)](https://pypi.org/project/aa-standingssync-zoo/)
+[![django](https://img.shields.io/pypi/djversions/aa-standingssync-zoo?label=django)](https://pypi.org/project/aa-standingssync-zoo/)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://github.com/guarzo/aa-standingssync-zoo/blob/main/LICENSE)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)
+
+> **Note**: This is a fork of [aa-standingssync](https://gitlab.com/ErikKalkoken/aa-standingssync) maintained at [github.com/guarzo/aa-standingssync-zoo](https://github.com/guarzo/aa-standingssync-zoo)
 
 ## Content
 
 - [Features](#features)
 - [Screenshot](#screenshot)
 - [How it works](#how-it-works)
+- [Contact Sync Modes](#contact-sync-modes)
 - [Installation](#installation)
 - [Updating](#updating)
 - [Settings](#settings)
@@ -46,6 +46,82 @@ Here is a screenshot of the main screen.
 
 To enable non-alliance members to use alliance standings the personal contact of that character are replaced with the alliance contacts.
 
+## Contact Sync Modes
+
+Standings Sync supports three contact synchronization modes:
+
+### Replace Mode (Default)
+
+`STANDINGSSYNC_REPLACE_CONTACTS = True` or `"replace"`
+
+**Behavior:**
+- Deletes ALL character contacts
+- Replaces with alliance contacts only
+- Personal contacts are NOT preserved
+
+**Use Case:** Strict alliance-only contact lists
+
+---
+
+### Preserve Mode
+
+`STANDINGSSYNC_REPLACE_CONTACTS = False` or `"preserve"`
+
+**Behavior:**
+- Keeps ALL character contacts unchanged
+- Does NOT sync alliance contacts
+- Only updates war targets (if enabled)
+
+**Use Case:** Manual contact management, no alliance sync
+
+---
+
+### Merge Mode
+
+`STANDINGSSYNC_REPLACE_CONTACTS = "merge"`
+
+**Behavior:**
+- Preserves personal contacts
+- Adds new alliance contacts with +5.0 standing
+- Removes alliance contacts when removed from alliance list
+- Updates alliance contact standings to +5.0
+- Handles war targets normally (if enabled)
+
+**Use Case:** Automatic alliance sync while keeping personal contacts
+
+**Example:**
+```python
+# In your Django settings (local.py)
+STANDINGSSYNC_REPLACE_CONTACTS = "merge"
+```
+
+**How It Works:**
+- Alliance contacts are tracked using the "ALLIANCE" label (similar to "WAR TARGETS" label)
+- All alliance contacts are automatically marked with the ALLIANCE label and +5.0 standing
+- Personal contacts (without ALLIANCE label) are never modified
+- When an entity leaves the alliance, their contact is automatically removed (identified by label)
+- When an entity joins the alliance, their contact is automatically added with the ALLIANCE label
+
+**Requirements:**
+- You must create an "ALLIANCE" contact label in-game for each synced character
+- The label name is case-insensitive and can be configured via `STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME` setting
+- Without the label, merge mode will still add/update alliance contacts, but cannot remove old ones
+
+---
+
+### Migration Guide
+
+**Existing Users:**
+- Boolean values (`True`/`False`) continue to work for backward compatibility
+- `True` is automatically converted to `"replace"` mode
+- `False` is automatically converted to `"preserve"` mode
+
+**To Enable Merge Mode:**
+```python
+# In your local.py or settings file
+STANDINGSSYNC_REPLACE_CONTACTS = "merge"
+```
+
 ## Installation
 
 ### Step 1 - Check Preconditions
@@ -61,7 +137,7 @@ Please make sure you meet all preconditions before proceeding:
 Install into AA virtual environment with PIP install from PyPI:
 
 ```bash
-pip install aa-standingssync
+pip install aa-standingssync-zoo
 ```
 
 ### Step 3 - Update Eve Online app
@@ -122,7 +198,7 @@ To update your existing installation of Alliance Freight first enable your virtu
 Then run the following commands from your AA project directory (the one that contains `manage.py`).
 
 ```bash
-pip install -U aa-standingssync
+pip install -U aa-standingssync-zoo
 ```
 
 ```bash
@@ -142,8 +218,9 @@ Here is a list of available settings for this app. They can be configured by add
 Name|Description|Default
 --|--|--
 `STANDINGSSYNC_ADD_WAR_TARGETS`|When enabled will automatically add or set war targets  with standing = -10 to synced characters.|`False`
+`STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME`|Name of EVE contact label for alliance contacts in merge mode. Needs to be created by the user for each synced character when using merge mode. Required to ensure that old alliance contacts are removed when entities leave the alliance. Not case sensitive.|`ALLIANCE`
 `STANDINGSSYNC_CHAR_MIN_STANDING`|Minimum standing a character needs to have in order to get alliance contacts. Any char with a standing smaller than this value will be rejected. Set to `0.0` if you want to allow neutral alts to sync.|`0.1`
-`STANDINGSSYNC_REPLACE_CONTACTS`|When enabled will replace contacts of synced characters with alliance contacts.|`True`
+`STANDINGSSYNC_REPLACE_CONTACTS`|Contact sync mode. Options: `True` or `"replace"` (replace all contacts with alliance contacts), `False` or `"preserve"` (preserve all contacts, don't sync alliance), `"merge"` (merge alliance contacts with personal contacts). See [Contact Sync Modes](#contact-sync-modes) for details.|`True`
 `STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED`|Wether to store contacts received from ESI to disk. This is for debugging.|`False`
 `STANDINGSSYNC_SYNC_TIMEOUT`|Duration in minutes after which a delayed sync for managers and characters is reported as down. This value should be aligned with the frequency of the sync task.|`180`
 `STANDINGSSYNC_WAR_TARGETS_LABEL_NAME`|Name of EVE contact label for war targets. Needs to be created by the user for each synced character. Required to ensure that war targets are deleted once they become invalid. Not case sensitive.|`WAR TARGETS`
@@ -171,4 +248,4 @@ Admins will find a "Standings Sync" section on the admin page. This section prov
 
 ## Feedback
 
-If you encounter any bugs or would like to request a new feature please open an issue in this gitlab repo.
+If you encounter any bugs or would like to request a new feature please open an issue on [GitHub](https://github.com/guarzo/aa-standingssync-zoo/issues).

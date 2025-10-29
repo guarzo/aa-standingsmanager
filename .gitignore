@@ -12,3 +12,6 @@ coverage.xml
 .tox/
 htmlcov/
 temp/
+.claude
+CLAUDE.md
+plans

@@ -3,12 +3,13 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "aa-standingssync"
+name = "aa-standingssync-zoo"
 dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
 authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
+maintainers = [{ name = "guarzo" }]
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
@@ -22,17 +23,20 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dependencies = [
     "allianceauth-app-utils>=1.19",
-    "allianceauth>=3",
-    "django-eveuniverse>=1.2",
+    "allianceauth>=4,<5",
+    "django-eveuniverse>=1.5",
 ]
 
 [project.urls]
-Homepage = "https://gitlab.com/ErikKalkoken/aa-standingssync"
+Homepage = "https://github.com/guarzo/aa-standingssync-zoo"
+Source = "https://github.com/guarzo/aa-standingssync-zoo"
+Issues = "https://github.com/guarzo/aa-standingssync-zoo/issues"
 
 [tool.flit.module]
 name = "standingssync"

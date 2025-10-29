@@ -20,8 +20,32 @@ STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
 )
 """Wether to store contacts received from ESI to disk. This is for debugging."""
 
-STANDINGSSYNC_REPLACE_CONTACTS = clean_setting("STANDINGSSYNC_REPLACE_CONTACTS", True)
-"""When enabled will replace contacts of synced characters with alliance contacts."""
+STANDINGSSYNC_REPLACE_CONTACTS = clean_setting(
+    "STANDINGSSYNC_REPLACE_CONTACTS",
+    default_value=True,
+    required_type=None,  # Allow both bool and string
+)
+"""Contact sync mode for characters. Options:
+- True or "replace": Replace all contacts with alliance contacts (default, legacy behavior)
+- False or "preserve": Preserve all contacts, don't sync alliance contacts (only war targets)
+- "merge": Merge alliance contacts with personal contacts (add/remove/update alliance, preserve personal)
+"""
+
+# Normalize the setting for backward compatibility
+if isinstance(STANDINGSSYNC_REPLACE_CONTACTS, bool):
+    STANDINGSSYNC_REPLACE_CONTACTS = (
+        "replace" if STANDINGSSYNC_REPLACE_CONTACTS else "preserve"
+    )
+elif STANDINGSSYNC_REPLACE_CONTACTS not in ["replace", "preserve", "merge"]:
+    raise ValueError(
+        f"Invalid STANDINGSSYNC_REPLACE_CONTACTS value: {STANDINGSSYNC_REPLACE_CONTACTS}. "
+        "Must be True, False, 'replace', 'preserve', or 'merge'."
+    )
+
+# Constants for readability
+CONTACTS_MODE_REPLACE = "replace"
+CONTACTS_MODE_PRESERVE = "preserve"
+CONTACTS_MODE_MERGE = "merge"
 
 STANDINGSSYNC_SYNC_TIMEOUT = clean_setting("STANDINGSSYNC_SYNC_TIMEOUT", 180)  # 3 hours
 """Duration in minutes after which a delayed sync for managers and characters
@@ -86,4 +110,13 @@ STANDINGSSYNC_WAR_TARGETS_LABEL_NAME = clean_setting(
 """Name of EVE contact label for war targets.
 Needs to be created by the user for each synced character. Required to ensure that
 war targets are deleted once they become invalid. Not case sensitive.
+"""
+
+STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME = clean_setting(
+    "STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", "ALLIANCE"
+)
+"""Name of EVE contact label for alliance contacts in merge mode.
+Needs to be created by the user for each synced character when using merge mode.
+Required to ensure that old alliance contacts are removed when entities leave the alliance.
+Not case sensitive.
 """

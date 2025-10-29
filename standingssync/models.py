@@ -19,6 +19,9 @@ from app_utils.logging import LoggerAddTag
 
 from . import __title__
 from .app_settings import (
+    CONTACTS_MODE_MERGE,
+    CONTACTS_MODE_PRESERVE,
+    CONTACTS_MODE_REPLACE,
     STANDINGSSYNC_ADD_WAR_TARGETS,
     STANDINGSSYNC_CHAR_MIN_STANDING,
     STANDINGSSYNC_REPLACE_CONTACTS,
@@ -240,6 +243,11 @@ class SyncedCharacter(_SyncBaseModel):
         null=True,
         help_text="Whether this character has the war target label.",
     )
+    has_alliance_contacts_label = models.BooleanField(
+        default=None,
+        null=True,
+        help_text="Whether this character has the alliance contacts label.",
+    )
     manager = models.ForeignKey(
         SyncManager, on_delete=models.CASCADE, related_name="synced_characters"
     )
@@ -290,6 +298,7 @@ class SyncedCharacter(_SyncBaseModel):
 
         current_contacts = self._fetch_current_contacts(token)
         self._update_wt_label_info(current_contacts)
+        self._update_alliance_label_info(current_contacts)
 
         new_contacts = self._identify_new_contacts(current_contacts)
 
@@ -301,17 +310,74 @@ class SyncedCharacter(_SyncBaseModel):
         self.record_successful_sync()
         return True
 
-    def _identify_new_contacts(self, current_contacts):
-        if STANDINGSSYNC_REPLACE_CONTACTS:
+    def _identify_new_contacts(
+        self, current_contacts: EsiContactsContainer
+    ) -> EsiContactsContainer:
+        if STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_REPLACE:
+            # Replace mode: Start fresh with only alliance contacts
             new_contacts = EsiContactsContainer.from_esi_contacts(
                 labels=current_contacts.labels()
             )
             new_contacts.add_eve_contacts(
                 self.manager.contacts_for_sync(self).filter(is_war_target=False)
             )
-        else:
+
+        elif STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_MERGE:
+            # Merge mode: Clone existing, then intelligently merge alliance contacts
             new_contacts = current_contacts.clone()
 
+            # Get alliance label ID (required for merge mode to work properly)
+            alliance_label_id = current_contacts.alliance_label_id()
+
+            # Get alliance contacts (non-war targets)
+            alliance_contacts = self.manager.contacts_for_sync(self).filter(
+                is_war_target=False
+            )
+            alliance_contact_ids = {
+                contact.eve_entity.id for contact in alliance_contacts
+            }
+
+            # Remove contacts that need to be removed or updated:
+            # 1. Old alliance contacts (have ALLIANCE label but NOT in current alliance list) → remove
+            # 2. Current alliance contacts (in current list) → remove and re-add with correct standing
+            contacts_to_remove = []
+            for contact in new_contacts.contacts():
+                # If contact has alliance label but is NOT in current alliance list → old alliance contact
+                has_alliance_label = (
+                    alliance_label_id and alliance_label_id in contact.label_ids
+                )
+                not_in_current_alliance = contact.contact_id not in alliance_contact_ids
+                if has_alliance_label and not_in_current_alliance:
+                    contacts_to_remove.append(contact)
+                # If contact IS in current alliance list → will be re-added with label and correct standing
+                elif contact.contact_id in alliance_contact_ids:
+                    contacts_to_remove.append(contact)
+
+            for contact in contacts_to_remove:
+                new_contacts.remove_contact(contact)
+
+            # Add all current alliance contacts with ALLIANCE label and standing = +5.0
+            # This adds new contacts and re-adds updated contacts with proper tracking
+            for alliance_contact in alliance_contacts:
+                esi_contact = EsiContact.from_eve_contact(
+                    alliance_contact,
+                    label_ids=[alliance_label_id] if alliance_label_id else None,
+                )
+                esi_contact_with_override = esi_contact.clone(standing=5.0)
+                new_contacts.add_contact(esi_contact_with_override)
+
+        elif STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_PRESERVE:
+            # Preserve mode: Keep everything as-is
+            new_contacts = current_contacts.clone()
+
+        else:
+            raise ValueError(
+                f"Invalid contacts mode: {STANDINGSSYNC_REPLACE_CONTACTS}. "
+                f"Must be one of: {CONTACTS_MODE_REPLACE}, {CONTACTS_MODE_MERGE}, "
+                f"or {CONTACTS_MODE_PRESERVE}"
+            )
+
+        # Handle war targets for all modes (if enabled)
         if STANDINGSSYNC_ADD_WAR_TARGETS:
             # remove old war targets
             new_contacts.remove_war_targets()
@@ -348,6 +414,13 @@ class SyncedCharacter(_SyncBaseModel):
         has_wt_label = current_contacts.war_target_label_id() is not None
         if has_wt_label != self.has_war_targets_label:
             self.has_war_targets_label = has_wt_label
+            self.save()
+
+    def _update_alliance_label_info(self, current_contacts: EsiContactsContainer):
+        """Update info about ALLIANCE label if it has changed."""
+        has_alliance_label = current_contacts.alliance_label_id() is not None
+        if has_alliance_label != self.has_alliance_contacts_label:
+            self.has_alliance_contacts_label = has_alliance_label
             self.save()
 
     def _has_owner_permissions(self) -> bool:

@@ -103,20 +103,57 @@
     <div class="bs-callout bs-callout-warning">
         <h3>Read Me First</h3>
         <p>Once activated this app will automatically update the personal contacts of your synced characters. Note that you can only sync out-of-alliance alts.</p>
+
         {% if alliance_contacts_count != None %}
-            <h4>Alliance Contacts</h4>
-            <p>
-                All personal contacts will be replaced with alliance contacts allowing you to see alliance standings on your synced characters.
-            </p>
-            <p>
-                <i class="fas fa-exclamation-triangle"></i> You will loose all personal contacts on your synced characters.
-            </p>
+            <h4>Alliance Contacts Sync Mode</h4>
+
+            {% if sync_mode == sync_mode_replace %}
+                {# Replace Mode #}
+                <p>
+                    <strong>Mode: REPLACE</strong> - All personal contacts will be replaced with alliance contacts allowing you to see alliance standings on your synced characters.
+                </p>
+                <p>
+                    <i class="fas fa-exclamation-triangle text-warning"></i> <strong>Warning:</strong> You will lose all personal contacts on your synced characters.
+                </p>
+
+            {% elif sync_mode == sync_mode_merge %}
+                {# Merge Mode #}
+                <p>
+                    <strong>Mode: MERGE</strong> - Alliance contacts will be automatically synced while preserving your personal contacts.
+                </p>
+                <ul>
+                    <li><i class="fas fa-check text-success"></i> Personal contacts are preserved</li>
+                    <li><i class="fas fa-plus text-info"></i> New alliance contacts are added with +5.0 standing</li>
+                    <li><i class="fas fa-sync text-info"></i> Existing alliance contacts are updated to +5.0 standing</li>
+                    <li><i class="fas fa-minus text-danger"></i> Old alliance contacts are removed when entities leave the alliance</li>
+                </ul>
+                <p>
+                    <i class="fas fa-info-circle text-info"></i> <strong>Required Setup:</strong>
+                    Please create a contact label with the name <strong>"{{ alliance_contacts_label_name }}"</strong> on all your synced characters.
+                    This label is used to track which contacts are managed by the alliance sync.
+                </p>
+                <p>
+                    <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> All alliance-synced contacts will be automatically marked with the "{{ alliance_contacts_label_name }}" label,
+                    making it easy to distinguish them from your personal contacts.
+                </p>
+
+            {% elif sync_mode == sync_mode_preserve %}
+                {# Preserve Mode #}
+                <p>
+                    <strong>Mode: PRESERVE</strong> - Your personal contacts are preserved. Alliance contacts are NOT synced.
+                </p>
+                <p>
+                    <i class="fas fa-info-circle"></i> Only war targets will be synced if war target syncing is enabled.
+                </p>
+
+            {% endif %}
         {% endif %}
+
         {% if alliance_war_targets_count != None %}
             <h4>War Targets</h4>
-            <p>Adds current alliance war targets as personal contacts with -10 standing a personal contact to your synced characters. If the contact already exists it will be overwritten. War targets can be distinguished by having the war targets contact label.</p>
-            <p><i class="fas fa-info-circle"></i>
-                Please make sure to create a contact label with the name "{{ war_targets_label_name }}" on all your synced characters.
+            <p>Adds current alliance war targets as personal contacts with -10 standing to your synced characters. If the contact already exists it will be overwritten. War targets can be distinguished by having the war targets contact label.</p>
+            <p><i class="fas fa-info-circle text-info"></i>
+                Please make sure to create a contact label with the name <strong>"{{ war_targets_label_name }}"</strong> on all your synced characters.
             </p>
         {% endif %}
     </div>

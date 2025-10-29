@@ -310,7 +310,9 @@ class SyncedCharacter(_SyncBaseModel):
         self.record_successful_sync()
         return True
 
-    def _identify_new_contacts(self, current_contacts):
+    def _identify_new_contacts(
+        self, current_contacts: EsiContactsContainer
+    ) -> EsiContactsContainer:
         if STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_REPLACE:
             # Replace mode: Start fresh with only alliance contacts
             new_contacts = EsiContactsContainer.from_esi_contacts(
@@ -328,8 +330,12 @@ class SyncedCharacter(_SyncBaseModel):
             alliance_label_id = current_contacts.alliance_label_id()
 
             # Get alliance contacts (non-war targets)
-            alliance_contacts = self.manager.contacts_for_sync(self).filter(is_war_target=False)
-            alliance_contact_ids = {contact.eve_entity.id for contact in alliance_contacts}
+            alliance_contacts = self.manager.contacts_for_sync(self).filter(
+                is_war_target=False
+            )
+            alliance_contact_ids = {
+                contact.eve_entity.id for contact in alliance_contacts
+            }
 
             # Remove contacts that need to be removed or updated:
             # 1. Old alliance contacts (have ALLIANCE label but NOT in current alliance list) → remove
@@ -337,7 +343,11 @@ class SyncedCharacter(_SyncBaseModel):
             contacts_to_remove = []
             for contact in new_contacts.contacts():
                 # If contact has alliance label but is NOT in current alliance list → old alliance contact
-                if alliance_label_id and alliance_label_id in contact.label_ids and contact.contact_id not in alliance_contact_ids:
+                has_alliance_label = (
+                    alliance_label_id and alliance_label_id in contact.label_ids
+                )
+                not_in_current_alliance = contact.contact_id not in alliance_contact_ids
+                if has_alliance_label and not_in_current_alliance:
                     contacts_to_remove.append(contact)
                 # If contact IS in current alliance list → will be re-added with label and correct standing
                 elif contact.contact_id in alliance_contact_ids:
@@ -351,14 +361,21 @@ class SyncedCharacter(_SyncBaseModel):
             for alliance_contact in alliance_contacts:
                 esi_contact = EsiContact.from_eve_contact(
                     alliance_contact,
-                    label_ids=[alliance_label_id] if alliance_label_id else None
+                    label_ids=[alliance_label_id] if alliance_label_id else None,
                 )
                 esi_contact_with_override = esi_contact.clone(standing=5.0)
                 new_contacts.add_contact(esi_contact_with_override)
 
-        else:  # CONTACTS_MODE_PRESERVE
+        elif STANDINGSSYNC_REPLACE_CONTACTS == CONTACTS_MODE_PRESERVE:
             # Preserve mode: Keep everything as-is
             new_contacts = current_contacts.clone()
+
+        else:
+            raise ValueError(
+                f"Invalid contacts mode: {STANDINGSSYNC_REPLACE_CONTACTS}. "
+                f"Must be one of: {CONTACTS_MODE_REPLACE}, {CONTACTS_MODE_MERGE}, "
+                f"or {CONTACTS_MODE_PRESERVE}"
+            )
 
         # Handle war targets for all modes (if enabled)
         if STANDINGSSYNC_ADD_WAR_TARGETS:

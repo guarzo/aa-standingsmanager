@@ -861,7 +861,10 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             self.assertFalse(esi_api.called)
 
     # Merge mode tests
-    @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", ALLIANCE_LABEL)
+    @patch(
+        ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME",
+        ALLIANCE_LABEL,
+    )
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "merge")
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
@@ -911,12 +914,19 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         # Should have personal contact + 2 alliance contacts (with +5 standing and ALLIANCE label)
         expected = {
             personal_contact,  # Preserved
-            EsiContact.from_eve_contact(alliance_contact_1, label_ids=[alliance_label.id]).clone(standing=5.0),
-            EsiContact.from_eve_contact(alliance_contact_2, label_ids=[alliance_label.id]).clone(standing=5.0),
+            EsiContact.from_eve_contact(
+                alliance_contact_1, label_ids=[alliance_label.id]
+            ).clone(standing=5.0),
+            EsiContact.from_eve_contact(
+                alliance_contact_2, label_ids=[alliance_label.id]
+            ).clone(standing=5.0),
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", ALLIANCE_LABEL)
+    @patch(
+        ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME",
+        ALLIANCE_LABEL,
+    )
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "merge")
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
@@ -928,9 +938,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         alliance_label = EsiContactLabelFactory(name=ALLIANCE_LABEL)
 
         # Current alliance contact (in alliance list)
-        current_alliance_contact = EveContactFactory(
-            manager=sync_manager, standing=10
-        )
+        current_alliance_contact = EveContactFactory(manager=sync_manager, standing=10)
 
         # Character has standing with alliance
         EveContactFactory(
@@ -944,20 +952,30 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EveEntityCharacterFactory(), standing=-2.0
         )
         another_personal_contact = EsiContact.from_eve_entity(
-            EveEntityCharacterFactory(id=98765), standing=5.0  # Personal contact (no label)
+            EveEntityCharacterFactory(id=98765),
+            standing=5.0,  # Personal contact (no label)
         )
         existing_alliance_contact = EsiContact.from_eve_contact(
             current_alliance_contact, label_ids=[alliance_label.id]
-        ).clone(standing=7.0)  # Has alliance label, will be updated to 5.0
+        ).clone(
+            standing=7.0
+        )  # Has alliance label, will be updated to 5.0
         old_alliance_contact = EsiContact.from_eve_entity(
-            EveEntityCharacterFactory(id=99999), standing=5.0, label_ids=[alliance_label.id]
+            EveEntityCharacterFactory(id=99999),
+            standing=5.0,
+            label_ids=[alliance_label.id],
         )  # Has ALLIANCE label but NOT in current alliance list → should be REMOVED
 
         # Mock ESI response
         esi_character_contacts = EsiCharacterContactsStub.create(
             synced_character.character_id,
             mock_esi,
-            contacts=[personal_contact, another_personal_contact, existing_alliance_contact, old_alliance_contact],
+            contacts=[
+                personal_contact,
+                another_personal_contact,
+                existing_alliance_contact,
+                old_alliance_contact,
+            ],
             labels=[alliance_label],
         )
 
@@ -971,12 +989,19 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         expected = {
             personal_contact,  # Preserved (no label)
             another_personal_contact,  # Preserved (no label)
-            EsiContact.from_eve_contact(current_alliance_contact, label_ids=[alliance_label.id]).clone(standing=5.0),  # Updated
+            EsiContact.from_eve_contact(
+                current_alliance_contact, label_ids=[alliance_label.id]
+            ).clone(
+                standing=5.0
+            ),  # Updated
             # old_alliance_contact is REMOVED because it has ALLIANCE label but is not in current alliance list
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", ALLIANCE_LABEL)
+    @patch(
+        ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME",
+        ALLIANCE_LABEL,
+    )
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "merge")
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
@@ -1000,9 +1025,9 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         )
 
         # Character already has this alliance contact but with different standing and maybe without label
-        existing_alliance_contact = EsiContact.from_eve_contact(
-            alliance_contact
-        ).clone(standing=7.0)  # Currently has 7.0, should become 5.0 with label
+        existing_alliance_contact = EsiContact.from_eve_contact(alliance_contact).clone(
+            standing=7.0
+        )  # Currently has 7.0, should become 5.0 with label
 
         # Mock ESI response
         esi_character_contacts = EsiCharacterContactsStub.create(
@@ -1020,11 +1045,16 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
 
         # Should have alliance contact with standing updated to 5.0 and ALLIANCE label
         expected = {
-            EsiContact.from_eve_contact(alliance_contact, label_ids=[alliance_label.id]).clone(standing=5.0),
+            EsiContact.from_eve_contact(
+                alliance_contact, label_ids=[alliance_label.id]
+            ).clone(standing=5.0),
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", ALLIANCE_LABEL)
+    @patch(
+        ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME",
+        ALLIANCE_LABEL,
+    )
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", False)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "merge")
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
@@ -1058,10 +1088,14 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
             EveEntityCharacterFactory(id=2002), standing=-5.0
         )  # Personal (no label) → preserved
         existing_alliance_contact = EsiContact.from_eve_entity(
-            alliance_contact_keep.eve_entity, standing=7.0, label_ids=[alliance_label.id]
+            alliance_contact_keep.eve_entity,
+            standing=7.0,
+            label_ids=[alliance_label.id],
         )  # Has ALLIANCE label, in current list → updated to 5.0
         old_alliance_contact = EsiContact.from_eve_entity(
-            EveEntityCharacterFactory(id=1003), standing=5.0, label_ids=[alliance_label.id]
+            EveEntityCharacterFactory(id=1003),
+            standing=5.0,
+            label_ids=[alliance_label.id],
         )  # Has ALLIANCE label but NOT in current list → REMOVED
 
         # Mock ESI response
@@ -1086,13 +1120,24 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         expected = {
             personal_contact_1,  # Preserved (no label)
             personal_contact_2,  # Preserved (no label)
-            EsiContact.from_eve_contact(alliance_contact_keep, label_ids=[alliance_label.id]).clone(standing=5.0),  # Updated
-            EsiContact.from_eve_contact(alliance_contact_new, label_ids=[alliance_label.id]).clone(standing=5.0),  # Added
+            EsiContact.from_eve_contact(
+                alliance_contact_keep, label_ids=[alliance_label.id]
+            ).clone(
+                standing=5.0
+            ),  # Updated
+            EsiContact.from_eve_contact(
+                alliance_contact_new, label_ids=[alliance_label.id]
+            ).clone(
+                standing=5.0
+            ),  # Added
             # old_alliance_contact REMOVED (has label but not in current alliance)
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
 
-    @patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME", ALLIANCE_LABEL)
+    @patch(
+        ESI_CONTACTS_PATH + ".STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME",
+        ALLIANCE_LABEL,
+    )
     @patch(MODELS_PATH + ".STANDINGSSYNC_ADD_WAR_TARGETS", True)
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "merge")
     @patch(MODELS_PATH + ".STANDINGSSYNC_CHAR_MIN_STANDING", 0.01)
@@ -1141,8 +1186,14 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
 
         expected = {
             personal_contact,  # Preserved
-            EsiContact.from_eve_contact(alliance_contact, label_ids=[alliance_label.id]).clone(standing=5.0),  # Added with ALLIANCE label
-            EsiContact.from_eve_contact(alliance_wt_contact, label_ids=[wt_label.id]),  # WT added
+            EsiContact.from_eve_contact(
+                alliance_contact, label_ids=[alliance_label.id]
+            ).clone(
+                standing=5.0
+            ),  # Added with ALLIANCE label
+            EsiContact.from_eve_contact(
+                alliance_wt_contact, label_ids=[wt_label.id]
+            ),  # WT added
             # old_wt_contact removed (not in current wars)
         }
         self.assertSetEqual(esi_character_contacts.contacts(), expected)
@@ -1196,7 +1247,7 @@ class TestSyncCharacterEsi(NoSocketsTestCase):
         synced_character = SyncedCharacterFactory()
         sync_manager = synced_character.manager
 
-        alliance_contact = EveContactFactory(manager=sync_manager, standing=10)
+        EveContactFactory(manager=sync_manager, standing=10)
 
         EveContactFactory(
             manager=sync_manager,

@@ -239,7 +239,9 @@ class EsiContactsContainer:
 
     def alliance_label_id(self) -> Optional[int]:
         """Fetch the ID of the configured alliance contacts label."""
-        from standingssync.app_settings import STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME
+        from standingssync.app_settings import (
+            STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME,
+        )
 
         for label in self._labels.values():
             if label.name.lower() == STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME.lower():
@@ -249,7 +251,9 @@ class EsiContactsContainer:
     def alliance_contacts(self) -> Set[EsiContact]:
         """Fetch contacts that are marked as alliance contacts."""
         alliance_label_id = self.alliance_label_id()
-        contacts = {obj for obj in self.contacts() if alliance_label_id in obj.label_ids}
+        contacts = {
+            obj for obj in self.contacts() if alliance_label_id in obj.label_ids
+        }
         return contacts
 
     def remove_alliance_contacts(self):

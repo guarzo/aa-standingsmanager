@@ -23,7 +23,7 @@ STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
 STANDINGSSYNC_REPLACE_CONTACTS = clean_setting(
     "STANDINGSSYNC_REPLACE_CONTACTS",
     default_value=True,
-    required_type=None  # Allow both bool and string
+    required_type=None,  # Allow both bool and string
 )
 """Contact sync mode for characters. Options:
 - True or "replace": Replace all contacts with alliance contacts (default, legacy behavior)
@@ -33,7 +33,9 @@ STANDINGSSYNC_REPLACE_CONTACTS = clean_setting(
 
 # Normalize the setting for backward compatibility
 if isinstance(STANDINGSSYNC_REPLACE_CONTACTS, bool):
-    STANDINGSSYNC_REPLACE_CONTACTS = "replace" if STANDINGSSYNC_REPLACE_CONTACTS else "preserve"
+    STANDINGSSYNC_REPLACE_CONTACTS = (
+        "replace" if STANDINGSSYNC_REPLACE_CONTACTS else "preserve"
+    )
 elif STANDINGSSYNC_REPLACE_CONTACTS not in ["replace", "preserve", "merge"]:
     raise ValueError(
         f"Invalid STANDINGSSYNC_REPLACE_CONTACTS value: {STANDINGSSYNC_REPLACE_CONTACTS}. "

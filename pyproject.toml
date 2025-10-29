@@ -23,13 +23,14 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dependencies = [
     "allianceauth-app-utils>=1.19",
-    "allianceauth>=3",
-    "django-eveuniverse>=1.2",
+    "allianceauth>=4,<5",
+    "django-eveuniverse>=1.5",
 ]
 
 [project.urls]

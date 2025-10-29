@@ -9,7 +9,10 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from eveuniverse.models import EveEntity
 
-from standingssync.app_settings import STANDINGSSYNC_WAR_TARGETS_LABEL_NAME
+from standingssync.app_settings import (
+    STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME,
+    STANDINGSSYNC_WAR_TARGETS_LABEL_NAME,
+)
 
 
 @dataclass(frozen=True)
@@ -239,10 +242,6 @@ class EsiContactsContainer:
 
     def alliance_label_id(self) -> Optional[int]:
         """Fetch the ID of the configured alliance contacts label."""
-        from standingssync.app_settings import (
-            STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME,
-        )
-
         for label in self._labels.values():
             if label.name.lower() == STANDINGSSYNC_ALLIANCE_CONTACTS_LABEL_NAME.lower():
                 return label.id

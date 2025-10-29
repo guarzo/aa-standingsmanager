@@ -27,7 +27,7 @@ CSRF_TRUSTED_ORIGINS = [SITE_URL]
 DEBUG = False
 
 # Add any additional apps to this list.
-INSTALLED_APPS += ["eveuniverse", "standingssync"]
+INSTALLED_APPS += ["sri", "eveuniverse", "standingssync"]
 
 # Enter credentials to use MySQL/MariaDB. Comment out to use sqlite3
 """
@@ -73,6 +73,17 @@ DEFAULT_FROM_EMAIL = ""
 # workarounds to suppress warnings
 LOGGING = None
 STATICFILES_DIRS = []
+
+# Use fakeredis for testing/linting (no Redis server required)
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "REDIS_CLIENT_CLASS": "fakeredis.FakeRedis",
+        },
+    }
+}
 
 # Silence system checks for tests
 SILENCED_SYSTEM_CHECKS = [

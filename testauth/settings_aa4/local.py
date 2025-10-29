@@ -75,6 +75,8 @@ LOGGING = None
 STATICFILES_DIRS = []
 
 # Use fakeredis for testing/linting (no Redis server required)
+import fakeredis  # noqa: E402
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",

@@ -76,3 +76,26 @@ STATICFILES_DIRS = []
 
 # analytics creates unwanted network access
 ANALYTICS_DISABLED = True
+
+# Use fakeredis for testing/linting (no Redis server required)
+import fakeredis  # noqa: E402
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "REDIS_CLIENT_CLASS": "fakeredis.FakeRedis",
+        },
+    }
+}
+
+# Silence system checks for tests
+SILENCED_SYSTEM_CHECKS = [
+    "allianceauth.checks.A003",
+    "allianceauth.checks.B003",
+    "allianceauth.checks.B004",
+    "allianceauth.checks.B010",
+    "esi.E003",
+]
+ESI_USER_CONTACT_EMAIL = "test@test.com"

@@ -17,9 +17,6 @@ pre-commit-check:
 
 .tox-setup:
   before_script:
-    - apt-get update
-    - apt-get install redis-server -y
-    - redis-server --daemonize yes
     - python -V
     - pip install tox
 
@@ -30,37 +27,12 @@ pylint:
   script:
     - tox -e pylint
 
-test-py38-dj40:
-  extends: .tox-setup
-  image: python:3.8-bullseye
-  script:
-    - tox -e py38-django40
-
-test-py39-dj40:
-  extends: .tox-setup
-  image: python:3.9-bullseye
-  script:
-    - tox -e py39-django40
-
-test-py310-dj40:
-  extends: .tox-setup
-  image: python:3.10-bullseye
-  script:
-    - tox -e py310-django40
-    - bash <(curl -s https://codecov.io/bash)
-
-test-py311-dj40:
+test:
+  stage: test
   extends: .tox-setup
   image: python:3.11-bullseye
   script:
-  - tox -e py311-django40
-  - bash <(curl -s https://codecov.io/bash)
-
-test-py311-dj42:
-  extends: .tox-setup
-  image: python:3.11-bullseye
-  script:
-    - tox -e py311-django42
+    - tox -e py
     - bash <(curl -s https://codecov.io/bash)
 
 deploy-pypi:

@@ -1,6 +1,10 @@
 """Settings for standingssync."""
 
+import logging
+from django.conf import settings
 from app_utils.app_settings import clean_setting
+
+logger = logging.getLogger(__name__)
 
 STANDINGSSYNC_ADD_WAR_TARGETS = clean_setting("STANDINGSSYNC_ADD_WAR_TARGETS", False)
 """When enabled will automatically add or set war targets
@@ -20,9 +24,16 @@ STANDINGSSYNC_STORE_ESI_CONTACTS_ENABLED = clean_setting(
 )
 """Wether to store contacts received from ESI to disk. This is for debugging."""
 
+# Debug: Check what's actually in Django settings
+_raw_replace_setting = getattr(settings, "STANDINGSSYNC_REPLACE_CONTACTS", "NOT_SET")
+logger.warning(
+    f"DEBUG: Raw STANDINGSSYNC_REPLACE_CONTACTS from Django settings: "
+    f"{_raw_replace_setting!r} (type: {type(_raw_replace_setting).__name__})"
+)
+
 STANDINGSSYNC_REPLACE_CONTACTS = clean_setting(
     "STANDINGSSYNC_REPLACE_CONTACTS",
-    default_value=True,
+    default_value="merge",  # Changed from True to "merge" as new default
     required_type=None,  # Allow both bool and string
 )
 """Contact sync mode for characters. Options:
@@ -41,6 +52,11 @@ elif STANDINGSSYNC_REPLACE_CONTACTS not in ["replace", "preserve", "merge"]:
         f"Invalid STANDINGSSYNC_REPLACE_CONTACTS value: {STANDINGSSYNC_REPLACE_CONTACTS}. "
         "Must be True, False, 'replace', 'preserve', or 'merge'."
     )
+
+logger.warning(
+    f"DEBUG: Final STANDINGSSYNC_REPLACE_CONTACTS after normalization: "
+    f"{STANDINGSSYNC_REPLACE_CONTACTS!r}"
+)
 
 # Constants for readability
 CONTACTS_MODE_REPLACE = "replace"

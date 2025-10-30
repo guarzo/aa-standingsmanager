@@ -102,7 +102,7 @@
 
     <div class="bs-callout bs-callout-warning">
         <h3>Read Me First</h3>
-        <p>Once activated this app will automatically update the personal contacts of your synced characters. Note that you can only sync out-of-alliance alts.</p>
+        <p>Once activated this app will automatically update the personal contacts of your synced characters.</p>
 
         {% if alliance_contacts_count != None %}
             <h4>Alliance Contacts Sync Mode</h4>
@@ -110,10 +110,17 @@
             {% if sync_mode == sync_mode_replace %}
                 {# Replace Mode #}
                 <p>
-                    <strong>Mode: REPLACE</strong> - All personal contacts will be replaced with alliance contacts allowing you to see alliance standings on your synced characters.
+                    <strong>Mode: REPLACE</strong> - All personal contacts will be replaced with alliance contacts, allowing you to see alliance standings on your synced characters.
                 </p>
+                <ul>
+                    <li><i class="fas fa-sync text-info"></i> Alliance contacts are synced with their actual alliance standing values</li>
+                    <li><i class="fas fa-star text-warning"></i> Your alliance is automatically added with +10.0 standing</li>
+                </ul>
                 <p>
                     <i class="fas fa-exclamation-triangle text-warning"></i> <strong>Warning:</strong> You will lose all personal contacts on your synced characters.
+                </p>
+                <p>
+                    <i class="fas fa-info-circle text-info"></i> <strong>Note:</strong> You can only sync out-of-alliance alts (characters not in the alliance).
                 </p>
 
             {% elif sync_mode == sync_mode_merge %}
@@ -136,14 +143,17 @@
                     <i class="fas fa-lightbulb"></i> <strong>Tip:</strong> All alliance-synced contacts will be automatically marked with the "{{ alliance_contacts_label_name }}" label,
                     making it easy to distinguish them from your personal contacts.
                 </p>
+                <p>
+                    <i class="fas fa-info-circle text-info"></i> <strong>Note:</strong> You can only sync out-of-alliance alts (characters not in the alliance).
+                </p>
 
             {% elif sync_mode == sync_mode_preserve %}
                 {# Preserve Mode #}
                 <p>
-                    <strong>Mode: PRESERVE</strong> - Your personal contacts are preserved. Alliance contacts are NOT synced.
+                    <strong>Mode: PRESERVE</strong> - Your personal contacts are completely preserved. Alliance contacts are NOT synced.
                 </p>
                 <p>
-                    <i class="fas fa-info-circle"></i> Only war targets will be synced if war target syncing is enabled.
+                    <i class="fas fa-info-circle text-info"></i> This mode is useful when you only want to sync war targets without modifying any existing contacts. Only war targets will be synced if war target syncing is enabled.
                 </p>
 
             {% endif %}

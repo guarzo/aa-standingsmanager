@@ -1,0 +1,255 @@
+"""Tasks for standingssync - Refactored for AA Standings Manager."""
+
+from celery import shared_task
+from celery.schedules import crontab
+
+from eveuniverse.core.esitools import is_esi_online
+from eveuniverse.tasks import update_unresolved_eve_entities
+
+from allianceauth.services.hooks import get_extension_logger
+from app_utils.logging import LoggerAddTag
+
+from . import __title__
+from .app_settings import STANDINGS_AUTO_VALIDATE_INTERVAL, STANDINGS_SYNC_INTERVAL
+from .models import SyncedCharacter
+
+logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+
+
+DEFAULT_TASK_PRIORITY = 6
+
+
+# ============================================================================
+# Main Sync Tasks
+# ============================================================================
+
+
+@shared_task
+def sync_all_characters():
+    """Sync contacts for all synced characters.
+
+    This is the main periodic task that runs at the configured interval.
+    """
+    if not is_esi_online():
+        logger.warning("ESI is not online. Aborting sync.")
+        return
+
+    # Get all synced characters
+    synced_characters = SyncedCharacter.objects.all()
+    count = synced_characters.count()
+
+    if count == 0:
+        logger.info("No synced characters found. Nothing to sync.")
+        return
+
+    logger.info("Starting sync for %d synced characters", count)
+
+    # Queue sync task for each character (staggered to avoid rate limiting)
+    for idx, synced_char in enumerate(synced_characters):
+        # Stagger tasks by 5 seconds each to avoid hitting ESI rate limits
+        countdown = idx * 5
+        sync_character.apply_async(
+            args=[synced_char.pk],
+            countdown=countdown,
+            priority=DEFAULT_TASK_PRIORITY,
+        )
+
+    logger.info("Queued sync tasks for %d characters", count)
+
+    # Update unresolved EVE entities after all syncs
+    update_unresolved_eve_entities.apply_async(
+        countdown=count * 5 + 60,  # Wait for all syncs to complete
+        priority=DEFAULT_TASK_PRIORITY,
+    )
+
+
+@shared_task
+def sync_character(synced_char_pk: int):
+    """Sync contacts for a single character.
+
+    Args:
+        synced_char_pk: Primary key of SyncedCharacter to sync
+
+    Returns:
+        True if successful, False if character was deleted, None if no update needed
+    """
+    try:
+        synced_character = SyncedCharacter.objects.get(pk=synced_char_pk)
+    except SyncedCharacter.DoesNotExist:
+        logger.warning("Synced character %d not found. Skipping.", synced_char_pk)
+        return False
+
+    logger.info("Starting sync for %s", synced_character)
+    result = synced_character.run_sync()
+
+    if result is False:
+        logger.info("%s was deactivated during sync", synced_character)
+    elif result is None:
+        logger.info("%s: No update needed", synced_character)
+    else:
+        logger.info("%s: Sync completed successfully", synced_character)
+
+    return result
+
+
+# ============================================================================
+# Validation Tasks
+# ============================================================================
+
+
+@shared_task
+def validate_all_synced_characters():
+    """Validate eligibility for all synced characters.
+
+    Characters that are no longer eligible (lost permissions, invalid tokens, etc.)
+    will be automatically removed.
+
+    This runs periodically to ensure only authorized characters remain synced.
+    """
+    synced_characters = SyncedCharacter.objects.all()
+    count = synced_characters.count()
+
+    if count == 0:
+        logger.info("No synced characters to validate.")
+        return
+
+    logger.info("Starting validation for %d synced characters", count)
+
+    valid_count = 0
+    invalid_count = 0
+
+    for synced_char in synced_characters:
+        if synced_char.is_eligible():
+            valid_count += 1
+        else:
+            invalid_count += 1
+            logger.info("%s: Removed due to failed eligibility check", synced_char)
+
+    logger.info(
+        "Validation complete: %d valid, %d removed", valid_count, invalid_count
+    )
+
+
+@shared_task
+def validate_synced_character(synced_char_pk: int):
+    """Validate eligibility for a single synced character.
+
+    Args:
+        synced_char_pk: Primary key of SyncedCharacter to validate
+
+    Returns:
+        True if valid, False if removed
+    """
+    try:
+        synced_character = SyncedCharacter.objects.get(pk=synced_char_pk)
+    except SyncedCharacter.DoesNotExist:
+        logger.warning("Synced character %d not found.", synced_char_pk)
+        return False
+
+    is_valid = synced_character.is_eligible()
+
+    if is_valid:
+        logger.info("%s: Validation passed", synced_character)
+    else:
+        logger.info("%s: Validation failed, removed", synced_character)
+
+    return is_valid
+
+
+# ============================================================================
+# Manual Trigger Tasks
+# ============================================================================
+
+
+@shared_task
+def trigger_sync_after_approval():
+    """Trigger sync for all characters after a standing request is approved.
+
+    This ensures that all synced characters receive the new standing immediately.
+    """
+    logger.info("Triggering sync after standing approval")
+    sync_all_characters.apply_async(priority=DEFAULT_TASK_PRIORITY + 1)  # Higher priority
+
+
+@shared_task
+def trigger_sync_after_revocation():
+    """Trigger sync for all characters after a standing revocation is approved.
+
+    This ensures that all synced characters remove the revoked standing immediately.
+    """
+    logger.info("Triggering sync after standing revocation")
+    sync_all_characters.apply_async(priority=DEFAULT_TASK_PRIORITY + 1)  # Higher priority
+
+
+@shared_task
+def force_sync_character(synced_char_pk: int):
+    """Force sync for a character (admin function).
+
+    This bypasses normal scheduling and forces an immediate sync.
+
+    Args:
+        synced_char_pk: Primary key of SyncedCharacter to force sync
+
+    Returns:
+        Sync result
+    """
+    logger.info("Force sync requested for character %d", synced_char_pk)
+    return sync_character(synced_char_pk)
+
+
+# ============================================================================
+# Periodic Task Configuration
+# ============================================================================
+
+# These tasks are registered with Celery Beat for periodic execution
+
+
+@shared_task
+def run_regular_sync():
+    """Main periodic task: sync all characters and validate eligibility.
+
+    This task should be scheduled to run at the STANDINGS_SYNC_INTERVAL.
+    It triggers syncs for all characters.
+    """
+    logger.info("Running regular sync (interval: %d minutes)", STANDINGS_SYNC_INTERVAL)
+
+    if not is_esi_online():
+        logger.warning("ESI is not online. Aborting regular sync.")
+        return
+
+    # Sync all characters
+    sync_all_characters.apply_async(priority=DEFAULT_TASK_PRIORITY)
+
+
+@shared_task
+def run_regular_validation():
+    """Periodic task: validate all synced characters.
+
+    This task should be scheduled to run at the STANDINGS_AUTO_VALIDATE_INTERVAL.
+    It validates eligibility for all synced characters and removes those that
+    no longer meet requirements.
+    """
+    logger.info(
+        "Running regular validation (interval: %d minutes)",
+        STANDINGS_AUTO_VALIDATE_INTERVAL,
+    )
+
+    validate_all_synced_characters.apply_async(priority=DEFAULT_TASK_PRIORITY)
+
+
+# ============================================================================
+# Celery Beat Schedule (for reference)
+# ============================================================================
+
+# Add this to your Alliance Auth settings to enable periodic tasks:
+#
+# CELERYBEAT_SCHEDULE = {
+#     'standingssync_run_regular_sync': {
+#         'task': 'standingssync.tasks.run_regular_sync',
+#         'schedule': crontab(minute=f'*/{STANDINGS_SYNC_INTERVAL}'),
+#     },
+#     'standingssync_run_regular_validation': {
+#         'task': 'standingssync.tasks.run_regular_validation',
+#         'schedule': crontab(minute=f'*/{STANDINGS_AUTO_VALIDATE_INTERVAL}'),
+#     },
+# }

@@ -1,0 +1,171 @@
+{% extends 'standingssync/_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block details %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-user-times"></i> Pending Standing Revocations
+            <span class="badge">{{ revocation_count }}</span>
+        </h3>
+    </div>
+    <div class="panel-body">
+        {% if revocations %}
+            <p class="text-muted">
+                Review and approve or reject pending standing revocation requests.
+            </p>
+            <table class="table table-hover" id="revocations-table">
+                <thead>
+                    <tr>
+                        <th>Entity</th>
+                        <th>Type</th>
+                        <th>Requester</th>
+                        <th>Main Character</th>
+                        <th>Reason</th>
+                        <th>Requested</th>
+                        <th>Age</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev in revocations %}
+                        <tr id="revocation-row-{{ rev.pk }}">
+                            <td>
+                                {% if rev.entity_type == 'character' %}
+                                    <img src="{{ rev.portrait_url }}" alt="{{ rev.entity_name }}" class="img-circle" width="32" height="32">
+                                {% else %}
+                                    <img src="{{ rev.logo_url }}" alt="{{ rev.entity_name }}" class="img-circle" width="32" height="32">
+                                {% endif %}
+                                {{ rev.entity_name }}
+                            </td>
+                            <td>
+                                <span class="label label-default">{{ rev.entity_type_display }}</span>
+                            </td>
+                            <td>
+                                {% if rev.is_auto %}
+                                    <span class="label label-warning">System (Auto)</span>
+                                {% else %}
+                                    {{ rev.requester_name }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rev.is_auto %}
+                                    <span class="text-muted">N/A</span>
+                                {% else %}
+                                    {{ rev.requester_main }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rev.reason == "User request" %}
+                                    <span class="label label-primary">{{ rev.reason }}</span>
+                                {% elif rev.reason == "Lost permission" %}
+                                    <span class="label label-warning">{{ rev.reason }}</span>
+                                {% elif rev.reason == "Missing token" %}
+                                    <span class="label label-danger">{{ rev.reason }}</span>
+                                {% else %}
+                                    <span class="label label-default">{{ rev.reason }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ rev.request_date|date:"Y-m-d H:i" }}
+                            </td>
+                            <td>
+                                {% if rev.age_days == 0 %}
+                                    <span class="label label-success">Today</span>
+                                {% elif rev.age_days < 3 %}
+                                    <span class="label label-info">{{ rev.age_days }} day{{ rev.age_days|pluralize }}</span>
+                                {% elif rev.age_days < 7 %}
+                                    <span class="label label-warning">{{ rev.age_days }} days</span>
+                                {% else %}
+                                    <span class="label label-danger">{{ rev.age_days }} days</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-success btn-sm approve-revocation-btn" data-revocation-pk="{{ rev.pk }}" data-entity-name="{{ rev.entity_name }}">
+                                        <i class="fas fa-check"></i> Approve Removal
+                                    </button>
+                                    <button class="btn btn-danger btn-sm reject-revocation-btn" data-revocation-pk="{{ rev.pk }}" data-entity-name="{{ rev.entity_name }}">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No pending standing revocations.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-info-circle"></i> Help
+        </h3>
+    </div>
+    <div class="panel-body">
+        <h4>Approving Revocations</h4>
+        <p>
+            When you approve a standing revocation:
+        </p>
+        <ul>
+            <li>The standings entry is permanently removed from the database</li>
+            <li>The revocation is marked as approved</li>
+            <li>An audit log entry is created</li>
+            <li>All synced characters will automatically remove the contact on their next sync cycle</li>
+            <li>The requester will be notified (if notifications are configured)</li>
+        </ul>
+
+        <h4>Rejecting Revocations</h4>
+        <p>
+            When you reject a standing revocation:
+        </p>
+        <ul>
+            <li>The revocation request is deleted</li>
+            <li>The standings entry remains in the database unchanged</li>
+            <li>An audit log entry is created</li>
+            <li>The requester will be notified of the rejection (if notifications are configured)</li>
+        </ul>
+
+        <h4>Revocation Reasons</h4>
+        <ul>
+            <li><span class="label label-primary">User request</span> - User manually requested removal</li>
+            <li><span class="label label-warning">Lost permission</span> - User lost the required permission (auto-generated)</li>
+            <li><span class="label label-danger">Missing token</span> - Token is no longer valid (auto-generated)</li>
+        </ul>
+
+        <h4>Auto-Generated Revocations</h4>
+        <p>
+            Some revocations are automatically created by the system when:
+        </p>
+        <ul>
+            <li>A user loses the permission to have standings</li>
+            <li>A character's ESI token becomes invalid or is revoked</li>
+            <li>A corporation request no longer has full token coverage</li>
+        </ul>
+        <p>
+            These are marked as "System (Auto)" and should generally be approved to maintain system integrity.
+        </p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_javascript %}
+<script src="{% static 'standingssync/js/standings.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('#revocations-table').DataTable({
+        "order": [[5, "desc"]],  // Sort by request date descending
+        "pageLength": 25
+    });
+});
+</script>
+{% endblock %}

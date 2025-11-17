@@ -3,12 +3,12 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "aa-standingssync-zoo"
+name = "aa-standingsmanager"
 dynamic = ["version", "description"]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
-authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
+authors = [{ name = "guarzo" }]
 maintainers = [{ name = "guarzo" }]
 classifiers = [
     "Environment :: Web Environment",
@@ -32,12 +32,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/guarzo/aa-standingssync-zoo"
-Source = "https://github.com/guarzo/aa-standingssync-zoo"
-Issues = "https://github.com/guarzo/aa-standingssync-zoo/issues"
+Homepage = "https://github.com/guarzo/aa-standingsmanager"
+Source = "https://github.com/guarzo/aa-standingsmanager"
+Issues = "https://github.com/guarzo/aa-standingsmanager/issues"
 
 [tool.flit.module]
-name = "standingssync"
+name = "standingsmanager"
 
 [tool.isort]
 profile = "black"

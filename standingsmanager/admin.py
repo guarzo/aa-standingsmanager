@@ -4,11 +4,15 @@
 
 from django.contrib import admin
 from django.utils.html import format_html
-from django.utils.timezone import now
 
 from . import tasks
-from .models import AuditLog, StandingRequest, StandingRevocation, StandingsEntry, SyncedCharacter
-
+from .models import (
+    AuditLog,
+    StandingRequest,
+    StandingRevocation,
+    StandingsEntry,
+    SyncedCharacter,
+)
 
 # ============================================================================
 # Standings Entry Admin
@@ -186,9 +190,7 @@ class StandingRequestAdmin(admin.ModelAdmin):
             self.message_user(request, f"Approved requests for: {', '.join(approved)}")
 
         if errors:
-            self.message_user(
-                request, f"Errors: {'; '.join(errors)}", level="error"
-            )
+            self.message_user(request, f"Errors: {'; '.join(errors)}", level="error")
 
     @admin.display(description="Reject selected pending requests")
     def reject_selected(self, request, queryset):
@@ -207,9 +209,7 @@ class StandingRequestAdmin(admin.ModelAdmin):
             self.message_user(request, f"Rejected requests for: {', '.join(rejected)}")
 
         if errors:
-            self.message_user(
-                request, f"Errors: {'; '.join(errors)}", level="error"
-            )
+            self.message_user(request, f"Errors: {'; '.join(errors)}", level="error")
 
 
 # ============================================================================
@@ -241,7 +241,12 @@ class StandingRevocationAdmin(admin.ModelAdmin):
         "request_date",
         "actioned_by",
     )
-    list_filter = (StandingRevocationStateFilter, "reason", "entity_type", "request_date")
+    list_filter = (
+        StandingRevocationStateFilter,
+        "reason",
+        "entity_type",
+        "request_date",
+    )
     search_fields = ("eve_entity__name", "requested_by__username")
     readonly_fields = (
         "eve_entity",
@@ -322,9 +327,7 @@ class StandingRevocationAdmin(admin.ModelAdmin):
             )
 
         if errors:
-            self.message_user(
-                request, f"Errors: {'; '.join(errors)}", level="error"
-            )
+            self.message_user(request, f"Errors: {'; '.join(errors)}", level="error")
 
     @admin.display(description="Reject selected pending revocations")
     def reject_selected(self, request, queryset):
@@ -345,9 +348,7 @@ class StandingRevocationAdmin(admin.ModelAdmin):
             )
 
         if errors:
-            self.message_user(
-                request, f"Errors: {'; '.join(errors)}", level="error"
-            )
+            self.message_user(request, f"Errors: {'; '.join(errors)}", level="error")
 
 
 # ============================================================================
@@ -378,7 +379,11 @@ class AuditLogAdmin(admin.ModelAdmin):
         "requested_by",
     )
     list_filter = (AuditLogActionTypeFilter, "timestamp")
-    search_fields = ("eve_entity__name", "actioned_by__username", "requested_by__username")
+    search_fields = (
+        "eve_entity__name",
+        "actioned_by__username",
+        "requested_by__username",
+    )
     readonly_fields = (
         "action_type",
         "eve_entity",
@@ -470,7 +475,11 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def _last_error(self, obj):
         if obj.last_error:
             # Truncate long errors for display
-            return obj.last_error[:50] + "..." if len(obj.last_error) > 50 else obj.last_error
+            return (
+                obj.last_error[:50] + "..."
+                if len(obj.last_error) > 50
+                else obj.last_error
+            )
         return "-"
 
     @admin.display(description="Sync selected characters (normal)")

@@ -279,7 +279,7 @@ class EsiContactsContainer:
                     label_ids=frozenset([label_id]),
                 )
                 container.add_contact(contact)
-            except (ValueError, AttributeError) as ex:
+            except (ValueError, AttributeError):
                 # Skip invalid entries
                 continue
         return container

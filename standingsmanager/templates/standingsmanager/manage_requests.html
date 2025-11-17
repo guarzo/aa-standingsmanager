@@ -1,4 +1,4 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingsmanager/_base.html' %}
 {% load i18n %}
 {% load static %}
 
@@ -133,7 +133,7 @@
 {% endblock %}
 
 {% block extra_javascript %}
-<script src="{% static 'standingssync/js/standings.js' %}"></script>
+<script src="{% static 'standingsmanager/js/standings.js' %}"></script>
 <script>
 $(document).ready(function() {
     // Initialize DataTables

@@ -169,7 +169,6 @@ class TestEsiContactLabel(NoSocketsTestCase):
         self.assertDictEqual(expected, result)
 
 
-@patch(MODULE_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", WAR_TARGET_LABEL)
 class TestEsiContactsContainer(NoSocketsTestCase):
     def test_should_create_empty(self):
         # when

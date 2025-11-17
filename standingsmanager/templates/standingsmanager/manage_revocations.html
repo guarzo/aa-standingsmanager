@@ -1,4 +1,4 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingsmanager/_base.html' %}
 {% load i18n %}
 {% load static %}
 
@@ -57,14 +57,14 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if rev.reason == "User request" %}
-                                    <span class="label label-primary">{{ rev.reason }}</span>
-                                {% elif rev.reason == "Lost permission" %}
-                                    <span class="label label-warning">{{ rev.reason }}</span>
-                                {% elif rev.reason == "Missing token" %}
-                                    <span class="label label-danger">{{ rev.reason }}</span>
+                                {% if rev.reason == "user_request" %}
+                                    <span class="label label-primary">{{ rev.get_reason_display }}</span>
+                                {% elif rev.reason == "lost_permission" %}
+                                    <span class="label label-warning">{{ rev.get_reason_display }}</span>
+                                {% elif rev.reason == "missing_token" %}
+                                    <span class="label label-danger">{{ rev.get_reason_display }}</span>
                                 {% else %}
-                                    <span class="label label-default">{{ rev.reason }}</span>
+                                    <span class="label label-default">{{ rev.get_reason_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -158,7 +158,7 @@
 {% endblock %}
 
 {% block extra_javascript %}
-<script src="{% static 'standingssync/js/standings.js' %}"></script>
+<script src="{% static 'standingsmanager/js/standings.js' %}"></script>
 <script>
 $(document).ready(function() {
     // Initialize DataTables

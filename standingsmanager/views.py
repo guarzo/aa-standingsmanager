@@ -1,12 +1,8 @@
 """Views for standingsmanager."""
 
 import csv
-from typing import Optional
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -18,19 +14,13 @@ from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
 from . import __title__, tasks
-from .app_settings import STANDINGS_DEFAULT_STANDING, STANDINGS_LABEL_NAME
+from .app_settings import STANDINGS_LABEL_NAME
 from .models import (
-    AuditLog,
     EveEntity,
     StandingRequest,
     StandingRevocation,
     StandingsEntry,
     SyncedCharacter,
-)
-from .permissions import (
-    user_can_approve_standings,
-    user_can_manage_standings,
-    user_can_request_standings,
 )
 from .validators import (
     can_user_request_character_standing,
@@ -63,7 +53,7 @@ def common_context(ctx: dict) -> dict:
 @permission_required("standingsmanager.add_syncedcharacter")
 def index(request):
     """Render index page - redirect to request standings."""
-    return redirect("standingssync:request_standings")
+    return redirect("standingsmanager:request_standings")
 
 
 # ============================================================================
@@ -259,7 +249,7 @@ def request_standings(request):
         "required_scopes": required_scopes,
     }
 
-    return render(request, "standingssync/request.html", common_context(context))
+    return render(request, "standingsmanager/request.html", common_context(context))
 
 
 # ============================================================================
@@ -295,7 +285,7 @@ def my_synced_characters(request):
             has_label = synced_char.has_label
             last_sync_at = synced_char.last_sync_at
             last_error = synced_char.last_error
-            is_fresh = synced_char.is_sync_fresh()
+            is_fresh = synced_char.is_sync_fresh
 
             # Determine sync status
             if last_error:
@@ -354,7 +344,7 @@ def my_synced_characters(request):
         "label_name": STANDINGS_LABEL_NAME,
     }
 
-    return render(request, "standingssync/sync.html", common_context(context))
+    return render(request, "standingsmanager/sync.html", common_context(context))
 
 
 # ============================================================================
@@ -429,7 +419,7 @@ def manage_requests(request):
     }
 
     return render(
-        request, "standingssync/manage_requests.html", common_context(context)
+        request, "standingsmanager/manage_requests.html", common_context(context)
     )
 
 
@@ -512,7 +502,7 @@ def manage_revocations(request):
     }
 
     return render(
-        request, "standingssync/manage_revocations.html", common_context(context)
+        request, "standingsmanager/manage_revocations.html", common_context(context)
     )
 
 
@@ -543,16 +533,22 @@ def view_standings(request):
         entity = standing.eve_entity
         added_by = standing.added_by
 
-        # Get added_by main character
-        main_char = added_by.profile.main_character if added_by.profile else None
+        # Get added_by information, handling None case
+        if added_by:
+            added_by_username = added_by.username
+            main_char = added_by.profile.main_character if added_by.profile else None
+            added_by_main = main_char.character_name if main_char else "Unknown"
+        else:
+            added_by_username = "Unknown"
+            added_by_main = "Unknown"
 
         standing_data = {
             "entity_id": entity.eve_id,
             "entity_name": entity.name,
             "entity_type": entity.entity_type,
             "standing": standing.standing,
-            "added_by": added_by.username,
-            "added_by_main": main_char.character_name if main_char else "Unknown",
+            "added_by": added_by_username,
+            "added_by_main": added_by_main,
             "added_date": standing.added_date,
             "notes": standing.notes,
         }
@@ -585,7 +581,7 @@ def view_standings(request):
         "alliance_count": len(alliances),
     }
 
-    return render(request, "standingssync/view_standings.html", common_context(context))
+    return render(request, "standingsmanager/view_standings.html", common_context(context))
 
 
 # ============================================================================
@@ -622,13 +618,16 @@ def export_standings_csv(request):
     ).order_by("entity_type", "eve_entity__name")
 
     for standing in all_standings:
+        # Handle None case for added_by
+        added_by_username = standing.added_by.username if standing.added_by else "Unknown"
+
         writer.writerow(
             [
                 standing.eve_entity.get_entity_type_display(),
                 standing.eve_entity.eve_id,
                 standing.eve_entity.name,
                 standing.standing,
-                standing.added_by.username,
+                added_by_username,
                 standing.added_date.strftime("%Y-%m-%d %H:%M:%S"),
                 standing.notes or "",
             ]
@@ -660,11 +659,9 @@ def api_request_character_standing(request, character_id):
         character = get_object_or_404(EveCharacter, character_id=character_id)
 
         # Check if user owns character
-        try:
-            character_ownership = CharacterOwnership.objects.get(
-                user=request.user, character=character
-            )
-        except CharacterOwnership.DoesNotExist:
+        if not CharacterOwnership.objects.filter(
+            user=request.user, character=character
+        ).exists():
             return JsonResponse(
                 {"success": False, "error": "You do not own this character."}, status=403
             )
@@ -778,9 +775,7 @@ def api_remove_standing(request, entity_id):
             )
 
         # Check if standing exists
-        try:
-            standing = StandingsEntry.objects.get(eve_entity=entity)
-        except StandingsEntry.DoesNotExist:
+        if not StandingsEntry.objects.filter(eve_entity=entity).exists():
             return JsonResponse(
                 {"success": False, "error": "No standing exists for this entity."},
                 status=404,

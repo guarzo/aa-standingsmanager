@@ -47,40 +47,70 @@ function hideLoading(button) {
 
 // Show success message
 function showSuccess(message) {
-    const alertHtml = `
-        <div class="alert alert-success alert-dismissible fade in" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-            <i class="fas fa-check-circle"></i> ${message}
-        </div>
-    `;
-    $('h2').first().after(alertHtml);
+    // Create alert container
+    const alertDiv = $('<div>')
+        .addClass('alert alert-success alert-dismissible fade in')
+        .attr('role', 'alert');
 
-    // Auto-dismiss after 5 seconds
+    // Create close button
+    const closeButton = $('<button>')
+        .attr('type', 'button')
+        .addClass('close')
+        .attr('data-dismiss', 'alert')
+        .attr('aria-label', 'Close')
+        .append($('<span>').attr('aria-hidden', 'true').html('&times;'));
+
+    // Create icon
+    const icon = $('<i>').addClass('fas fa-check-circle');
+
+    // Create message span and set text safely
+    const messageSpan = $('<span>').text(' ' + message);
+
+    // Assemble the alert
+    alertDiv.append(closeButton).append(icon).append(messageSpan);
+
+    // Insert after first h2
+    $('h2').first().after(alertDiv);
+
+    // Auto-dismiss after 5 seconds - use reference to specific alert
     setTimeout(function() {
-        $('.alert-success').fadeOut('slow', function() {
-            $(this).remove();
+        alertDiv.fadeOut('slow', function() {
+            alertDiv.remove();
         });
     }, 5000);
 }
 
 // Show error message
 function showError(message) {
-    const alertHtml = `
-        <div class="alert alert-danger alert-dismissible fade in" role="alert">
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-            <i class="fas fa-exclamation-circle"></i> ${message}
-        </div>
-    `;
-    $('h2').first().after(alertHtml);
+    // Create alert container
+    const alertDiv = $('<div>')
+        .addClass('alert alert-danger alert-dismissible fade in')
+        .attr('role', 'alert');
 
-    // Auto-dismiss after 10 seconds
+    // Create close button
+    const closeButton = $('<button>')
+        .attr('type', 'button')
+        .addClass('close')
+        .attr('data-dismiss', 'alert')
+        .attr('aria-label', 'Close')
+        .append($('<span>').attr('aria-hidden', 'true').html('&times;'));
+
+    // Create icon
+    const icon = $('<i>').addClass('fas fa-exclamation-circle');
+
+    // Create message span and set text safely
+    const messageSpan = $('<span>').text(' ' + message);
+
+    // Assemble the alert
+    alertDiv.append(closeButton).append(icon).append(messageSpan);
+
+    // Insert after first h2
+    $('h2').first().after(alertDiv);
+
+    // Auto-dismiss after 10 seconds - use reference to specific alert
     setTimeout(function() {
-        $('.alert-danger').fadeOut('slow', function() {
-            $(this).remove();
+        alertDiv.fadeOut('slow', function() {
+            alertDiv.remove();
         });
     }, 10000);
 }
@@ -101,7 +131,7 @@ $(document).on('click', '.request-character-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/request-character/${characterId}/`,
+        url: `/standingsmanager/api/request-character/${characterId}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -134,7 +164,7 @@ $(document).on('click', '.request-corporation-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/request-corporation/${corporationId}/`,
+        url: `/standingsmanager/api/request-corporation/${corporationId}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -167,7 +197,7 @@ $(document).on('click', '.remove-standing-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/remove-standing/${entityId}/`,
+        url: `/standingsmanager/api/remove-standing/${entityId}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -200,7 +230,7 @@ $(document).on('click', '.add-sync-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/add-sync/${characterId}/`,
+        url: `/standingsmanager/api/add-sync/${characterId}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -233,7 +263,7 @@ $(document).on('click', '.remove-sync-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/remove-sync/${syncedCharPk}/`,
+        url: `/standingsmanager/api/remove-sync/${syncedCharPk}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -267,7 +297,7 @@ $(document).on('click', '.approve-request-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/approve-request/${requestPk}/`,
+        url: `/standingsmanager/api/approve-request/${requestPk}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -305,7 +335,7 @@ $(document).on('click', '.reject-request-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/reject-request/${requestPk}/`,
+        url: `/standingsmanager/api/reject-request/${requestPk}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -343,7 +373,7 @@ $(document).on('click', '.approve-revocation-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/approve-revocation/${revocationPk}/`,
+        url: `/standingsmanager/api/approve-revocation/${revocationPk}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);
@@ -381,7 +411,7 @@ $(document).on('click', '.reject-revocation-btn', function(e) {
     showLoading(button);
 
     $.ajax({
-        url: `/standingssync/api/reject-revocation/${revocationPk}/`,
+        url: `/standingsmanager/api/reject-revocation/${revocationPk}/`,
         method: 'POST',
         success: function(data) {
             showSuccess(data.message);

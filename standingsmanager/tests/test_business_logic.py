@@ -107,7 +107,7 @@ class ScopeValidationTestCase(TestCase):
         self.assertIn("esi-characters.read_contacts.v1", scopes)
         self.assertIn("esi-characters.write_contacts.v1", scopes)
 
-    @patch("standingssync.validators.Token.objects.filter")
+    @patch("standingsmanager.validators.Token.objects.filter")
     def test_character_has_required_scopes_with_valid_token(self, mock_token_filter):
         """Test character with valid token and all scopes."""
         character = EveCharacter.objects.create(
@@ -138,7 +138,7 @@ class ScopeValidationTestCase(TestCase):
         self.assertTrue(has_scopes)
         self.assertEqual(missing, [])
 
-    @patch("standingssync.validators.Token.objects.filter")
+    @patch("standingsmanager.validators.Token.objects.filter")
     def test_character_has_required_scopes_missing_scopes(self, mock_token_filter):
         """Test character missing required scopes."""
         character = EveCharacter.objects.create(
@@ -163,7 +163,7 @@ class ScopeValidationTestCase(TestCase):
         self.assertFalse(has_scopes)
         self.assertIn("esi-characters.write_contacts.v1", missing)
 
-    @patch("standingssync.validators.Token.objects.filter")
+    @patch("standingsmanager.validators.Token.objects.filter")
     def test_character_has_required_scopes_no_token(self, mock_token_filter):
         """Test character without any token."""
         character = EveCharacter.objects.create(
@@ -207,7 +207,7 @@ class CorporationTokenValidationTestCase(TestCase):
 
         self.assertIn("no characters", str(context.exception).lower())
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_validate_corporation_token_coverage_all_tokens_valid(
         self, mock_has_scopes
     ):
@@ -244,7 +244,7 @@ class CorporationTokenValidationTestCase(TestCase):
         self.assertTrue(has_coverage)
         self.assertEqual(missing_chars, [])
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_validate_corporation_token_coverage_missing_tokens(self, mock_has_scopes):
         """Test validation fails when some characters lack tokens."""
         # Create characters in corp
@@ -286,7 +286,7 @@ class CorporationTokenValidationTestCase(TestCase):
         self.assertIn("Test Char 2", missing_chars)
         self.assertEqual(len(missing_chars), 1)
 
-    @patch("standingssync.validators.validate_corporation_token_coverage")
+    @patch("standingsmanager.validators.validate_corporation_token_coverage")
     def test_validate_corporation_request_success(self, mock_validate_coverage):
         """Test corporation request validation passes with full coverage."""
         mock_validate_coverage.return_value = (True, [])
@@ -297,7 +297,7 @@ class CorporationTokenValidationTestCase(TestCase):
         except ValidationError:
             self.fail("validate_corporation_request raised ValidationError unexpectedly")
 
-    @patch("standingssync.validators.validate_corporation_token_coverage")
+    @patch("standingsmanager.validators.validate_corporation_token_coverage")
     def test_validate_corporation_request_failure(self, mock_validate_coverage):
         """Test corporation request validation fails without full coverage."""
         mock_validate_coverage.return_value = (
@@ -344,7 +344,7 @@ class RequestCreationLogicTestCase(TestCase):
         self.assertFalse(can_request)
         self.assertIn("permission", error.lower())
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_can_user_request_character_standing_without_scopes(self, mock_has_scopes):
         """Test user cannot request without required scopes."""
         # Grant permission
@@ -364,7 +364,7 @@ class RequestCreationLogicTestCase(TestCase):
         self.assertFalse(can_request)
         self.assertIn("missing required scopes", error.lower())
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_can_user_request_character_standing_already_exists(self, mock_has_scopes):
         """Test user cannot request if standing already exists."""
         # Grant permission
@@ -389,7 +389,7 @@ class RequestCreationLogicTestCase(TestCase):
         self.assertFalse(can_request)
         self.assertIn("already has a standing", error.lower())
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_can_user_request_character_standing_pending_request_exists(
         self, mock_has_scopes
     ):
@@ -416,7 +416,7 @@ class RequestCreationLogicTestCase(TestCase):
         self.assertFalse(can_request)
         self.assertIn("pending request already exists", error.lower())
 
-    @patch("standingssync.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.character_has_required_scopes")
     def test_can_user_request_character_standing_success(self, mock_has_scopes):
         """Test user can request when all conditions are met."""
         # Grant permission

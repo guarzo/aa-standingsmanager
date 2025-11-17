@@ -1,7 +1,7 @@
 """Settings for standingsmanager - Refactored for AA Standings Manager."""
 
 import logging
-from django.conf import settings
+
 from app_utils.app_settings import clean_setting
 
 logger = logging.getLogger(__name__)
@@ -167,6 +167,7 @@ Default: False
 # ============================================================================
 # Settings Validation
 # ============================================================================
+
 
 def validate_settings():
     """Validate app settings.

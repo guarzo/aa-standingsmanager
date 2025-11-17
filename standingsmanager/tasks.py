@@ -1,7 +1,6 @@
-"""Tasks for standingssync - Refactored for AA Standings Manager."""
+"""Tasks for standingsmanager - Refactored for AA Standings Manager."""
 
 from celery import shared_task
-from celery.schedules import crontab
 
 from eveuniverse.core.esitools import is_esi_online
 from eveuniverse.tasks import update_unresolved_eve_entities
@@ -243,13 +242,15 @@ def run_regular_validation():
 
 # Add this to your Alliance Auth settings to enable periodic tasks:
 #
+# from celery.schedules import crontab
+#
 # CELERYBEAT_SCHEDULE = {
-#     'standingssync_run_regular_sync': {
-#         'task': 'standingssync.tasks.run_regular_sync',
+#     'standingsmanager_run_regular_sync': {
+#         'task': 'standingsmanager.tasks.run_regular_sync',
 #         'schedule': crontab(minute=f'*/{STANDINGS_SYNC_INTERVAL}'),
 #     },
-#     'standingssync_run_regular_validation': {
-#         'task': 'standingssync.tasks.run_regular_validation',
+#     'standingsmanager_run_regular_validation': {
+#         'task': 'standingsmanager.tasks.run_regular_validation',
 #         'schedule': crontab(minute=f'*/{STANDINGS_AUTO_VALIDATE_INTERVAL}'),
 #     },
 # }

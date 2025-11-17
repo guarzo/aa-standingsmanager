@@ -4,8 +4,9 @@ import time
 from collections import defaultdict
 from typing import Callable, Dict, FrozenSet, Iterable, Optional, Set
 
-from esi.models import Token
 from requests.exceptions import HTTPError
+
+from esi.models import Token
 
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.helpers import chunks

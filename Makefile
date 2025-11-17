@@ -1,5 +1,5 @@
-appname = aa-standingssync
-package = standingssync
+appname = aa-standingsmanager
+package = standingsmanager
 myauth_path = ../myauth/manage.py
 
 help:

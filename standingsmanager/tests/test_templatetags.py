@@ -14,7 +14,7 @@ class TestTemplateTags(TestCase):
         # given
         template = Template(
             """
-            {% load standingssync %}
+            {% load standingsmanager %}
             {% war_participant obj %}
             """
         )
@@ -36,7 +36,7 @@ class TestTemplateTags(TestCase):
         # given
         template = Template(
             """
-            {% load standingssync %}
+            {% load standingsmanager %}
             {% war_participant obj %}
             """
         )
@@ -51,7 +51,7 @@ class TestTemplateTags(TestCase):
         # given
         template = Template(
             """
-            {% load standingssync %}
+            {% load standingsmanager %}
             {% war_participant obj %}
             """
         )

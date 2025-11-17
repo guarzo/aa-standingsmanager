@@ -1,4 +1,4 @@
-"""Template tags for standingssync."""
+"""Template tags for standingsmanager."""
 
 from django import template
 from eveuniverse.core import zkillboard
@@ -7,7 +7,7 @@ from eveuniverse.models import EveEntity
 register = template.Library()
 
 
-@register.inclusion_tag("standingssync/partial/war_participant.html")
+@register.inclusion_tag("standingsmanager/partial/war_participant.html")
 def war_participant(obj: EveEntity, icon_size=None) -> dict:
     """Render war participant with icon, name and link to ZKB."""
     context = {"has_data": False, "icon_size": icon_size or 20}

@@ -16,8 +16,16 @@ urlpatterns = [
     path("view/", views.view_standings, name="view_standings"),
 
     # User API endpoints
-    path("api/request-character/<int:character_id>/", views.api_request_character_standing, name="api_request_character_standing"),
-    path("api/request-corporation/<int:corporation_id>/", views.api_request_corporation_standing, name="api_request_corporation_standing"),
+    path(
+        "api/request-character/<int:character_id>/",
+        views.api_request_character_standing,
+        name="api_request_character_standing",
+    ),
+    path(
+        "api/request-corporation/<int:corporation_id>/",
+        views.api_request_corporation_standing,
+        name="api_request_corporation_standing",
+    ),
     path("api/remove-standing/<int:entity_id>/", views.api_remove_standing, name="api_remove_standing"),
     path("api/add-sync/<int:character_id>/", views.api_add_character_to_sync, name="api_add_sync"),
     path("api/remove-sync/<int:synced_char_pk>/", views.api_remove_character_from_sync, name="api_remove_sync"),

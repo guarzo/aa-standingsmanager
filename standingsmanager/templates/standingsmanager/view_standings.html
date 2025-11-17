@@ -1,4 +1,4 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingsmanager/_base.html' %}
 {% load i18n %}
 {% load static %}
 
@@ -9,7 +9,7 @@
             <i class="fas fa-list"></i> All Standings
             <span class="badge">{{ total_count }}</span>
             <div class="pull-right">
-                <a href="{% url 'standingssync:export_standings_csv' %}" class="btn btn-sm btn-primary">
+                <a href="{% url 'standingsmanager:export_standings_csv' %}" class="btn btn-sm btn-primary">
                     <i class="fas fa-download"></i> Export CSV
                 </a>
             </div>

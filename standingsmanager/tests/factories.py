@@ -111,7 +111,7 @@ class EveWarFactory(
 
 class UserMainManagerFactory(UserMainFactory):
     main_character__scopes = ["esi-alliances.read_contacts.v1"]
-    permissions__ = ["standingssync.add_syncmanager"]
+    permissions__ = ["standingsmanager.add_syncmanager"]
 
 
 class UserMainSyncerFactory(UserMainFactory):
@@ -119,7 +119,7 @@ class UserMainSyncerFactory(UserMainFactory):
         "esi-characters.read_contacts.v1",
         "esi-characters.write_contacts.v1",
     ]
-    permissions__ = ["standingssync.add_syncedcharacter"]
+    permissions__ = ["standingsmanager.add_syncedcharacter"]
 
 
 class SyncManagerFactory(

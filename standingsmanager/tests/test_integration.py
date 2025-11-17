@@ -26,7 +26,6 @@ MODELS_PATH = "standingsmanager.models"
 
 
 @override_settings(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
-@patch(ESI_CONTACTS_PATH + ".STANDINGSSYNC_WAR_TARGETS_LABEL_NAME", "WAR TARGETS")
 @patch(ESI_API_PATH + ".esi")
 class TestTasksE2E(NoSocketsTestCase):
     @patch(MODELS_PATH + ".STANDINGSSYNC_REPLACE_CONTACTS", "replace")

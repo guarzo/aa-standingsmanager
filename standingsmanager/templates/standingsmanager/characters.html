@@ -1,4 +1,4 @@
-{% extends 'standingssync/_base.html' %}
+{% extends 'standingsmanager/_base.html' %}
 {% load i18n %}
 {% load humanize %}
 
@@ -37,7 +37,7 @@
         </div>
         <div class="panel-body">
             {% if has_synced_chars %}
-                <table class="table table-striped" id="tab_standingssync">
+                <table class="table table-striped" id="tab_standingsmanager">
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -73,7 +73,7 @@
                                     </td>
                                     <td>
                                         <a  class="btn btn-danger"
-                                            href="{% url 'standingssync:remove_character' character.pk %}"
+                                            href="{% url 'standingsmanager:remove_character' character.pk %}"
                                             role="button">
                                             <i class="far fa-trash-alt"></i>
                                         </a>
@@ -89,9 +89,9 @@
     </div>
 
     {% if alliance %}
-        <a  id="standingssyncBtnAddSyncChar"
+        <a  id="standingsmanagerBtnAddSyncChar"
             class="btn btn-primary"
-            href="{% url 'standingssync:add_character' %}">
+            href="{% url 'standingsmanager:add_character' %}">
             Add Character to Sync
         </a>
     {% else %}

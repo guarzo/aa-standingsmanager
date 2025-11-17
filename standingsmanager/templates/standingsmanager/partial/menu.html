@@ -11,35 +11,35 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="{% url 'standingssync:request_standings' %}">{{ app_title }}</a>
+            <a class="navbar-brand" href="{% url 'standingsmanager:request_standings' %}">{{ app_title }}</a>
         </div>
         <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
             <ul class="nav navbar-nav">
-                {% if perms.standingssync.add_syncedcharacter %}
-                    <li class="{% navactive request 'standingssync:request_standings' %}">
-                        <a href="{% url 'standingssync:request_standings' %}">
+                {% if perms.standingsmanager.add_syncedcharacter %}
+                    <li class="{% navactive request 'standingsmanager:request_standings' %}">
+                        <a href="{% url 'standingsmanager:request_standings' %}">
                             <i class="fas fa-user-plus"></i> Request Standings
                         </a>
                     </li>
-                    <li class="{% navactive request 'standingssync:my_synced_characters' %}">
-                        <a href="{% url 'standingssync:my_synced_characters' %}">
+                    <li class="{% navactive request 'standingsmanager:my_synced_characters' %}">
+                        <a href="{% url 'standingsmanager:my_synced_characters' %}">
                             <i class="fas fa-sync"></i> My Synced Characters
                         </a>
                     </li>
                 {% endif %}
-                {% if perms.standingssync.approve_standings %}
-                    <li class="{% navactive request 'standingssync:manage_requests' %}">
-                        <a href="{% url 'standingssync:manage_requests' %}">
+                {% if perms.standingsmanager.approve_standings %}
+                    <li class="{% navactive request 'standingsmanager:manage_requests' %}">
+                        <a href="{% url 'standingsmanager:manage_requests' %}">
                             <i class="fas fa-tasks"></i> Manage Requests
                         </a>
                     </li>
-                    <li class="{% navactive request 'standingssync:manage_revocations' %}">
-                        <a href="{% url 'standingssync:manage_revocations' %}">
+                    <li class="{% navactive request 'standingsmanager:manage_revocations' %}">
+                        <a href="{% url 'standingsmanager:manage_revocations' %}">
                             <i class="fas fa-user-times"></i> Manage Revocations
                         </a>
                     </li>
-                    <li class="{% navactive request 'standingssync:view_standings' %}">
-                        <a href="{% url 'standingssync:view_standings' %}">
+                    <li class="{% navactive request 'standingsmanager:view_standings' %}">
+                        <a href="{% url 'standingsmanager:view_standings' %}">
                             <i class="fas fa-list"></i> View Standings
                         </a>
                     </li>

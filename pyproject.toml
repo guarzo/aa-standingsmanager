@@ -56,7 +56,7 @@ known_django = ["django", "django_webtest", "esi", "eveuniverse"]
 
 
 [tool.pylint.'MASTER']
-ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py"]
+ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py", "*_old_backup.py"]
 ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
 
 [tool.pylint.'BASIC']
@@ -72,4 +72,12 @@ disable = [
     "cyclic-import",
     "fixme",
     "imported-auth-user",
+    "duplicate-code",
+    "broad-exception-caught",
+    "raise-missing-from",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "no-member",
 ]

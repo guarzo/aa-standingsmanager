@@ -213,10 +213,10 @@ STANDINGS_SCOPE_REQUIREMENTS = {
 ### Settings Validation
 
 The app validates all settings on startup and will raise errors for invalid configurations:
-- `LABEL_NAME` must be a non-empty string
-- `SYNC_INTERVAL` must be greater than 0
-- `DEFAULT_STANDING` must be between -10 and +10
-- `SCOPE_REQUIREMENTS` must be a dictionary
+- `STANDINGS_LABEL_NAME` must be a non-empty string
+- `STANDINGS_SYNC_INTERVAL` must be greater than 0
+- `STANDINGS_DEFAULT_STANDING` must be between -10 and +10
+- `STANDINGS_SCOPE_REQUIREMENTS` must be a dictionary
 
 ## Permissions
 

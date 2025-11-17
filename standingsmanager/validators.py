@@ -98,11 +98,9 @@ def validate_character_token(character: EveCharacter, user: User) -> None:
         ValidationError: If token is missing or doesn't have required scopes
     """
     # Check ownership
-    try:
-        ownership = CharacterOwnership.objects.get(
-            user=user, character=character
-        )
-    except CharacterOwnership.DoesNotExist:
+    if not CharacterOwnership.objects.filter(
+        user=user, character=character
+    ).exists():
         raise ValidationError(
             f"You do not own character {character.character_name}"
         )
@@ -198,9 +196,9 @@ def can_user_request_character_standing(
         return False, "You do not have permission to request standings"
 
     # Check ownership
-    try:
-        CharacterOwnership.objects.get(user=user, character=character)
-    except CharacterOwnership.DoesNotExist:
+    if not CharacterOwnership.objects.filter(
+        user=user, character=character
+    ).exists():
         return False, f"You do not own character {character.character_name}"
 
     # Check scopes

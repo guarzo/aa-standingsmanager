@@ -1,4 +1,4 @@
-"""Models for standingssync - Refactored for AA Standings Manager.
+"""Models for standingsmanager - Refactored for AA Standings Manager.
 
 This module contains the new persistent standings database models
 and simplified sync character management.
@@ -671,7 +671,7 @@ class SyncedCharacter(models.Model):
                 return None
 
             # Build target contacts from standings database
-            label_id = current_contacts.get_label_by_name(STANDINGS_LABEL_NAME).label_id
+            label_id = current_contacts.get_label_by_name(STANDINGS_LABEL_NAME).id
             new_contacts = self._build_target_contacts(current_contacts, label_id)
 
             # Update contacts on ESI

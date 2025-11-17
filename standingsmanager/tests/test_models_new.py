@@ -187,7 +187,7 @@ class StandingRequestTestCase(TestCase):
         )
 
         # Approve the request
-        with patch('standingssync.models.notify'):
+        with patch('standingsmanager.models.notify'):
             standing_entry = request.approve(self.approver, standing=7.0)
 
         # Check request state
@@ -218,7 +218,7 @@ class StandingRequestTestCase(TestCase):
         )
 
         # Reject the request
-        with patch('standingssync.models.notify'):
+        with patch('standingsmanager.models.notify'):
             request.reject(self.approver, reason="Test rejection")
 
         # Check request state
@@ -313,7 +313,7 @@ class StandingRevocationTestCase(TestCase):
         )
 
         # Approve the revocation
-        with patch('standingssync.models.notify'):
+        with patch('standingsmanager.models.notify'):
             revocation.approve(self.approver)
 
         # Check revocation state
@@ -344,7 +344,7 @@ class StandingRevocationTestCase(TestCase):
         )
 
         # Reject the revocation
-        with patch('standingssync.models.notify'):
+        with patch('standingsmanager.models.notify'):
             revocation.reject(self.approver, reason="Test rejection")
 
         # Check revocation state
@@ -520,7 +520,7 @@ class SyncedCharacterTestCase(TestCase):
         )
 
         # Should not be eligible and should be deleted
-        with patch('standingssync.models.notify'):
+        with patch('standingsmanager.models.notify'):
             is_eligible = synced.is_eligible()
 
         self.assertFalse(is_eligible)

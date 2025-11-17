@@ -118,7 +118,7 @@ class StandingRequestManager(models.Manager):
             )
 
         # Check if already in standings
-        from .models_new import StandingsEntry
+        from .models import StandingsEntry
 
         if StandingsEntry.objects.filter(eve_entity=eve_entity).exists():
             raise ValidationError(
@@ -165,7 +165,7 @@ class StandingRequestManager(models.Manager):
             )
 
         # Check if already in standings
-        from .models_new import StandingsEntry
+        from .models import StandingsEntry
 
         if StandingsEntry.objects.filter(eve_entity=eve_entity).exists():
             raise ValidationError(
@@ -259,7 +259,7 @@ class StandingRevocationManager(models.Manager):
                 raise ValidationError(f"Unknown entity category: {eve_entity.category}")
 
         # Check if standing exists
-        from .models_new import StandingsEntry
+        from .models import StandingsEntry
 
         if not StandingsEntry.objects.filter(eve_entity=eve_entity).exists():
             raise ValidationError(f"No standing exists for {eve_entity.name}")
@@ -286,10 +286,6 @@ class AuditLogManager(models.Manager):
 
     This manager prevents updates and deletions of audit log entries.
     """
-
-    def create(self, **kwargs):
-        """Create a new audit log entry."""
-        return super().create(**kwargs)
 
     def update(self, **kwargs):
         """Prevent updates to audit log."""
@@ -352,7 +348,7 @@ class SyncedCharacterManager(models.Manager):
         """
         from django.utils.timezone import now
         import datetime as dt
-        from ..app_settings import STANDINGS_SYNC_TIMEOUT
+        from .app_settings import STANDINGS_SYNC_TIMEOUT
 
         deadline = now() - dt.timedelta(minutes=STANDINGS_SYNC_TIMEOUT)
         return self.filter(

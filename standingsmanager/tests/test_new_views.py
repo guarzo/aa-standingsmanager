@@ -70,27 +70,27 @@ class TestRequestStandingsView(ViewTestCase):
 
     def test_view_requires_login(self):
         """Test that view requires login."""
-        response = self.client.get(reverse("standingssync:request_standings"))
+        response = self.client.get(reverse("standingsmanager:request_standings"))
         self.assertEqual(response.status_code, 302)  # Redirect to login
 
     def test_view_requires_permission(self):
         """Test that view requires permission."""
         user_no_perms = AuthUtils.create_user("no_perms_user")
         self.client.force_login(user_no_perms)
-        response = self.client.get(reverse("standingssync:request_standings"))
+        response = self.client.get(reverse("standingsmanager:request_standings"))
         self.assertEqual(response.status_code, 302)  # Redirect due to no permission
 
     def test_view_loads_with_permission(self):
         """Test that view loads with correct permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:request_standings"))
+        response = self.client.get(reverse("standingsmanager:request_standings"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Request Standings")
 
     def test_view_shows_characters(self):
         """Test that view shows user's characters."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:request_standings"))
+        response = self.client.get(reverse("standingsmanager:request_standings"))
         self.assertContains(response, "Test Character")
 
 
@@ -99,20 +99,20 @@ class TestMySyncedCharactersView(ViewTestCase):
 
     def test_view_requires_login(self):
         """Test that view requires login."""
-        response = self.client.get(reverse("standingssync:my_synced_characters"))
+        response = self.client.get(reverse("standingsmanager:my_synced_characters"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_requires_permission(self):
         """Test that view requires permission."""
         user_no_perms = AuthUtils.create_user("no_perms_user2")
         self.client.force_login(user_no_perms)
-        response = self.client.get(reverse("standingssync:my_synced_characters"))
+        response = self.client.get(reverse("standingsmanager:my_synced_characters"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_loads_with_permission(self):
         """Test that view loads with correct permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:my_synced_characters"))
+        response = self.client.get(reverse("standingsmanager:my_synced_characters"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "My Synced Characters")
 
@@ -132,7 +132,7 @@ class TestMySyncedCharactersView(ViewTestCase):
         SyncedCharacter.objects.create(character_ownership=self.character_ownership)
 
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:my_synced_characters"))
+        response = self.client.get(reverse("standingsmanager:my_synced_characters"))
         self.assertContains(response, "Test Character")
 
 
@@ -141,19 +141,19 @@ class TestManageRequestsView(ViewTestCase):
 
     def test_view_requires_login(self):
         """Test that view requires login."""
-        response = self.client.get(reverse("standingssync:manage_requests"))
+        response = self.client.get(reverse("standingsmanager:manage_requests"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_requires_permission(self):
         """Test that view requires approver permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:manage_requests"))
+        response = self.client.get(reverse("standingsmanager:manage_requests"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_loads_with_permission(self):
         """Test that view loads with approver permission."""
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:manage_requests"))
+        response = self.client.get(reverse("standingsmanager:manage_requests"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Manage Standing Requests")
 
@@ -172,7 +172,7 @@ class TestManageRequestsView(ViewTestCase):
         )
 
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:manage_requests"))
+        response = self.client.get(reverse("standingsmanager:manage_requests"))
         self.assertContains(response, "Test Character")
 
 
@@ -181,19 +181,19 @@ class TestManageRevocationsView(ViewTestCase):
 
     def test_view_requires_login(self):
         """Test that view requires login."""
-        response = self.client.get(reverse("standingssync:manage_revocations"))
+        response = self.client.get(reverse("standingsmanager:manage_revocations"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_requires_permission(self):
         """Test that view requires approver permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:manage_revocations"))
+        response = self.client.get(reverse("standingsmanager:manage_revocations"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_loads_with_permission(self):
         """Test that view loads with approver permission."""
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:manage_revocations"))
+        response = self.client.get(reverse("standingsmanager:manage_revocations"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Manage Standing Revocations")
 
@@ -203,19 +203,19 @@ class TestViewStandingsView(ViewTestCase):
 
     def test_view_requires_login(self):
         """Test that view requires login."""
-        response = self.client.get(reverse("standingssync:view_standings"))
+        response = self.client.get(reverse("standingsmanager:view_standings"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_requires_permission(self):
         """Test that view requires approver permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:view_standings"))
+        response = self.client.get(reverse("standingsmanager:view_standings"))
         self.assertEqual(response.status_code, 302)
 
     def test_view_loads_with_permission(self):
         """Test that view loads with approver permission."""
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:view_standings"))
+        response = self.client.get(reverse("standingsmanager:view_standings"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "View Standings")
 
@@ -232,7 +232,7 @@ class TestViewStandingsView(ViewTestCase):
         )
 
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:view_standings"))
+        response = self.client.get(reverse("standingsmanager:view_standings"))
         self.assertContains(response, "Test Character")
 
 
@@ -247,7 +247,7 @@ class TestAPIEndpoints(ViewTestCase):
         self.client.force_login(self.user)
         response = self.client.post(
             reverse(
-                "standingssync:api_request_character_standing",
+                "standingsmanager:api_request_character_standing",
                 args=[self.character.character_id],
             )
         )
@@ -269,7 +269,7 @@ class TestAPIEndpoints(ViewTestCase):
         self.client.force_login(other_user)
         response = self.client.post(
             reverse(
-                "standingssync:api_request_character_standing",
+                "standingsmanager:api_request_character_standing",
                 args=[self.character.character_id],
             )
         )
@@ -289,7 +289,7 @@ class TestAPIEndpoints(ViewTestCase):
 
         self.client.force_login(self.user)
         response = self.client.post(
-            reverse("standingssync:api_add_sync", args=[self.character.character_id])
+            reverse("standingsmanager:api_add_sync", args=[self.character.character_id])
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -311,7 +311,7 @@ class TestAPIEndpoints(ViewTestCase):
 
         self.client.force_login(self.user)
         response = self.client.post(
-            reverse("standingssync:api_remove_sync", args=[synced_char.pk])
+            reverse("standingsmanager:api_remove_sync", args=[synced_char.pk])
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -336,7 +336,7 @@ class TestAPIEndpoints(ViewTestCase):
 
         self.client.force_login(self.approver)
         response = self.client.post(
-            reverse("standingssync:api_approve_request", args=[request_obj.pk])
+            reverse("standingsmanager:api_approve_request", args=[request_obj.pk])
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -361,7 +361,7 @@ class TestAPIEndpoints(ViewTestCase):
 
         self.client.force_login(self.approver)
         response = self.client.post(
-            reverse("standingssync:api_reject_request", args=[request_obj.pk])
+            reverse("standingsmanager:api_reject_request", args=[request_obj.pk])
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -376,13 +376,13 @@ class TestCSVExport(ViewTestCase):
 
     def test_export_requires_login(self):
         """Test that CSV export requires login."""
-        response = self.client.get(reverse("standingssync:export_standings_csv"))
+        response = self.client.get(reverse("standingsmanager:export_standings_csv"))
         self.assertEqual(response.status_code, 302)
 
     def test_export_requires_permission(self):
         """Test that CSV export requires permission."""
         self.client.force_login(self.user)
-        response = self.client.get(reverse("standingssync:export_standings_csv"))
+        response = self.client.get(reverse("standingsmanager:export_standings_csv"))
         self.assertEqual(response.status_code, 302)
 
     def test_export_works_with_permission(self):
@@ -398,7 +398,7 @@ class TestCSVExport(ViewTestCase):
         )
 
         self.client.force_login(self.approver)
-        response = self.client.get(reverse("standingssync:export_standings_csv"))
+        response = self.client.get(reverse("standingsmanager:export_standings_csv"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv")
         self.assertIn(b"Test Character", response.content)

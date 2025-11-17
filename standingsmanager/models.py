@@ -553,9 +553,7 @@ class AuditLog(models.Model):
         verbose_name = "Audit Log Entry"
         verbose_name_plural = "Audit Log Entries"
         ordering = ["-timestamp"]
-        permissions = [
-            ("view_auditlog", "Can view audit log"),
-        ]
+        # Note: Django automatically creates view_auditlog permission, so we don't need to define it
 
     def __str__(self):
         return (

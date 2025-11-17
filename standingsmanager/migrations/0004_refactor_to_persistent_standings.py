@@ -12,7 +12,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("standingssync", "0003_add_alliance_contacts_label_field"),
+        ("standingsmanager", "0003_add_alliance_contacts_label_field"),
         ("eveuniverse", "0007_evetype_description"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ("authentication", "0019_merge_20211026_0919"),
@@ -32,10 +32,7 @@ class Migration(migrations.Migration):
             name="manager",
         ),
         # Step 3: Remove old SyncedCharacter fields
-        migrations.RemoveField(
-            model_name="syncedcharacter",
-            name="version_hash",
-        ),
+        # Note: version_hash was already removed in migration 0002, so we don't remove it again
         migrations.RemoveField(
             model_name="syncedcharacter",
             name="has_war_targets_label",
@@ -49,26 +46,15 @@ class Migration(migrations.Migration):
             name="SyncManager",
         ),
         # Step 5: Update SyncedCharacter to new structure
-        migrations.AlterField(
-            model_name="syncedcharacter",
-            name="last_sync",
-            field=models.DateTimeField(
-                blank=True,
-                default=None,
-                help_text="Date and time of the last successful sync",
-                null=True,
-            ),
-        ),
-        migrations.RenameField(
-            model_name="syncedcharacter",
-            old_name="last_sync",
-            new_name="last_sync_at",
-        ),
-        migrations.AlterField(
+        # Note: last_sync was already renamed to last_sync_at in migration 0002
+        # Note: last_error was already removed in migration 0002
+        # We just need to add the has_label field and add last_error back as TextField
+        migrations.AddField(
             model_name="syncedcharacter",
             name="last_error",
             field=models.TextField(
                 blank=True,
+                default="",
                 help_text="Last error encountered during sync (if any)",
             ),
         ),

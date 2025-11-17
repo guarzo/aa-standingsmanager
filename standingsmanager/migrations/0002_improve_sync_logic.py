@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("eveonline", "0015_factions"),
         ("authentication", "0019_merge_20211026_0919"),
-        ("standingssync", "0001_initial_new_2"),
+        ("standingsmanager", "0001_initial_new_2"),
     ]
 
     operations = [

@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("standingssync", "0002_improve_sync_logic"),
+        ("standingsmanager", "0002_improve_sync_logic"),
     ]
 
     operations = [

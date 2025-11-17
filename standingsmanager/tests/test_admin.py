@@ -11,7 +11,7 @@ class TestSyncedCharacterChangeList(TestCase):
         user = UserFactory(is_superuser=True, is_staff=True)
         self.client.force_login(user)
         # when
-        response = self.client.get("/admin/standingssync/syncedcharacter/")
+        response = self.client.get("/admin/standingsmanager/syncedcharacter/")
         # then
         self.assertEqual(response.status_code, 200)
 
@@ -21,6 +21,6 @@ class TestSyncedCharacterChangeList(TestCase):
         user = UserFactory(is_superuser=True, is_staff=True)
         self.client.force_login(user)
         # when
-        response = self.client.get("/admin/standingssync/syncedcharacter/?o=2")
+        response = self.client.get("/admin/standingsmanager/syncedcharacter/?o=2")
         # then
         self.assertEqual(response.status_code, 200)

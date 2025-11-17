@@ -457,13 +457,9 @@ class AuditLogTestCase(TestCase):
 class SyncedCharacterTestCase(TestCase):
     """Test cases for SyncedCharacter model."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
-
     def setUp(self):
-        """Create character ownership for each test."""
+        """Create user and character ownership for each test."""
+        self.user = UserMainFactory()
         self.character = EveCharacter.objects.create(
             character_id=12345,
             character_name="Test Character",

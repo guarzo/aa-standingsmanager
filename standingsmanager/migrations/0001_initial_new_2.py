@@ -100,7 +100,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="synced_characters",
-                        to="standingssync.syncmanager",
+                        to="standingsmanager.syncmanager",
                     ),
                 ),
             ],
@@ -175,7 +175,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="contacts",
-                        to="standingssync.syncmanager",
+                        to="standingsmanager.syncmanager",
                     ),
                 ),
             ],

@@ -155,28 +155,9 @@ class TestEsiRetryLogic(NoSocketsTestCase):
         mock_response.status_code = 429
         http_error = HTTPError(response=mock_response)
 
-        # First call fails, second succeeds
-        endpoints = [
-            EsiEndpoint(
-                "Contacts",
-                "get_characters_character_id_contacts",
-                "character_id",
-                needs_token=True,
-                data={
-                    "1001": [
-                        {
-                            "contact_id": 2001,
-                            "contact_type": "corporation",
-                            "standing": 9.9,
-                        }
-                    ]
-                },
-            ),
-        ]
-        mock_esi.client = EsiClientStub.create_from_endpoints(endpoints)
         mock_token = MockToken(1001, "Bruce Wayne")
 
-        # Mock the results() to fail first then succeed
+        # Mock the entire call chain to fail first then succeed
         call_count = [0]
 
         def side_effect(*args, **kwargs):
@@ -191,15 +172,16 @@ class TestEsiRetryLogic(NoSocketsTestCase):
                 }
             ]
 
-        mock_esi.client.Contacts.get_characters_character_id_contacts.return_value.results.side_effect = (
-            side_effect
-        )
+        # Mock the results method to track calls
+        mock_results = Mock(side_effect=side_effect)
+        mock_esi.client.Contacts.get_characters_character_id_contacts.return_value.results = mock_results
 
         # when
         result = esi_api.fetch_character_contacts(token=mock_token)
 
         # then
         self.assertEqual(len(result), 1)
+        self.assertEqual(call_count[0], 2)  # Should have been called twice
         mock_sleep.assert_called_once()  # Should have slept once for retry
 
     @patch(MODULE_PATH + ".time.sleep")
@@ -223,8 +205,8 @@ class TestEsiRetryLogic(NoSocketsTestCase):
         with self.assertRaises(HTTPError):
             esi_api.fetch_character_contacts(token=mock_token)
 
-        # Should have retried MAX_RETRIES times
-        self.assertEqual(mock_sleep.call_count, 3)
+        # Should have slept MAX_RETRIES - 1 times (first failure, then retries)
+        self.assertEqual(mock_sleep.call_count, 2)
 
     @patch(MODULE_PATH + ".esi")
     def test_no_retry_on_client_error(self, mock_esi):

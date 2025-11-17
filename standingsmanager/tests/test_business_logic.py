@@ -39,9 +39,29 @@ class PermissionHelperTestCase(TestCase):
     """Test permission helper functions."""
 
     @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
+    def setUpTestData(cls):
+        """Create permissions for all tests."""
+        from django.contrib.contenttypes.models import ContentType
+        from ..models import StandingsEntry, StandingRequest, AuditLog
+
+        # Create custom permissions if they don't exist
+        content_type = ContentType.objects.get_for_model(StandingRequest)
+        Permission.objects.get_or_create(
+            codename="approve_standings",
+            content_type=content_type,
+            defaults={"name": "Can approve standing requests"}
+        )
+
+        content_type = ContentType.objects.get_for_model(StandingsEntry)
+        Permission.objects.get_or_create(
+            codename="manage_standings",
+            content_type=content_type,
+            defaults={"name": "Can manage standings database"}
+        )
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserMainFactory()
 
     def test_user_can_request_standings_without_permission(self):
         """Test user cannot request standings without permission."""
@@ -49,7 +69,10 @@ class PermissionHelperTestCase(TestCase):
 
     def test_user_can_request_standings_with_permission(self):
         """Test user can request standings with permission."""
-        permission = Permission.objects.get(codename="add_syncedcharacter")
+        permission = Permission.objects.get(
+            codename="add_syncedcharacter",
+            content_type__app_label="standingsmanager"
+        )
         self.user.user_permissions.add(permission)
 
         self.assertTrue(user_can_request_standings(self.user))
@@ -60,7 +83,10 @@ class PermissionHelperTestCase(TestCase):
 
     def test_user_can_approve_standings_with_permission(self):
         """Test user can approve standings with permission."""
-        permission = Permission.objects.get(codename="approve_standings")
+        permission = Permission.objects.get(
+            codename="approve_standings",
+            content_type__app_label="standingsmanager"
+        )
         self.user.user_permissions.add(permission)
 
         self.assertTrue(user_can_approve_standings(self.user))
@@ -82,7 +108,10 @@ class PermissionHelperTestCase(TestCase):
 
     def test_user_can_view_audit_log_with_permission(self):
         """Test user can view audit log with permission."""
-        permission = Permission.objects.get(codename="view_auditlog")
+        permission = Permission.objects.get(
+            codename="view_auditlog",
+            content_type__app_label="standingsmanager"
+        )
         self.user.user_permissions.add(permission)
 
         self.assertTrue(user_can_view_audit_log(self.user))
@@ -91,10 +120,9 @@ class PermissionHelperTestCase(TestCase):
 class ScopeValidationTestCase(TestCase):
     """Test scope validation logic."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
+    def setUp(self):
+        super().setUp()
+        self.user = UserMainFactory()
 
     def test_get_required_scopes_for_user(self):
         """Test getting required scopes for a user."""
@@ -184,23 +212,30 @@ class ScopeValidationTestCase(TestCase):
 class CorporationTokenValidationTestCase(TestCase):
     """Test corporation token validation logic."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
-
     def setUp(self):
-        """Create test corporation."""
-        self.corporation = EveCorporationInfo.objects.create(
+        """Create test user and corporation."""
+        self.user = UserMainFactory()
+        self.corporation, _ = EveCorporationInfo.objects.get_or_create(
             corporation_id=98000001,
-            corporation_name="Test Corporation",
-            member_count=100,
+            defaults={
+                "corporation_name": "Test Corporation",
+                "member_count": 100,
+            }
         )
 
     def test_validate_corporation_token_coverage_no_characters(self):
         """Test validation fails when user has no characters in corp."""
+        # Use a unique corporation that no other test uses
+        test_corp, _ = EveCorporationInfo.objects.get_or_create(
+            corporation_id=98000004,
+            defaults={
+                "corporation_name": "Test Corporation 4",
+                "member_count": 100,
+            }
+        )
+
         with self.assertRaises(ValidationError) as context:
-            validate_corporation_token_coverage(self.corporation, self.user)
+            validate_corporation_token_coverage(test_corp, self.user)
 
         self.assertIn("no characters", str(context.exception).lower())
 
@@ -209,18 +244,27 @@ class CorporationTokenValidationTestCase(TestCase):
         self, mock_has_scopes
     ):
         """Test validation passes when all characters have valid tokens."""
+        # Use a different corporation for this test to avoid conflicts
+        test_corp, _ = EveCorporationInfo.objects.get_or_create(
+            corporation_id=98000002,
+            defaults={
+                "corporation_name": "Test Corporation 2",
+                "member_count": 100,
+            }
+        )
+
         # Create characters in corp
         char1 = EveCharacter.objects.create(
             character_id=12345,
             character_name="Test Char 1",
-            corporation_id=self.corporation.corporation_id,
-            corporation_name=self.corporation.corporation_name,
+            corporation_id=test_corp.corporation_id,
+            corporation_name=test_corp.corporation_name,
         )
         char2 = EveCharacter.objects.create(
             character_id=12346,
             character_name="Test Char 2",
-            corporation_id=self.corporation.corporation_id,
-            corporation_name=self.corporation.corporation_name,
+            corporation_id=test_corp.corporation_id,
+            corporation_name=test_corp.corporation_name,
         )
 
         # Create ownership
@@ -235,7 +279,7 @@ class CorporationTokenValidationTestCase(TestCase):
         mock_has_scopes.return_value = (True, [])
 
         has_coverage, missing_chars = validate_corporation_token_coverage(
-            self.corporation, self.user
+            test_corp, self.user
         )
 
         self.assertTrue(has_coverage)
@@ -244,18 +288,27 @@ class CorporationTokenValidationTestCase(TestCase):
     @patch("standingsmanager.validators.character_has_required_scopes")
     def test_validate_corporation_token_coverage_missing_tokens(self, mock_has_scopes):
         """Test validation fails when some characters lack tokens."""
-        # Create characters in corp
+        # Use a different corporation for this test to avoid conflicts
+        test_corp, _ = EveCorporationInfo.objects.get_or_create(
+            corporation_id=98000003,
+            defaults={
+                "corporation_name": "Test Corporation 3",
+                "member_count": 100,
+            }
+        )
+
+        # Create characters in corp with unique IDs
         char1 = EveCharacter.objects.create(
-            character_id=12345,
-            character_name="Test Char 1",
-            corporation_id=self.corporation.corporation_id,
-            corporation_name=self.corporation.corporation_name,
+            character_id=12347,
+            character_name="Test Char 3",
+            corporation_id=test_corp.corporation_id,
+            corporation_name=test_corp.corporation_name,
         )
         char2 = EveCharacter.objects.create(
-            character_id=12346,
-            character_name="Test Char 2",
-            corporation_id=self.corporation.corporation_id,
-            corporation_name=self.corporation.corporation_name,
+            character_id=12348,
+            character_name="Test Char 4",
+            corporation_id=test_corp.corporation_id,
+            corporation_name=test_corp.corporation_name,
         )
 
         # Create ownership
@@ -268,7 +321,7 @@ class CorporationTokenValidationTestCase(TestCase):
 
         # Mock one character missing scopes
         def mock_scopes_side_effect(char, user):
-            if char.character_id == 12345:
+            if char.character_id == 12347:
                 return (True, [])
             else:
                 return (False, ["esi-characters.write_contacts.v1"])
@@ -276,11 +329,11 @@ class CorporationTokenValidationTestCase(TestCase):
         mock_has_scopes.side_effect = mock_scopes_side_effect
 
         has_coverage, missing_chars = validate_corporation_token_coverage(
-            self.corporation, self.user
+            test_corp, self.user
         )
 
         self.assertFalse(has_coverage)
-        self.assertIn("Test Char 2", missing_chars)
+        self.assertIn("Test Char 4", missing_chars)
         self.assertEqual(len(missing_chars), 1)
 
     @patch("standingsmanager.validators.validate_corporation_token_coverage")
@@ -313,25 +366,24 @@ class CorporationTokenValidationTestCase(TestCase):
 class RequestCreationLogicTestCase(TestCase):
     """Test request creation and eligibility logic."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
-        cls.character_entity = EveEntityCharacterFactory()
-        cls.corporation_entity = EveEntityCorporationFactory()
-
     def setUp(self):
         """Set up for each test."""
-        self.character = EveCharacter.objects.create(
+        self.user = UserMainFactory()
+        self.character_entity = EveEntityCharacterFactory()
+        self.corporation_entity = EveEntityCorporationFactory()
+
+        self.character, _ = EveCharacter.objects.get_or_create(
             character_id=self.character_entity.id,
-            character_name=self.character_entity.name,
-            corporation_id=1000,
-            corporation_name="Test Corp",
+            defaults={
+                "character_name": self.character_entity.name,
+                "corporation_id": 1000,
+                "corporation_name": "Test Corp",
+            }
         )
-        self.ownership = CharacterOwnership.objects.create(
+        self.ownership, _ = CharacterOwnership.objects.get_or_create(
             user=self.user,
             character=self.character,
-            owner_hash="test_hash",
+            defaults={"owner_hash": "test_hash"}
         )
 
     def test_can_user_request_character_standing_without_permission(self):
@@ -463,10 +515,9 @@ class RequestCreationLogicTestCase(TestCase):
 class ManagerMethodsTestCase(TestCase):
     """Test manager methods for request creation."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
+    def setUp(self):
+        super().setUp()
+        self.user = UserMainFactory()
 
     def test_create_character_request_success(self):
         """Test creating character request through manager."""
@@ -504,10 +555,12 @@ class ManagerMethodsTestCase(TestCase):
 
     def test_create_corporation_request_success(self):
         """Test creating corporation request through manager."""
-        corporation = EveCorporationInfo.objects.create(
-            corporation_id=98000001,
-            corporation_name="Test Corporation",
-            member_count=100,
+        corporation, _ = EveCorporationInfo.objects.get_or_create(
+            corporation_id=98000005,
+            defaults={
+                "corporation_name": "Test Corporation",
+                "member_count": 100,
+            }
         )
 
         request = StandingRequest.objects.create_corporation_request(
@@ -523,14 +576,11 @@ class ManagerMethodsTestCase(TestCase):
 class RevocationLogicTestCase(TestCase):
     """Test revocation creation and management logic."""
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = UserMainFactory()
-        cls.character_entity = EveEntityCharacterFactory()
-
     def setUp(self):
         """Create standing entry for each test."""
+        self.user = UserMainFactory()
+        self.character_entity = EveEntityCharacterFactory()
+
         self.standing = StandingsEntry.objects.create(
             eve_entity=self.character_entity,
             entity_type=StandingsEntry.EntityType.CHARACTER,

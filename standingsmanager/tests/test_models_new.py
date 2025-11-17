@@ -1,9 +1,8 @@
 """Unit tests for new models - AA Standings Manager."""
 
 import datetime as dt
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils.timezone import now
@@ -19,7 +18,11 @@ from ..models import (
     StandingsEntry,
     SyncedCharacter,
 )
-from .factories import EveEntityAllianceFactory, EveEntityCharacterFactory, EveEntityCorporationFactory
+from .factories import (
+    EveEntityAllianceFactory,
+    EveEntityCharacterFactory,
+    EveEntityCorporationFactory,
+)
 
 
 class StandingsEntryTestCase(TestCase):
@@ -118,11 +121,15 @@ class StandingsEntryTestCase(TestCase):
         # Test filtering
         characters = StandingsEntry.objects.all_characters()
         self.assertEqual(characters.count(), 1)
-        self.assertEqual(characters.first().entity_type, StandingsEntry.EntityType.CHARACTER)
+        self.assertEqual(
+            characters.first().entity_type, StandingsEntry.EntityType.CHARACTER
+        )
 
         corporations = StandingsEntry.objects.all_corporations()
         self.assertEqual(corporations.count(), 1)
-        self.assertEqual(corporations.first().entity_type, StandingsEntry.EntityType.CORPORATION)
+        self.assertEqual(
+            corporations.first().entity_type, StandingsEntry.EntityType.CORPORATION
+        )
 
     def test_str_representation(self):
         """Test string representation of StandingsEntry."""
@@ -187,7 +194,7 @@ class StandingRequestTestCase(TestCase):
         )
 
         # Approve the request
-        with patch('standingsmanager.models.notify'):
+        with patch("standingsmanager.models.notify"):
             standing_entry = request.approve(self.approver, standing=7.0)
 
         # Check request state
@@ -218,7 +225,7 @@ class StandingRequestTestCase(TestCase):
         )
 
         # Reject the request
-        with patch('standingsmanager.models.notify'):
+        with patch("standingsmanager.models.notify"):
             request.reject(self.approver, reason="Test rejection")
 
         # Check request state
@@ -313,7 +320,7 @@ class StandingRevocationTestCase(TestCase):
         )
 
         # Approve the revocation
-        with patch('standingsmanager.models.notify'):
+        with patch("standingsmanager.models.notify"):
             revocation.approve(self.approver)
 
         # Check revocation state
@@ -344,7 +351,7 @@ class StandingRevocationTestCase(TestCase):
         )
 
         # Reject the revocation
-        with patch('standingsmanager.models.notify'):
+        with patch("standingsmanager.models.notify"):
             revocation.reject(self.approver, reason="Test rejection")
 
         # Check revocation state
@@ -503,7 +510,8 @@ class SyncedCharacterTestCase(TestCase):
         """Test eligibility check with proper permissions."""
         # Grant permission
         from django.contrib.auth.models import Permission
-        permission = Permission.objects.get(codename='add_syncedcharacter')
+
+        permission = Permission.objects.get(codename="add_syncedcharacter")
         self.user.user_permissions.add(permission)
 
         synced = SyncedCharacter.objects.create(
@@ -520,11 +528,9 @@ class SyncedCharacterTestCase(TestCase):
         )
 
         # Should not be eligible and should be deleted
-        with patch('standingsmanager.models.notify'):
+        with patch("standingsmanager.models.notify"):
             is_eligible = synced.is_eligible()
 
         self.assertFalse(is_eligible)
         # Character should be deleted
-        self.assertFalse(
-            SyncedCharacter.objects.filter(pk=synced.pk).exists()
-        )
+        self.assertFalse(SyncedCharacter.objects.filter(pk=synced.pk).exists())

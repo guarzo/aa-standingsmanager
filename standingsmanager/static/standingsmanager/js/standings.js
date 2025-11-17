@@ -305,7 +305,7 @@ $(document).on('click', '.approve-request-btn', function(e) {
             row.fadeOut('slow', function() {
                 $(this).remove();
                 // Update badge count
-                const badge = $('.panel-title .badge');
+                const badge = row.closest('.panel').find('.panel-title .badge');
                 const currentCount = parseInt(badge.text());
                 badge.text(currentCount - 1);
             });
@@ -343,7 +343,7 @@ $(document).on('click', '.reject-request-btn', function(e) {
             row.fadeOut('slow', function() {
                 $(this).remove();
                 // Update badge count
-                const badge = $('.panel-title .badge');
+                const badge = row.closest('.panel').find('.panel-title .badge');
                 const currentCount = parseInt(badge.text());
                 badge.text(currentCount - 1);
             });
@@ -381,7 +381,7 @@ $(document).on('click', '.approve-revocation-btn', function(e) {
             row.fadeOut('slow', function() {
                 $(this).remove();
                 // Update badge count
-                const badge = $('.panel-title .badge');
+                const badge = row.closest('.panel').find('.panel-title .badge');
                 const currentCount = parseInt(badge.text());
                 badge.text(currentCount - 1);
             });
@@ -419,7 +419,7 @@ $(document).on('click', '.reject-revocation-btn', function(e) {
             row.fadeOut('slow', function() {
                 $(this).remove();
                 // Update badge count
-                const badge = $('.panel-title .badge');
+                const badge = row.closest('.panel').find('.panel-title .badge');
                 const currentCount = parseInt(badge.text());
                 badge.text(currentCount - 1);
             });

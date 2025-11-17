@@ -248,35 +248,36 @@ class EsiContactsContainer:
         if not label:
             return set()
 
-        return {
-            contact
-            for contact in self.contacts()
-            if label.id in contact.label_ids
-        }
+        return {contact for contact in self.contacts() if label.id in contact.label_ids}
 
     # Deprecated methods removed (war targets and alliance contacts)
     # These are not used in the refactored AA Standings Manager
 
     @classmethod
     def build_from_standings(
-        cls, standings_entries: Iterable, label_id: int
+        cls,
+        standings_entries: Iterable,
+        label: EsiContactLabel,
     ) -> "EsiContactsContainer":
         """Build a contacts container from standings entries.
 
         Args:
             standings_entries: Iterable of StandingsEntry objects
-            label_id: ID of the label to apply to all contacts
+            label: EsiContactLabel to apply to all contacts
 
         Returns:
             EsiContactsContainer with contacts created from standings
         """
         container = cls()
+        # Register the label on the container first so it's recognized
+        container.add_label(label)
+
         for standing_entry in standings_entries:
             try:
                 contact = EsiContact.from_eve_entity(
                     eve_entity=standing_entry.eve_entity,
                     standing=standing_entry.standing,
-                    label_ids=frozenset([label_id]),
+                    label_ids=frozenset([label.id]),
                 )
                 container.add_contact(contact)
             except (ValueError, AttributeError):

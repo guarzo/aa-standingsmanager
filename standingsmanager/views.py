@@ -76,9 +76,9 @@ def request_standings(request):
     user = request.user
 
     # Get all user's characters
-    character_ownerships = CharacterOwnership.objects.filter(
-        user=user
-    ).select_related("character")
+    character_ownerships = CharacterOwnership.objects.filter(user=user).select_related(
+        "character"
+    )
 
     characters_data = []
     corporations_data = {}
@@ -111,7 +111,9 @@ def request_standings(request):
             pending_request = False
 
         # Check eligibility
-        can_request, error_message = can_user_request_character_standing(character, user)
+        can_request, error_message = can_user_request_character_standing(
+            character, user
+        )
 
         # Check scopes
         has_scopes, missing_scopes = character_has_required_scopes(character, user)
@@ -268,9 +270,9 @@ def my_synced_characters(request):
     user = request.user
 
     # Get all user's characters
-    character_ownerships = CharacterOwnership.objects.filter(
-        user=user
-    ).select_related("character")
+    character_ownerships = CharacterOwnership.objects.filter(user=user).select_related(
+        "character"
+    )
 
     characters_data = []
 
@@ -581,7 +583,9 @@ def view_standings(request):
         "alliance_count": len(alliances),
     }
 
-    return render(request, "standingsmanager/view_standings.html", common_context(context))
+    return render(
+        request, "standingsmanager/view_standings.html", common_context(context)
+    )
 
 
 # ============================================================================
@@ -619,7 +623,9 @@ def export_standings_csv(request):
 
     for standing in all_standings:
         # Handle None case for added_by
-        added_by_username = standing.added_by.username if standing.added_by else "Unknown"
+        added_by_username = (
+            standing.added_by.username if standing.added_by else "Unknown"
+        )
 
         writer.writerow(
             [
@@ -663,7 +669,8 @@ def api_request_character_standing(request, character_id):
             user=request.user, character=character
         ).exists():
             return JsonResponse(
-                {"success": False, "error": "You do not own this character."}, status=403
+                {"success": False, "error": "You do not own this character."},
+                status=403,
             )
 
         # Check eligibility
@@ -671,9 +678,7 @@ def api_request_character_standing(request, character_id):
             character, request.user
         )
         if not can_request:
-            return JsonResponse(
-                {"success": False, "error": error_message}, status=400
-            )
+            return JsonResponse({"success": False, "error": error_message}, status=400)
 
         # Create request
         standing_request = StandingRequest.objects.create_character_request(
@@ -724,9 +729,7 @@ def api_request_corporation_standing(request, corporation_id):
             corporation, request.user
         )
         if not can_request:
-            return JsonResponse(
-                {"success": False, "error": error_message}, status=400
-            )
+            return JsonResponse({"success": False, "error": error_message}, status=400)
 
         # Create request
         standing_request = StandingRequest.objects.create_corporation_request(
@@ -799,7 +802,9 @@ def api_remove_standing(request, entity_id):
 
         # Create revocation
         revocation = StandingRevocation.objects.create_for_entity(
-            entity, request.user, StandingRevocation.RevocationReason.USER_REQUEST
+            entity,
+            reason=StandingRevocation.RevocationReason.USER_REQUEST,
+            user=request.user,
         )
 
         logger.info(
@@ -845,7 +850,8 @@ def api_add_character_to_sync(request, character_id):
             )
         except CharacterOwnership.DoesNotExist:
             return JsonResponse(
-                {"success": False, "error": "You do not own this character."}, status=403
+                {"success": False, "error": "You do not own this character."},
+                status=403,
             )
 
         # Check if character has standing
@@ -867,7 +873,9 @@ def api_add_character_to_sync(request, character_id):
             )
 
         # Check if already synced
-        if SyncedCharacter.objects.filter(character_ownership=character_ownership).exists():
+        if SyncedCharacter.objects.filter(
+            character_ownership=character_ownership
+        ).exists():
             return JsonResponse(
                 {"success": False, "error": "Character is already synced."}, status=400
             )

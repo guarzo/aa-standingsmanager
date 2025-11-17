@@ -29,7 +29,7 @@ def get_required_scopes_for_user(user: User) -> List[str]:
     # Get user's main character's state
     try:
         main_character = user.profile.main_character
-        if main_character and hasattr(main_character, 'character_ownership'):
+        if main_character and hasattr(main_character, "character_ownership"):
             state = main_character.character_ownership.user.profile.state
         else:
             # Fallback to user's current state
@@ -98,12 +98,8 @@ def validate_character_token(character: EveCharacter, user: User) -> None:
         ValidationError: If token is missing or doesn't have required scopes
     """
     # Check ownership
-    if not CharacterOwnership.objects.filter(
-        user=user, character=character
-    ).exists():
-        raise ValidationError(
-            f"You do not own character {character.character_name}"
-        )
+    if not CharacterOwnership.objects.filter(user=user, character=character).exists():
+        raise ValidationError(f"You do not own character {character.character_name}")
 
     # Check scopes
     has_scopes, missing_scopes = character_has_required_scopes(character, user)
@@ -167,9 +163,7 @@ def validate_corporation_request(corporation: EveCorporationInfo, user: User) ->
     Raises:
         ValidationError: If validation fails
     """
-    has_coverage, missing_chars = validate_corporation_token_coverage(
-        corporation, user
-    )
+    has_coverage, missing_chars = validate_corporation_token_coverage(corporation, user)
 
     if not has_coverage:
         char_list = ", ".join(missing_chars)
@@ -196,9 +190,7 @@ def can_user_request_character_standing(
         return False, "You do not have permission to request standings"
 
     # Check ownership
-    if not CharacterOwnership.objects.filter(
-        user=user, character=character
-    ).exists():
+    if not CharacterOwnership.objects.filter(user=user, character=character).exists():
         return False, f"You do not own character {character.character_name}"
 
     # Check scopes
@@ -213,7 +205,7 @@ def can_user_request_character_standing(
     # Check if already has standing
     from eveuniverse.models import EveEntity
 
-    from .models import StandingsEntry, StandingRequest
+    from .models import StandingRequest, StandingsEntry
 
     try:
         eve_entity = EveEntity.objects.get(id=character.character_id)
@@ -271,7 +263,7 @@ def can_user_request_corporation_standing(
     # Check if already has standing
     from eveuniverse.models import EveEntity
 
-    from .models import StandingsEntry, StandingRequest
+    from .models import StandingRequest, StandingsEntry
 
     try:
         eve_entity = EveEntity.objects.get(id=corporation.corporation_id)

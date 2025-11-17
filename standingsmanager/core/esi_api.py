@@ -45,7 +45,7 @@ def esi_retry(func):
                 if status_code in [429, 500, 502, 503, 504]:
                     retries += 1
                     if retries >= MAX_RETRIES:
-                        logger.error(
+                        logger.exception(
                             "ESI API call failed after %d retries: %s",
                             MAX_RETRIES,
                             ex,
@@ -65,7 +65,7 @@ def esi_retry(func):
                     # Don't retry on client errors (4xx except 429)
                     raise
             except Exception as ex:
-                logger.error("ESI API call failed with unexpected error: %s", ex)
+                logger.exception("ESI API call failed with unexpected error: %s", ex)
                 raise
 
         return None
@@ -75,6 +75,7 @@ def esi_retry(func):
 
 # Alliance contacts function removed - not used in refactored AA Standings Manager
 # New implementation syncs to individual characters, not alliance level
+
 
 @esi_retry
 def fetch_character_contacts(token: Token) -> Set[EsiContact]:

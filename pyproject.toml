@@ -56,7 +56,7 @@ known_django = ["django", "django_webtest", "esi", "eveuniverse"]
 
 
 [tool.pylint.'MASTER']
-ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py", "*_old_backup.py"]
+ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py"]
 ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
 
 [tool.pylint.'BASIC']

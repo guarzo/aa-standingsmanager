@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from unittest.mock import patch
 
-from app_utils.esi_testing import BravadoOperationStub, EsiClientStub, EsiEndpoint
+from app_utils.esi_testing import EsiClientStub, EsiEndpoint
 from app_utils.testing import NoSocketsTestCase
 
 from standingsmanager.core import esi_api
@@ -147,8 +147,9 @@ class TestEsiRetryLogic(NoSocketsTestCase):
     @patch(MODULE_PATH + ".esi")
     def test_retry_on_rate_limit(self, mock_esi, mock_sleep):
         # given
-        from requests.exceptions import HTTPError
         from unittest.mock import Mock
+
+        from requests.exceptions import HTTPError
 
         mock_response = Mock()
         mock_response.status_code = 429
@@ -205,8 +206,9 @@ class TestEsiRetryLogic(NoSocketsTestCase):
     @patch(MODULE_PATH + ".esi")
     def test_retry_gives_up_after_max_retries(self, mock_esi, mock_sleep):
         # given
-        from requests.exceptions import HTTPError
         from unittest.mock import Mock
+
+        from requests.exceptions import HTTPError
 
         mock_response = Mock()
         mock_response.status_code = 503  # Server error
@@ -227,8 +229,9 @@ class TestEsiRetryLogic(NoSocketsTestCase):
     @patch(MODULE_PATH + ".esi")
     def test_no_retry_on_client_error(self, mock_esi):
         # given
-        from requests.exceptions import HTTPError
         from unittest.mock import Mock
+
+        from requests.exceptions import HTTPError
 
         mock_response = Mock()
         mock_response.status_code = 404  # Not found

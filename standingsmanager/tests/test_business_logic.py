@@ -10,16 +10,15 @@ Tests for:
 
 from unittest.mock import Mock, patch
 
-from django.contrib.auth.models import Permission, User
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.contrib.auth.models import Permission
+from django.core.exceptions import ValidationError
 from django.test import TestCase
-from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 from app_utils.testdata_factories import UserMainFactory
 
-from ..models import StandingRequest, StandingsEntry, StandingRevocation
+from ..models import StandingRequest, StandingRevocation, StandingsEntry
 from ..permissions import (
     user_can_approve_standings,
     user_can_manage_standings,
@@ -28,10 +27,8 @@ from ..permissions import (
 )
 from ..validators import (
     can_user_request_character_standing,
-    can_user_request_corporation_standing,
     character_has_required_scopes,
     get_required_scopes_for_user,
-    validate_character_token,
     validate_corporation_request,
     validate_corporation_token_coverage,
 )
@@ -295,7 +292,9 @@ class CorporationTokenValidationTestCase(TestCase):
         try:
             validate_corporation_request(self.corporation, self.user)
         except ValidationError:
-            self.fail("validate_corporation_request raised ValidationError unexpectedly")
+            self.fail(
+                "validate_corporation_request raised ValidationError unexpectedly"
+            )
 
     @patch("standingsmanager.validators.validate_corporation_token_coverage")
     def test_validate_corporation_request_failure(self, mock_validate_coverage):
@@ -478,9 +477,7 @@ class ManagerMethodsTestCase(TestCase):
             corporation_name="Test Corp",
         )
 
-        request = StandingRequest.objects.create_character_request(
-            character, self.user
-        )
+        request = StandingRequest.objects.create_character_request(character, self.user)
 
         self.assertIsNotNone(request)
         self.assertEqual(request.entity_type, StandingRequest.EntityType.CHARACTER)
@@ -576,9 +573,7 @@ class RevocationLogicTestCase(TestCase):
         )
 
         self.assertIsNone(revocation.requested_by)
-        self.assertEqual(
-            revocation.reason, StandingRevocation.Reason.LOST_PERMISSION
-        )
+        self.assertEqual(revocation.reason, StandingRevocation.Reason.LOST_PERMISSION)
 
     def test_create_duplicate_revocation_fails(self):
         """Test creating duplicate revocation fails."""
@@ -597,4 +592,6 @@ class RevocationLogicTestCase(TestCase):
                 user=self.user,
             )
 
-        self.assertIn("pending revocation already exists", str(context.exception).lower())
+        self.assertIn(
+            "pending revocation already exists", str(context.exception).lower()
+        )

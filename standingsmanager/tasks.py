@@ -105,7 +105,9 @@ def validate_all_synced_characters():
 
     This runs periodically to ensure only authorized characters remain synced.
     """
-    synced_characters = SyncedCharacter.objects.all()
+    synced_characters = SyncedCharacter.objects.select_related(
+        "character_ownership__user"
+    )
     count = synced_characters.count()
 
     if count == 0:
@@ -124,9 +126,7 @@ def validate_all_synced_characters():
             invalid_count += 1
             logger.info("%s: Removed due to failed eligibility check", synced_char)
 
-    logger.info(
-        "Validation complete: %d valid, %d removed", valid_count, invalid_count
-    )
+    logger.info("Validation complete: %d valid, %d removed", valid_count, invalid_count)
 
 
 @shared_task
@@ -167,7 +167,9 @@ def trigger_sync_after_approval():
     This ensures that all synced characters receive the new standing immediately.
     """
     logger.info("Triggering sync after standing approval")
-    sync_all_characters.apply_async(priority=DEFAULT_TASK_PRIORITY + 1)  # Higher priority
+    sync_all_characters.apply_async(
+        priority=DEFAULT_TASK_PRIORITY + 1
+    )  # Higher priority
 
 
 @shared_task
@@ -177,7 +179,9 @@ def trigger_sync_after_revocation():
     This ensures that all synced characters remove the revoked standing immediately.
     """
     logger.info("Triggering sync after standing revocation")
-    sync_all_characters.apply_async(priority=DEFAULT_TASK_PRIORITY + 1)  # Higher priority
+    sync_all_characters.apply_async(
+        priority=DEFAULT_TASK_PRIORITY + 1
+    )  # Higher priority
 
 
 @shared_task

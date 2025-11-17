@@ -345,7 +345,6 @@ Now you can add the character to sync in Alliance Auth.
 - Export to CSV for compliance
 - Read-only (immutable log)
 
-F
 ## Troubleshooting
 
 ### Common Issues

@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 from app_utils.testing import NoSocketsTestCase
 
 from standingsmanager.core.esi_contacts import (
@@ -535,7 +533,9 @@ class TestEsiContactsNewMethods(NoSocketsTestCase):
         # given
         label = EsiContactLabelFactory(id=1, name="Org Label")
         c1 = EsiContactFactory(label_ids=[1])
-        container = EsiContactsContainer.from_esi_contacts(contacts=[c1], labels=[label])
+        container = EsiContactsContainer.from_esi_contacts(
+            contacts=[c1], labels=[label]
+        )
         # when
         result = container.filter_by_label("Nonexistent")
         # then
@@ -547,27 +547,30 @@ class TestEsiContactsNewMethods(NoSocketsTestCase):
 
         entry1 = StandingsEntryFactory(standing=5.0)
         entry2 = StandingsEntryFactory(standing=-10.0)
-        label_id = 42
+        label = EsiContactLabel(id=42, name="Test Label")
         # when
-        container = EsiContactsContainer.build_from_standings([entry1, entry2], label_id)
+        container = EsiContactsContainer.build_from_standings([entry1, entry2], label)
         # then
         self.assertEqual(len(container.contacts()), 2)
         # Verify all contacts have the label
         for contact in container.contacts():
-            self.assertIn(label_id, contact.label_ids)
+            self.assertIn(label.id, contact.label_ids)
+        # Verify the label is registered on the container
+        self.assertIn(label.id, {lbl.id for lbl in container.labels()})
 
     def test_build_from_standings_skips_invalid_entries(self):
         # given
-        from standingsmanager.tests.factories import StandingsEntryFactory
         from unittest.mock import Mock
+
+        from standingsmanager.tests.factories import StandingsEntryFactory
 
         entry1 = StandingsEntryFactory(standing=5.0)
         invalid_entry = Mock()
         invalid_entry.eve_entity = None  # This will cause an error
-        label_id = 42
+        label = EsiContactLabel(id=42, name="Test Label")
         # when
         container = EsiContactsContainer.build_from_standings(
-            [entry1, invalid_entry], label_id
+            [entry1, invalid_entry], label
         )
         # then
         self.assertEqual(len(container.contacts()), 1)

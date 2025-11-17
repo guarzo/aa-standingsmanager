@@ -110,7 +110,9 @@ class StandingsEntry(models.Model):
         super().clean()
         # Validate standing is within range
         if not -10.0 <= self.standing <= 10.0:
-            raise ValidationError({"standing": "Standing must be between -10.0 and +10.0"})
+            raise ValidationError(
+                {"standing": "Standing must be between -10.0 and +10.0"}
+            )
 
         # Validate entity type matches eve_entity category
         entity_category_map = {
@@ -205,7 +207,9 @@ class StandingRequest(models.Model):
             f"- {self.get_state_display()}"
         )
 
-    def approve(self, approver: User, standing: Optional[float] = None, notes: str = ""):
+    def approve(
+        self, approver: User, standing: Optional[float] = None, notes: str = ""
+    ):
         """Approve this request and create a StandingsEntry.
 
         Args:
@@ -224,9 +228,7 @@ class StandingRequest(models.Model):
 
         # Check if standing already exists
         if StandingsEntry.objects.filter(eve_entity=self.eve_entity).exists():
-            raise ValidationError(
-                f"Standing already exists for {self.eve_entity.name}"
-            )
+            raise ValidationError(f"Standing already exists for {self.eve_entity.name}")
 
         # Use default standing if not specified
         if standing is None:

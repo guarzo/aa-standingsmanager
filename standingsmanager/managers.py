@@ -121,9 +121,7 @@ class StandingRequestManager(models.Manager):
         from .models import StandingsEntry
 
         if StandingsEntry.objects.filter(eve_entity=eve_entity).exists():
-            raise ValidationError(
-                f"{character.character_name} already has a standing"
-            )
+            raise ValidationError(f"{character.character_name} already has a standing")
 
         # Create request
         request = self.create(
@@ -346,8 +344,10 @@ class SyncedCharacterManager(models.Manager):
         Returns:
             QuerySet of SyncedCharacter objects
         """
-        from django.utils.timezone import now
         import datetime as dt
+
+        from django.utils.timezone import now
+
         from .app_settings import STANDINGS_SYNC_TIMEOUT
 
         deadline = now() - dt.timedelta(minutes=STANDINGS_SYNC_TIMEOUT)

@@ -12,4 +12,3 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### 🚀 Initial Release - AA Standings Manager
 
 - **0.0.1** (2025-11-16) - Initial release of aa-standingsmanager
-

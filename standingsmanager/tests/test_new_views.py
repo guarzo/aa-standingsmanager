@@ -10,13 +10,7 @@ from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 
-from ..models import (
-    EveEntity,
-    StandingRequest,
-    StandingRevocation,
-    StandingsEntry,
-    SyncedCharacter,
-)
+from ..models import EveEntity, StandingRequest, StandingsEntry, SyncedCharacter
 
 
 class ViewTestCase(TestCase):

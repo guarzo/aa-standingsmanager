@@ -223,5 +223,5 @@ def validate_settings():
 try:
     validate_settings()
 except ValueError as ex:
-    logger.error("Settings validation failed: %s", ex)
+    logger.exception("Settings validation failed: %s", ex)
     raise

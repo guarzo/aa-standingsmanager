@@ -3,6 +3,7 @@
 # pylint: disable = missing-class-docstring, missing-function-docstring
 
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 
 from . import tasks
@@ -181,7 +182,7 @@ class StandingRequestAdmin(admin.ModelAdmin):
             try:
                 obj.approve(request.user)
                 approved.append(str(obj.eve_entity.name))
-            except Exception as ex:
+            except ValidationError as ex:
                 errors.append(f"{obj.eve_entity.name}: {ex}")
 
         if approved:
@@ -202,7 +203,7 @@ class StandingRequestAdmin(admin.ModelAdmin):
             try:
                 obj.reject(request.user, reason="Rejected by admin")
                 rejected.append(str(obj.eve_entity.name))
-            except Exception as ex:
+            except ValidationError as ex:
                 errors.append(f"{obj.eve_entity.name}: {ex}")
 
         if rejected:
@@ -316,7 +317,7 @@ class StandingRevocationAdmin(admin.ModelAdmin):
             try:
                 obj.approve(request.user)
                 approved.append(str(obj.eve_entity.name))
-            except Exception as ex:
+            except ValidationError as ex:
                 errors.append(f"{obj.eve_entity.name}: {ex}")
 
         if approved:
@@ -339,7 +340,7 @@ class StandingRevocationAdmin(admin.ModelAdmin):
             try:
                 obj.reject(request.user, reason="Rejected by admin")
                 rejected.append(str(obj.eve_entity.name))
-            except Exception as ex:
+            except ValidationError as ex:
                 errors.append(f"{obj.eve_entity.name}: {ex}")
 
         if rejected:
@@ -495,7 +496,7 @@ class SyncedCharacterAdmin(admin.ModelAdmin):
     def force_sync_characters(self, request, queryset):
         names = []
         for obj in queryset:
-            tasks.sync_character.delay(obj.pk)
+            tasks.force_sync_character.delay(obj.pk)
             names.append(str(obj))
         names_text = ", ".join(names)
         self.message_user(request, f"Started force sync for: {names_text}")

@@ -1,0 +1,265 @@
+{% extends 'standingsmanager/_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block details %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-list"></i> All Standings
+            <span class="badge">{{ total_count }}</span>
+            <div class="pull-right">
+                <a href="{% url 'standingsmanager:export_standings_csv' %}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-download"></i> Export CSV
+                </a>
+            </div>
+        </h3>
+    </div>
+    <div class="panel-body">
+        <p class="text-muted">
+            View all current standings in the system. Use the tabs below to filter by entity type.
+        </p>
+
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active">
+                <a href="#characters-tab" aria-controls="characters" role="tab" data-toggle="tab">
+                    <i class="fas fa-user"></i> Characters
+                    <span class="badge">{{ character_count }}</span>
+                </a>
+            </li>
+            <li role="presentation">
+                <a href="#corporations-tab" aria-controls="corporations" role="tab" data-toggle="tab">
+                    <i class="fas fa-building"></i> Corporations
+                    <span class="badge">{{ corporation_count }}</span>
+                </a>
+            </li>
+            <li role="presentation">
+                <a href="#alliances-tab" aria-controls="alliances" role="tab" data-toggle="tab">
+                    <i class="fas fa-users"></i> Alliances
+                    <span class="badge">{{ alliance_count }}</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content" style="margin-top: 20px;">
+            <!-- Characters Tab -->
+            <div role="tabpanel" class="tab-pane active" id="characters-tab">
+                {% if characters %}
+                    <table class="table table-hover" id="characters-table">
+                        <thead>
+                            <tr>
+                                <th>Character</th>
+                                <th>Standing</th>
+                                <th>Requested By</th>
+                                <th>Main Character</th>
+                                <th>Added Date</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for standing in characters %}
+                                <tr>
+                                    <td>
+                                        <img src="{{ standing.portrait_url }}" alt="{{ standing.entity_name }}" class="img-circle" width="32" height="32">
+                                        {{ standing.entity_name }}
+                                    </td>
+                                    <td>
+                                        {% if standing.standing >= 5 %}
+                                            <span class="label label-primary">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= 0 %}
+                                            <span class="label label-info">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= -5 %}
+                                            <span class="label label-warning">{{ standing.standing }}</span>
+                                        {% else %}
+                                            <span class="label label-danger">{{ standing.standing }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ standing.added_by }}</td>
+                                    <td>{{ standing.added_by_main }}</td>
+                                    <td>{{ standing.added_date|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if standing.notes %}
+                                            {{ standing.notes|truncatewords:10 }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No character standings.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Corporations Tab -->
+            <div role="tabpanel" class="tab-pane" id="corporations-tab">
+                {% if corporations %}
+                    <table class="table table-hover" id="corporations-table">
+                        <thead>
+                            <tr>
+                                <th>Corporation</th>
+                                <th>Standing</th>
+                                <th>Requested By</th>
+                                <th>Main Character</th>
+                                <th>Added Date</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for standing in corporations %}
+                                <tr>
+                                    <td>
+                                        <img src="{{ standing.logo_url }}" alt="{{ standing.entity_name }}" class="img-circle" width="32" height="32">
+                                        {{ standing.entity_name }}
+                                    </td>
+                                    <td>
+                                        {% if standing.standing >= 5 %}
+                                            <span class="label label-primary">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= 0 %}
+                                            <span class="label label-info">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= -5 %}
+                                            <span class="label label-warning">{{ standing.standing }}</span>
+                                        {% else %}
+                                            <span class="label label-danger">{{ standing.standing }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ standing.added_by }}</td>
+                                    <td>{{ standing.added_by_main }}</td>
+                                    <td>{{ standing.added_date|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if standing.notes %}
+                                            {{ standing.notes|truncatewords:10 }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No corporation standings.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Alliances Tab -->
+            <div role="tabpanel" class="tab-pane" id="alliances-tab">
+                {% if alliances %}
+                    <table class="table table-hover" id="alliances-table">
+                        <thead>
+                            <tr>
+                                <th>Alliance</th>
+                                <th>Standing</th>
+                                <th>Requested By</th>
+                                <th>Main Character</th>
+                                <th>Added Date</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for standing in alliances %}
+                                <tr>
+                                    <td>
+                                        <img src="{{ standing.logo_url }}" alt="{{ standing.entity_name }}" class="img-circle" width="32" height="32">
+                                        {{ standing.entity_name }}
+                                    </td>
+                                    <td>
+                                        {% if standing.standing >= 5 %}
+                                            <span class="label label-primary">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= 0 %}
+                                            <span class="label label-info">{{ standing.standing }}</span>
+                                        {% elif standing.standing >= -5 %}
+                                            <span class="label label-warning">{{ standing.standing }}</span>
+                                        {% else %}
+                                            <span class="label label-danger">{{ standing.standing }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ standing.added_by }}</td>
+                                    <td>{{ standing.added_by_main }}</td>
+                                    <td>{{ standing.added_date|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        {% if standing.notes %}
+                                            {{ standing.notes|truncatewords:10 }}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> No alliance standings.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-info-circle"></i> Help
+        </h3>
+    </div>
+    <div class="panel-body">
+        <h4>Standings Overview</h4>
+        <p>
+            This page shows all current standings in the system. These standings are automatically synced to all characters
+            that have been added to the sync system.
+        </p>
+
+        <h4>Standing Values</h4>
+        <ul>
+            <li><span class="label label-primary">5 to 10</span> - Excellent standing</li>
+            <li><span class="label label-info">0 to 4.9</span> - Good standing</li>
+            <li><span class="label label-warning">-5 to -0.1</span> - Negative standing</li>
+            <li><span class="label label-danger">-10 to -5.1</span> - Very negative standing</li>
+        </ul>
+
+        <h4>CSV Export</h4>
+        <p>
+            Click the "Export CSV" button to download a complete list of all standings in CSV format.
+            This can be useful for backup, analysis, or importing into other tools.
+        </p>
+
+        <h4>Managing Standings</h4>
+        <p>
+            To modify standings, use the Django admin interface or approve/reject requests in the "Manage Requests" page.
+        </p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_javascript %}
+<script>
+$(document).ready(function() {
+    // Initialize DataTables for each tab
+    $('#characters-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 25
+    });
+
+    $('#corporations-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 25
+    });
+
+    $('#alliances-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 25
+    });
+});
+</script>
+{% endblock %}

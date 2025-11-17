@@ -27,7 +27,7 @@ CSRF_TRUSTED_ORIGINS = [SITE_URL]
 DEBUG = False
 
 # Add any additional apps to this list.
-INSTALLED_APPS += ["sri", "eveuniverse", "standingssync"]
+INSTALLED_APPS += ["sri", "eveuniverse", "standingsmanager"]
 
 # Enter credentials to use MySQL/MariaDB. Comment out to use sqlite3
 """

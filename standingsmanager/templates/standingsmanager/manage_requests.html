@@ -1,0 +1,146 @@
+{% extends 'standingsmanager/_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block details %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-tasks"></i> {% trans "Pending Standing Requests" %}
+            <span class="badge">{{ request_count }}</span>
+        </h3>
+    </div>
+    <div class="panel-body">
+        {% if requests %}
+            <p class="text-muted">
+                {% trans "Review and approve or reject pending standing requests from users." %}
+            </p>
+            <table class="table table-hover" id="requests-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Entity" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Requester" %}</th>
+                        <th>{% trans "Main Character" %}</th>
+                        <th>{% trans "Corp / Alliance" %}</th>
+                        <th>{% trans "Requested" %}</th>
+                        <th>{% trans "Age" %}</th>
+                        <th>{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                        <tr id="request-row-{{ req.pk }}">
+                            <td>
+                                {% if req.entity_type == 'character' %}
+                                    <img src="{{ req.portrait_url }}" alt="{{ req.entity_name }}" class="img-circle" width="32" height="32">
+                                {% else %}
+                                    <img src="{{ req.logo_url }}" alt="{{ req.entity_name }}" class="img-circle" width="32" height="32">
+                                {% endif %}
+                                {{ req.entity_name }}
+                            </td>
+                            <td>
+                                <span class="label label-default">{{ req.entity_type_display }}</span>
+                            </td>
+                            <td>
+                                {{ req.requester_name }}
+                            </td>
+                            <td>
+                                {{ req.requester_main }}
+                            </td>
+                            <td>
+                                {{ req.requester_main_corporation }}
+                                {% if req.requester_main_alliance %}
+                                    <br><small class="text-muted">{{ req.requester_main_alliance }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ req.request_date|date:"Y-m-d H:i" }}
+                            </td>
+                            <td>
+                                {% if req.age_days == 0 %}
+                                    <span class="label label-success">{% trans "Today" %}</span>
+                                {% elif req.age_days < 3 %}
+                                    <span class="label label-info">{% blocktrans count days=req.age_days %}{{ days }} day{% plural %}{{ days }} days{% endblocktrans %}</span>
+                                {% elif req.age_days < 7 %}
+                                    <span class="label label-warning">{% blocktrans count days=req.age_days %}{{ days }} days{% endblocktrans %}</span>
+                                {% else %}
+                                    <span class="label label-danger">{% blocktrans count days=req.age_days %}{{ days }} days{% endblocktrans %}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-success btn-sm approve-request-btn" data-request-pk="{{ req.pk }}" data-entity-name="{{ req.entity_name }}">
+                                        <i class="fas fa-check"></i> {% trans "Approve" %}
+                                    </button>
+                                    <button class="btn btn-danger btn-sm reject-request-btn" data-request-pk="{{ req.pk }}" data-entity-name="{{ req.entity_name }}">
+                                        <i class="fas fa-times"></i> {% trans "Reject" %}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> {% trans "No pending standing requests." %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-info-circle"></i> {% trans "Help" %}
+        </h3>
+    </div>
+    <div class="panel-body">
+        <h4>{% trans "Approving Requests" %}</h4>
+        <p>
+            {% trans "When you approve a standing request:" %}
+        </p>
+        <ul>
+            <li>{% trans "A standings entry is created in the database with the default standing value (5.0)" %}</li>
+            <li>{% trans "The request is marked as approved" %}</li>
+            <li>{% trans "An audit log entry is created" %}</li>
+            <li>{% trans "All synced characters will automatically receive the update on their next sync cycle" %}</li>
+            <li>{% trans "The requester will be notified (if notifications are configured)" %}</li>
+        </ul>
+
+        <h4>{% trans "Rejecting Requests" %}</h4>
+        <p>
+            {% trans "When you reject a standing request:" %}
+        </p>
+        <ul>
+            <li>{% trans "The request is deleted from the system" %}</li>
+            <li>{% trans "An audit log entry is created" %}</li>
+            <li>{% trans "The requester will be notified of the rejection (if notifications are configured)" %}</li>
+            <li>{% trans "The user can submit a new request if needed" %}</li>
+        </ul>
+
+        <h4>{% trans "Age Indicators" %}</h4>
+        <ul>
+            <li><span class="label label-success">{% trans "Today" %}</span> - {% trans "Request submitted today" %}</li>
+            <li><span class="label label-info">{% trans "1-2 days" %}</span> - {% trans "Recent request" %}</li>
+            <li><span class="label label-warning">{% trans "3-6 days" %}</span> - {% trans "Older request" %}</li>
+            <li><span class="label label-danger">{% trans "7+ days" %}</span> - {% trans "Old request, needs attention" %}</li>
+        </ul>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_javascript %}
+<script src="{% static 'standingsmanager/js/standings.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('#requests-table').DataTable({
+        "order": [[5, "desc"]],  // Sort by request date descending
+        "pageLength": 25
+    });
+});
+</script>
+{% endblock %}

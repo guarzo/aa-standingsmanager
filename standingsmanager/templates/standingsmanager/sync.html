@@ -1,0 +1,179 @@
+{% extends 'standingsmanager/_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block details %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-sync"></i> My Synced Characters
+        </h3>
+    </div>
+    <div class="panel-body">
+        {% if characters %}
+            <p class="text-muted">
+                Manage which characters automatically sync standings. Characters must have an approved standing before they can be added to sync.
+            </p>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Important:</strong> Each character must have a contact label named <strong>"{{ label_name }}"</strong> created in-game.
+                <a href="#label-instructions" data-toggle="collapse">Click here for instructions</a>
+            </div>
+            <div id="label-instructions" class="collapse">
+                <div class="well">
+                    <h4>How to Create a Contact Label In-Game</h4>
+                    <ol>
+                        <li>Log in to EVE Online with your character</li>
+                        <li>Open the People & Places window (Alt+E)</li>
+                        <li>Go to the "Contacts" tab</li>
+                        <li>Click the "Labels" button at the top</li>
+                        <li>Click "Create Label"</li>
+                        <li>Enter exactly: <strong>{{ label_name }}</strong></li>
+                        <li>Click "OK"</li>
+                        <li>The sync system will detect the label on the next sync cycle</li>
+                    </ol>
+                </div>
+            </div>
+
+            <table class="table table-hover" id="synced-characters-table">
+                <thead>
+                    <tr>
+                        <th>Character</th>
+                        <th>Corporation / Alliance</th>
+                        <th>Label Status</th>
+                        <th>Last Sync</th>
+                        <th>Sync Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for char in characters %}
+                        <tr>
+                            <td>
+                                <img src="{{ char.portrait_url }}" alt="{{ char.name }}" class="img-circle" width="32" height="32">
+                                {{ char.name }}
+                            </td>
+                            <td>
+                                {{ char.corporation_name }}
+                                {% if char.corporation_ticker %}
+                                    [{{ char.corporation_ticker }}]
+                                {% endif %}
+                                {% if char.alliance_name %}
+                                    <br>
+                                    <small class="text-muted">{{ char.alliance_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.is_synced %}
+                                    {% if char.has_label %}
+                                        <span class="label label-success"><i class="fas fa-check"></i> Found</span>
+                                    {% else %}
+                                        <span class="label label-danger"><i class="fas fa-times"></i> Missing</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.last_sync_at %}
+                                    {{ char.last_sync_at|date:"Y-m-d H:i" }}
+                                {% else %}
+                                    <span class="text-muted">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.sync_status == 'fresh' %}
+                                    <span class="label label-success">{{ char.sync_status_text }}</span>
+                                {% elif char.sync_status == 'stale' %}
+                                    <span class="label label-warning">{{ char.sync_status_text }}</span>
+                                {% elif char.sync_status == 'error' %}
+                                    <span class="label label-danger">{{ char.sync_status_text }}</span>
+                                {% elif char.sync_status == 'no_label' %}
+                                    <span class="label label-warning">{{ char.sync_status_text }}</span>
+                                {% else %}
+                                    <span class="label label-default">{{ char.sync_status_text }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.can_add_sync %}
+                                    <button class="btn btn-success btn-sm add-sync-btn" data-character-id="{{ char.id }}" data-character-name="{{ char.name }}">
+                                        <i class="fas fa-plus"></i> Add to Sync
+                                    </button>
+                                {% elif char.can_remove_sync %}
+                                    <button class="btn btn-danger btn-sm remove-sync-btn" data-synced-char-pk="{{ char.synced_char_pk }}" data-character-name="{{ char.name }}">
+                                        <i class="fas fa-minus"></i> Remove from Sync
+                                    </button>
+                                {% else %}
+                                    {% if not char.has_standing %}
+                                        <small class="text-muted">No standing approved</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> You have no characters. Please add a character first.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-question-circle"></i> Help
+        </h3>
+    </div>
+    <div class="panel-body">
+        <h4>How Sync Works</h4>
+        <ol>
+            <li>Request and get approval for standings (see "Request Standings" page)</li>
+            <li>Add your approved characters to sync using the "Add to Sync" button above</li>
+            <li>Create a contact label named <strong>"{{ label_name }}"</strong> in-game for each character</li>
+            <li>The sync system will automatically update your character's contacts every 30 minutes</li>
+            <li>All contacts with the <strong>"{{ label_name }}"</strong> label will be managed by the system</li>
+        </ol>
+
+        <h4>Label Status</h4>
+        <ul>
+            <li><span class="label label-success">Found</span> - The label exists in-game, sync will work</li>
+            <li><span class="label label-danger">Missing</span> - Create the label in-game (see instructions above)</li>
+        </ul>
+
+        <h4>Sync Status</h4>
+        <ul>
+            <li><span class="label label-success">Synced</span> - Character is up to date</li>
+            <li><span class="label label-warning">Needs sync</span> - Character will sync on next cycle</li>
+            <li><span class="label label-danger">Error</span> - There was an error syncing, check the message</li>
+            <li><span class="label label-warning">Missing label</span> - Create the label in-game</li>
+        </ul>
+
+        <h4>Important Notes</h4>
+        <ul>
+            <li>Only contacts with the <strong>"{{ label_name }}"</strong> label will be modified</li>
+            <li>Your other contacts will not be touched</li>
+            <li>Sync happens automatically every 30 minutes</li>
+            <li>You can remove a character from sync at any time</li>
+        </ul>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_javascript %}
+<script src="{% static 'standingsmanager/js/standings.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('#synced-characters-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 25
+    });
+});
+</script>
+{% endblock %}

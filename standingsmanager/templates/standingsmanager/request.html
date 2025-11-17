@@ -1,0 +1,229 @@
+{% extends 'standingsmanager/_base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block details %}
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-user"></i> My Characters
+        </h3>
+    </div>
+    <div class="panel-body">
+        {% if characters %}
+            <p class="text-muted">
+                Request standings for your characters. Once approved, you can add them to sync.
+            </p>
+            <table class="table table-hover" id="characters-table">
+                <thead>
+                    <tr>
+                        <th>Character</th>
+                        <th>Corporation / Alliance</th>
+                        <th>Status</th>
+                        <th>Scopes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for char in characters %}
+                        <tr>
+                            <td>
+                                <img src="{{ char.portrait_url }}" alt="{{ char.name }}" class="img-circle" width="32" height="32">
+                                {{ char.name }}
+                            </td>
+                            <td>
+                                {{ char.corporation_name }}
+                                {% if char.corporation_ticker %}
+                                    [{{ char.corporation_ticker }}]
+                                {% endif %}
+                                {% if char.alliance_name %}
+                                    <br>
+                                    <small class="text-muted">{{ char.alliance_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.status == 'approved' %}
+                                    <span class="label label-success">{{ char.status_text }}</span>
+                                {% elif char.status == 'pending' %}
+                                    <span class="label label-warning">{{ char.status_text }}</span>
+                                {% elif char.status == 'can_request' %}
+                                    <span class="label label-info">{{ char.status_text }}</span>
+                                {% else %}
+                                    <span class="label label-danger">{{ char.status_text }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.has_scopes %}
+                                    <span class="text-success"><i class="fas fa-check"></i> All scopes</span>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-times"></i> Missing scopes
+                                        {% if char.missing_scopes %}
+                                            <br><small>{{ char.missing_scopes|join:", " }}</small>
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if char.can_request %}
+                                    <button class="btn btn-primary btn-sm request-character-btn" data-character-id="{{ char.id }}" data-character-name="{{ char.name }}">
+                                        <i class="fas fa-plus"></i> Request Standing
+                                    </button>
+                                {% elif char.can_remove %}
+                                    <button class="btn btn-danger btn-sm remove-standing-btn" data-entity-id="{{ char.id }}" data-entity-name="{{ char.name }}">
+                                        <i class="fas fa-minus"></i> Remove Standing
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> You have no characters. Please add a character first.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-building"></i> My Corporations
+        </h3>
+    </div>
+    <div class="panel-body">
+        {% if corporations %}
+            <p class="text-muted">
+                Request standings for entire corporations. You must have valid tokens for ALL characters in the corporation.
+            </p>
+            <table class="table table-hover" id="corporations-table">
+                <thead>
+                    <tr>
+                        <th>Corporation</th>
+                        <th>Alliance</th>
+                        <th>Characters</th>
+                        <th>Status</th>
+                        <th>Token Coverage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for corp in corporations %}
+                        <tr>
+                            <td>
+                                <img src="{{ corp.logo_url }}" alt="{{ corp.name }}" class="img-circle" width="32" height="32">
+                                {{ corp.name }} [{{ corp.ticker }}]
+                            </td>
+                            <td>
+                                {% if corp.alliance_name %}
+                                    {{ corp.alliance_name }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ corp.character_count }} character{{ corp.character_count|pluralize }}
+                            </td>
+                            <td>
+                                {% if corp.status == 'approved' %}
+                                    <span class="label label-success">{{ corp.status_text }}</span>
+                                {% elif corp.status == 'pending' %}
+                                    <span class="label label-warning">{{ corp.status_text }}</span>
+                                {% elif corp.status == 'can_request' %}
+                                    <span class="label label-info">{{ corp.status_text }}</span>
+                                {% else %}
+                                    <span class="label label-danger">{{ corp.status_text }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if corp.has_full_coverage %}
+                                    <span class="text-success"><i class="fas fa-check"></i> Complete</span>
+                                {% else %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-times"></i> Incomplete
+                                        {% if corp.missing_characters %}
+                                            <br><small>Missing: {{ corp.missing_characters|join:", " }}</small>
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if corp.can_request %}
+                                    <button class="btn btn-primary btn-sm request-corporation-btn" data-corporation-id="{{ corp.id }}" data-corporation-name="{{ corp.name }}">
+                                        <i class="fas fa-plus"></i> Request Standing
+                                    </button>
+                                {% elif corp.can_remove %}
+                                    <button class="btn btn-danger btn-sm remove-standing-btn" data-entity-id="{{ corp.id }}" data-entity-name="{{ corp.name }}">
+                                        <i class="fas fa-minus"></i> Remove Standing
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No corporations found.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title">
+            <i class="fas fa-info-circle"></i> Help
+        </h3>
+    </div>
+    <div class="panel-body">
+        <h4>How to Request Standings</h4>
+        <ol>
+            <li>Ensure your character has all required ESI scopes (shown in the "Scopes" column)</li>
+            <li>Click "Request Standing" to create a request</li>
+            <li>Wait for an approver to review and approve your request</li>
+            <li>Once approved, you can add the character to sync in the "My Synced Characters" page</li>
+        </ol>
+
+        <h4>Corporation Requests</h4>
+        <p>
+            To request standings for a corporation, you must have valid tokens for ALL characters you own in that corporation.
+            This ensures you have full control and authorization for the corporation-level request.
+        </p>
+
+        {% if required_scopes %}
+            <h4>Required Scopes for Your Account</h4>
+            <ul>
+                {% for scope in required_scopes %}
+                    <li><code>{{ scope }}</code></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_javascript %}
+<script src="{% static 'standingsmanager/js/standings.js' %}"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('#characters-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 25
+    });
+
+    $('#corporations-table').DataTable({
+        "order": [[0, "asc"]],
+        "pageLength": 10
+    });
+});
+</script>
+{% endblock %}

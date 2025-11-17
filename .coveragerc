@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = standingssync
+source = standingsmanager
 
 [report]
 exclude_lines =

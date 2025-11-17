@@ -174,7 +174,9 @@ class TestEsiRetryLogic(NoSocketsTestCase):
 
         # Mock the results method to track calls
         mock_results = Mock(side_effect=side_effect)
-        mock_esi.client.Contacts.get_characters_character_id_contacts.return_value.results = mock_results
+        mock_esi.client.Contacts.get_characters_character_id_contacts.return_value.results = (
+            mock_results
+        )
 
         # when
         result = esi_api.fetch_character_contacts(token=mock_token)

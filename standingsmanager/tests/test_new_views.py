@@ -1,19 +1,16 @@
 """Tests for refactored Sprint 4 views."""
 
-from unittest.mock import patch
-
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import Client, TestCase
 from django.urls import reverse
-
 from eveuniverse.models import EveEntity
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 
-from ..models import StandingRequest, StandingsEntry, SyncedCharacter
+from ..models import StandingRequest, StandingsEntry
 
 
 class ViewTestCase(TestCase):
@@ -97,7 +94,6 @@ class TestRequestStandingsView(ViewTestCase):
         self.assertEqual(response.status_code, 302)  # Redirect due to no permission
 
 
-
 class TestMySyncedCharactersView(ViewTestCase):
     """Tests for my_synced_characters view."""
 
@@ -112,7 +108,6 @@ class TestMySyncedCharactersView(ViewTestCase):
         self.client.force_login(user_no_perms)
         response = self.client.get(reverse("standingsmanager:my_synced_characters"))
         self.assertEqual(response.status_code, 302)
-
 
 
 class TestManageRequestsView(ViewTestCase):
@@ -130,7 +125,6 @@ class TestManageRequestsView(ViewTestCase):
         self.assertEqual(response.status_code, 302)
 
 
-
 class TestManageRevocationsView(ViewTestCase):
     """Tests for manage_revocations view."""
 
@@ -144,7 +138,6 @@ class TestManageRevocationsView(ViewTestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("standingsmanager:manage_revocations"))
         self.assertEqual(response.status_code, 302)
-
 
 
 class TestViewStandingsView(ViewTestCase):
@@ -162,10 +155,8 @@ class TestViewStandingsView(ViewTestCase):
         self.assertEqual(response.status_code, 302)
 
 
-
 class TestAPIEndpoints(ViewTestCase):
     """Tests for API endpoints."""
-
 
 
 class TestCSVExport(ViewTestCase):
@@ -181,4 +172,3 @@ class TestCSVExport(ViewTestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("standingsmanager:export_standings_csv"))
         self.assertEqual(response.status_code, 302)
-

@@ -42,21 +42,22 @@ class PermissionHelperTestCase(TestCase):
     def setUpTestData(cls):
         """Create permissions for all tests."""
         from django.contrib.contenttypes.models import ContentType
-        from ..models import StandingsEntry, StandingRequest, AuditLog
+
+        from ..models import StandingRequest, StandingsEntry
 
         # Create custom permissions if they don't exist
         content_type = ContentType.objects.get_for_model(StandingRequest)
         Permission.objects.get_or_create(
             codename="approve_standings",
             content_type=content_type,
-            defaults={"name": "Can approve standing requests"}
+            defaults={"name": "Can approve standing requests"},
         )
 
         content_type = ContentType.objects.get_for_model(StandingsEntry)
         Permission.objects.get_or_create(
             codename="manage_standings",
             content_type=content_type,
-            defaults={"name": "Can manage standings database"}
+            defaults={"name": "Can manage standings database"},
         )
 
     def setUp(self):
@@ -70,8 +71,7 @@ class PermissionHelperTestCase(TestCase):
     def test_user_can_request_standings_with_permission(self):
         """Test user can request standings with permission."""
         permission = Permission.objects.get(
-            codename="add_syncedcharacter",
-            content_type__app_label="standingsmanager"
+            codename="add_syncedcharacter", content_type__app_label="standingsmanager"
         )
         self.user.user_permissions.add(permission)
 
@@ -84,8 +84,7 @@ class PermissionHelperTestCase(TestCase):
     def test_user_can_approve_standings_with_permission(self):
         """Test user can approve standings with permission."""
         permission = Permission.objects.get(
-            codename="approve_standings",
-            content_type__app_label="standingsmanager"
+            codename="approve_standings", content_type__app_label="standingsmanager"
         )
         self.user.user_permissions.add(permission)
 
@@ -109,8 +108,7 @@ class PermissionHelperTestCase(TestCase):
     def test_user_can_view_audit_log_with_permission(self):
         """Test user can view audit log with permission."""
         permission = Permission.objects.get(
-            codename="view_auditlog",
-            content_type__app_label="standingsmanager"
+            codename="view_auditlog", content_type__app_label="standingsmanager"
         )
         self.user.user_permissions.add(permission)
 
@@ -220,7 +218,7 @@ class CorporationTokenValidationTestCase(TestCase):
             defaults={
                 "corporation_name": "Test Corporation",
                 "member_count": 100,
-            }
+            },
         )
 
     def test_validate_corporation_token_coverage_no_characters(self):
@@ -231,7 +229,7 @@ class CorporationTokenValidationTestCase(TestCase):
             defaults={
                 "corporation_name": "Test Corporation 4",
                 "member_count": 100,
-            }
+            },
         )
 
         with self.assertRaises(ValidationError) as context:
@@ -250,7 +248,7 @@ class CorporationTokenValidationTestCase(TestCase):
             defaults={
                 "corporation_name": "Test Corporation 2",
                 "member_count": 100,
-            }
+            },
         )
 
         # Create characters in corp
@@ -294,7 +292,7 @@ class CorporationTokenValidationTestCase(TestCase):
             defaults={
                 "corporation_name": "Test Corporation 3",
                 "member_count": 100,
-            }
+            },
         )
 
         # Create characters in corp with unique IDs
@@ -378,12 +376,12 @@ class RequestCreationLogicTestCase(TestCase):
                 "character_name": self.character_entity.name,
                 "corporation_id": 1000,
                 "corporation_name": "Test Corp",
-            }
+            },
         )
         self.ownership, _ = CharacterOwnership.objects.get_or_create(
             user=self.user,
             character=self.character,
-            defaults={"owner_hash": "test_hash"}
+            defaults={"owner_hash": "test_hash"},
         )
 
     def test_can_user_request_character_standing_without_permission(self):
@@ -560,7 +558,7 @@ class ManagerMethodsTestCase(TestCase):
             defaults={
                 "corporation_name": "Test Corporation",
                 "member_count": 100,
-            }
+            },
         )
 
         request = StandingRequest.objects.create_corporation_request(

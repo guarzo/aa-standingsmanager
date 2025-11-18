@@ -5,14 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    replaces = [
-        ("standingssync", "0001_initial-new"),
-        ("standingssync", "0002_add_war_targets"),
-        ("standingssync", "0003_war_target_labels"),
-        ("standingssync", "0004_remove_old_eve_entity"),
-        ("standingssync", "0005_add_new_eve_entity"),
-    ]
-
     initial = True
 
     dependencies = [

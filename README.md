@@ -158,18 +158,15 @@ systemctl restart allianceauth-beat
 Add to your `local.py`:
 
 ```python
-from celery.schedules import crontab
+# Standings Manager scheduled tasks
+CELERYBEAT_SCHEDULE['standingsmanager_sync_all'] = {
+    'task': 'standingsmanager.tasks.run_regular_sync',
+    'schedule': crontab(minute='*/30'),  # Every 30 minutes
+}
 
-CELERYBEAT_SCHEDULE = {
-    # ... other tasks ...
-    'standingsmanager_sync_all': {
-        'task': 'standingsmanager.tasks.run_regular_sync',
-        'schedule': crontab(minute='*/30'),  # Every 30 minutes
-    },
-    'standingsmanager_validate_all': {
-        'task': 'standingsmanager.tasks.run_regular_validation',
-        'schedule': crontab(hour='*/6'),  # Every 6 hours
-    },
+CELERYBEAT_SCHEDULE['standingsmanager_validate_all'] = {
+    'task': 'standingsmanager.tasks.run_regular_validation',
+    'schedule': crontab(hour='*/6'),  # Every 6 hours
 }
 ```
 

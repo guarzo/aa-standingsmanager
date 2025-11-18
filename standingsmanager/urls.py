@@ -32,6 +32,16 @@ urlpatterns = [
         name="api_remove_standing",
     ),
     path(
+        "api/bulk-request-characters/",
+        views.api_bulk_request_character_standings,
+        name="api_bulk_request_characters",
+    ),
+    path(
+        "api/bulk-remove-standings/",
+        views.api_bulk_remove_standings,
+        name="api_bulk_remove_standings",
+    ),
+    path(
         "api/add-sync/<int:character_id>/",
         views.api_add_character_to_sync,
         name="api_add_sync",

@@ -116,6 +116,135 @@ function showError(message) {
 }
 
 // ============================================================================
+// Bulk Selection Management
+// ============================================================================
+
+// Update bulk action button states
+function updateBulkActionButtons() {
+    const requestChecked = $('.request-checkbox:checked').length;
+    const revokeChecked = $('.revoke-checkbox:checked').length;
+
+    $('#request-count').text(requestChecked);
+    $('#revoke-count').text(revokeChecked);
+
+    $('#bulk-request-btn').prop('disabled', requestChecked === 0);
+    $('#bulk-revoke-btn').prop('disabled', revokeChecked === 0);
+}
+
+// Select all checkbox handler
+$(document).on('change', '#select-all-characters', function() {
+    const isChecked = $(this).is(':checked');
+    $('.character-checkbox').prop('checked', isChecked);
+    updateBulkActionButtons();
+});
+
+// Individual checkbox handler
+$(document).on('change', '.character-checkbox', function() {
+    const totalCheckboxes = $('.character-checkbox').length;
+    const checkedCheckboxes = $('.character-checkbox:checked').length;
+    $('#select-all-characters').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
+    updateBulkActionButtons();
+});
+
+// ============================================================================
+// Bulk Request Characters
+// ============================================================================
+$(document).on('click', '#bulk-request-btn', function(e) {
+    e.preventDefault();
+    const button = $(this);
+    const checkedBoxes = $('.request-checkbox:checked');
+    const characterIds = [];
+    const characterNames = [];
+
+    checkedBoxes.each(function() {
+        characterIds.push($(this).data('character-id'));
+        characterNames.push($(this).data('character-name'));
+    });
+
+    if (characterIds.length === 0) {
+        return;
+    }
+
+    const confirmMsg = characterIds.length === 1
+        ? `Request standing for ${characterNames[0]}?`
+        : `Request standings for ${characterIds.length} characters?\n\n${characterNames.join(', ')}`;
+
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+
+    showLoading(button);
+
+    $.ajax({
+        url: '/standingsmanager/api/bulk-request-characters/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ character_ids: characterIds }),
+        success: function(data) {
+            showSuccess(data.message);
+            // Reload page after 1 second to show updated status
+            setTimeout(function() {
+                location.reload();
+            }, 1000);
+        },
+        error: function(xhr) {
+            hideLoading(button);
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred';
+            showError(error);
+        }
+    });
+});
+
+// ============================================================================
+// Bulk Revoke Standings
+// ============================================================================
+$(document).on('click', '#bulk-revoke-btn', function(e) {
+    e.preventDefault();
+    const button = $(this);
+    const checkedBoxes = $('.revoke-checkbox:checked');
+    const entityIds = [];
+    const entityNames = [];
+
+    checkedBoxes.each(function() {
+        entityIds.push($(this).data('entity-id'));
+        entityNames.push($(this).data('entity-name'));
+    });
+
+    if (entityIds.length === 0) {
+        return;
+    }
+
+    const confirmMsg = entityIds.length === 1
+        ? `Request removal of standing for ${entityNames[0]}?\n\nAn approver will need to approve this request.`
+        : `Request removal of standings for ${entityIds.length} characters?\n\n${entityNames.join(', ')}\n\nAn approver will need to approve these requests.`;
+
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+
+    showLoading(button);
+
+    $.ajax({
+        url: '/standingsmanager/api/bulk-remove-standings/',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ entity_ids: entityIds }),
+        success: function(data) {
+            showSuccess(data.message);
+            // Reload page after 1 second to show updated status
+            setTimeout(function() {
+                location.reload();
+            }, 1000);
+        },
+        error: function(xhr) {
+            hideLoading(button);
+            const error = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred';
+            showError(error);
+        }
+    });
+});
+
+// ============================================================================
 // Request Character Standing
 // ============================================================================
 $(document).on('click', '.request-character-btn', function(e) {

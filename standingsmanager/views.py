@@ -1,8 +1,11 @@
 """Views for standingsmanager."""
 
 import csv
+import json
 
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -224,15 +227,18 @@ def request_standings(request):
         # Check token coverage
         try:
             corp_info = EveCorporationInfo.objects.get(corporation_id=corp_id)
-            has_full_coverage, missing_characters = validate_corporation_token_coverage(
-                corp_info, user
-            )
         except EveCorporationInfo.DoesNotExist:
             # Create corporation info if it doesn't exist
-            corp_info = EveCorporationInfo.objects.create_corporation(corp_id)
-            has_full_coverage, missing_characters = validate_corporation_token_coverage(
-                corp_info, user
-            )
+            # Handle race condition where another process may have created it
+            try:
+                corp_info = EveCorporationInfo.objects.create_corporation(corp_id)
+            except IntegrityError:
+                # Another process created it, fetch it
+                corp_info = EveCorporationInfo.objects.get(corporation_id=corp_id)
+
+        has_full_coverage, missing_characters = validate_corporation_token_coverage(
+            corp_info, user
+        )
 
         # Check eligibility
         can_request, error_message = can_user_request_corporation_standing(
@@ -748,7 +754,12 @@ def api_request_corporation_standing(request, corporation_id):
         try:
             corporation = EveCorporationInfo.objects.get(corporation_id=corporation_id)
         except EveCorporationInfo.DoesNotExist:
-            corporation = EveCorporationInfo.objects.create_corporation(corporation_id)
+            # Handle race condition where another process may have created it
+            try:
+                corporation = EveCorporationInfo.objects.create_corporation(corporation_id)
+            except IntegrityError:
+                # Another process created it, fetch it
+                corporation = EveCorporationInfo.objects.get(corporation_id=corporation_id)
 
         # Check eligibility
         can_request, error_message = can_user_request_corporation_standing(
@@ -827,11 +838,17 @@ def api_remove_standing(request, entity_id):
                 )
 
         # Create revocation
-        revocation = StandingRevocation.objects.create_for_entity(
-            entity,
-            reason=StandingRevocation.RevocationReason.USER_REQUEST,
-            user=request.user,
-        )
+        try:
+            revocation = StandingRevocation.objects.create_for_entity(
+                entity,
+                reason=StandingRevocation.RevocationReason.USER_REQUEST,
+                user=request.user,
+            )
+        except ValidationError as e:
+            return JsonResponse(
+                {"success": False, "error": str(e.message if hasattr(e, 'message') else e)},
+                status=400,
+            )
 
         logger.info(
             f"User {request.user.username} created revocation request for {entity.name}"
@@ -847,6 +864,260 @@ def api_remove_standing(request, entity_id):
 
     except Exception as e:
         logger.exception(f"Error creating revocation request: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+
+
+@login_required
+@permission_required("standingsmanager.add_syncedcharacter")
+@require_http_methods(["POST"])
+def api_bulk_request_character_standings(request):
+    """
+    API endpoint to create standing requests for multiple characters.
+
+    Expects JSON body with:
+        character_ids: list of EVE character IDs
+
+    Returns:
+        JSON response with success/error status and details for each character
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            character_ids = data.get("character_ids", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not character_ids:
+            return JsonResponse(
+                {"success": False, "error": "No characters specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for character_id in character_ids:
+            try:
+                # Get character
+                try:
+                    character = EveCharacter.objects.get(character_id=character_id)
+                except EveCharacter.DoesNotExist:
+                    results.append({
+                        "character_id": character_id,
+                        "success": False,
+                        "error": "Character not found."
+                    })
+                    error_count += 1
+                    continue
+
+                # Check if user owns character
+                if not CharacterOwnership.objects.filter(
+                    user=request.user, character=character
+                ).exists():
+                    results.append({
+                        "character_id": character_id,
+                        "character_name": character.character_name,
+                        "success": False,
+                        "error": "You do not own this character."
+                    })
+                    error_count += 1
+                    continue
+
+                # Check eligibility
+                can_request, error_message = can_user_request_character_standing(
+                    character, request.user
+                )
+                if not can_request:
+                    results.append({
+                        "character_id": character_id,
+                        "character_name": character.character_name,
+                        "success": False,
+                        "error": error_message
+                    })
+                    error_count += 1
+                    continue
+
+                # Create request
+                standing_request = StandingRequest.objects.create_character_request(
+                    character, request.user
+                )
+
+                logger.info(
+                    f"User {request.user.username} created standing request "
+                    f"for character {character.character_name}"
+                )
+
+                results.append({
+                    "character_id": character_id,
+                    "character_name": character.character_name,
+                    "success": True,
+                    "request_pk": standing_request.pk
+                })
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(
+                    f"Error creating standing request for character {character_id}: {e}"
+                )
+                results.append({
+                    "character_id": character_id,
+                    "success": False,
+                    "error": "An unexpected error occurred."
+                })
+                error_count += 1
+
+        message = f"Requested standings for {success_count} character(s)"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse({
+            "success": error_count == 0,
+            "message": message,
+            "results": results,
+            "success_count": success_count,
+            "error_count": error_count
+        })
+
+    except Exception as e:
+        logger.exception(f"Error in bulk character standing request: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+
+
+@login_required
+@permission_required("standingsmanager.add_syncedcharacter")
+@require_http_methods(["POST"])
+def api_bulk_remove_standings(request):
+    """
+    API endpoint to create revocation requests for multiple entities.
+
+    Expects JSON body with:
+        entity_ids: list of EVE entity IDs (characters)
+
+    Returns:
+        JSON response with success/error status and details for each entity
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            entity_ids = data.get("entity_ids", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not entity_ids:
+            return JsonResponse(
+                {"success": False, "error": "No entities specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for entity_id in entity_ids:
+            try:
+                # Find entity
+                try:
+                    entity = EveEntity.objects.get(id=entity_id)
+                except EveEntity.DoesNotExist:
+                    results.append({
+                        "entity_id": entity_id,
+                        "success": False,
+                        "error": "Entity not found."
+                    })
+                    error_count += 1
+                    continue
+
+                # Check if standing exists
+                if not StandingsEntry.objects.filter(eve_entity=entity).exists():
+                    results.append({
+                        "entity_id": entity_id,
+                        "entity_name": entity.name,
+                        "success": False,
+                        "error": "No standing exists for this entity."
+                    })
+                    error_count += 1
+                    continue
+
+                # Check if user owns this entity (for characters)
+                if entity.category == EveEntity.CATEGORY_CHARACTER:
+                    try:
+                        CharacterOwnership.objects.get(
+                            user=request.user, character__character_id=entity_id
+                        )
+                    except CharacterOwnership.DoesNotExist:
+                        results.append({
+                            "entity_id": entity_id,
+                            "entity_name": entity.name,
+                            "success": False,
+                            "error": "You can only request removal of your own standings."
+                        })
+                        error_count += 1
+                        continue
+
+                # Create revocation
+                try:
+                    revocation = StandingRevocation.objects.create_for_entity(
+                        entity,
+                        reason=StandingRevocation.RevocationReason.USER_REQUEST,
+                        user=request.user,
+                    )
+                except ValidationError as e:
+                    results.append({
+                        "entity_id": entity_id,
+                        "entity_name": entity.name,
+                        "success": False,
+                        "error": str(e.message if hasattr(e, 'message') else e)
+                    })
+                    error_count += 1
+                    continue
+
+                logger.info(
+                    f"User {request.user.username} created revocation request "
+                    f"for {entity.name}"
+                )
+
+                results.append({
+                    "entity_id": entity_id,
+                    "entity_name": entity.name,
+                    "success": True,
+                    "revocation_pk": revocation.pk
+                })
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(
+                    f"Error creating revocation request for entity {entity_id}: {e}"
+                )
+                results.append({
+                    "entity_id": entity_id,
+                    "success": False,
+                    "error": "An unexpected error occurred."
+                })
+                error_count += 1
+
+        message = f"Requested revocation for {success_count} entity(ies)"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse({
+            "success": error_count == 0,
+            "message": message,
+            "results": results,
+            "success_count": success_count,
+            "error_count": error_count
+        })
+
+    except Exception as e:
+        logger.exception(f"Error in bulk revocation request: {e}")
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )

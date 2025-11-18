@@ -14,9 +14,20 @@
             <p class="text-muted">
                 Request standings for your characters. Once approved, you can add them to sync.
             </p>
+            <div class="bulk-actions" style="margin-bottom: 15px;">
+                <button class="btn btn-primary btn-sm" id="bulk-request-btn" disabled>
+                    <i class="fas fa-plus"></i> Request Selected (<span id="request-count">0</span>)
+                </button>
+                <button class="btn btn-danger btn-sm" id="bulk-revoke-btn" disabled>
+                    <i class="fas fa-minus"></i> Revoke Selected (<span id="revoke-count">0</span>)
+                </button>
+            </div>
             <table class="table table-hover" id="characters-table">
                 <thead>
                     <tr>
+                        <th style="width: 30px;">
+                            <input type="checkbox" id="select-all-characters" title="Select/Deselect All">
+                        </th>
                         <th>Character</th>
                         <th>Corporation / Alliance</th>
                         <th>Status</th>
@@ -27,6 +38,19 @@
                 <tbody>
                     {% for char in characters %}
                         <tr>
+                            <td>
+                                {% if char.can_request %}
+                                    <input type="checkbox" class="character-checkbox request-checkbox"
+                                           data-character-id="{{ char.id }}"
+                                           data-character-name="{{ char.name }}"
+                                           data-action="request">
+                                {% elif char.can_remove %}
+                                    <input type="checkbox" class="character-checkbox revoke-checkbox"
+                                           data-entity-id="{{ char.id }}"
+                                           data-entity-name="{{ char.name }}"
+                                           data-action="revoke">
+                                {% endif %}
+                            </td>
                             <td>
                                 <img src="{{ char.portrait_url }}" alt="{{ char.name }}" class="img-circle" width="32" height="32">
                                 {{ char.name }}
@@ -220,8 +244,11 @@
 $(document).ready(function() {
     // Initialize DataTables
     $('#characters-table').DataTable({
-        "order": [[0, "asc"]],
-        "pageLength": 25
+        "order": [[1, "asc"]],
+        "pageLength": 25,
+        "columnDefs": [
+            { "orderable": false, "targets": 0 }  // Disable sorting on checkbox column
+        ]
     });
 
     $('#corporations-table').DataTable({

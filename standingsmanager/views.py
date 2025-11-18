@@ -93,7 +93,7 @@ def request_standings(request):
         # Check if character has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
+                id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -102,7 +102,7 @@ def request_standings(request):
         # Check if there's a pending request
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
+                id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
             pending_request = StandingRequest.objects.filter(
                 eve_entity=entity, state=StandingRequest.RequestState.PENDING
@@ -178,7 +178,7 @@ def request_standings(request):
         # Check if corporation has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=corp_id, entity_type=StandingsEntry.EntityType.CORPORATION
+                id=corp_id, category=EveEntity.CATEGORY_CORPORATION
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -187,7 +187,7 @@ def request_standings(request):
         # Check if there's a pending request
         try:
             entity = EveEntity.objects.get(
-                eve_id=corp_id, entity_type=StandingsEntry.EntityType.CORPORATION
+                id=corp_id, category=EveEntity.CATEGORY_CORPORATION
             )
             pending_request = StandingRequest.objects.filter(
                 eve_entity=entity, state=StandingRequest.RequestState.PENDING
@@ -314,7 +314,7 @@ def my_synced_characters(request):
         # Check if character has standing (required for sync)
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
+                id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -376,8 +376,8 @@ def manage_requests(request):
 
         # Get entity details
         entity_name = entity.name
-        entity_id = entity.eve_id
-        entity_type = entity.entity_type
+        entity_id = entity.id
+        entity_type = req.entity_type
 
         # Get requester main character
         main_char = requester.profile.main_character if requester.profile else None
@@ -387,7 +387,7 @@ def manage_requests(request):
             "entity_id": entity_id,
             "entity_name": entity_name,
             "entity_type": entity_type,
-            "entity_type_display": entity.get_entity_type_display(),
+            "entity_type_display": req.get_entity_type_display(),
             "requester_name": requester.username,
             "requester_main": main_char.character_name if main_char else "Unknown",
             "requester_main_corporation": (
@@ -449,8 +449,8 @@ def manage_revocations(request):
 
         # Get entity details
         entity_name = entity.name
-        entity_id = entity.eve_id
-        entity_type = entity.entity_type
+        entity_id = entity.id
+        entity_type = rev.entity_type
 
         # Handle auto-revocations (system-initiated)
         if requester is None:
@@ -470,7 +470,7 @@ def manage_revocations(request):
             "entity_id": entity_id,
             "entity_name": entity_name,
             "entity_type": entity_type,
-            "entity_type_display": entity.get_entity_type_display(),
+            "entity_type_display": rev.get_entity_type_display(),
             "requester_name": requester_name,
             "requester_main": requester_main,
             "requester_main_corporation": requester_main_corporation,
@@ -545,9 +545,9 @@ def view_standings(request):
             added_by_main = "Unknown"
 
         standing_data = {
-            "entity_id": entity.eve_id,
+            "entity_id": entity.id,
             "entity_name": entity.name,
-            "entity_type": entity.entity_type,
+            "entity_type": standing.entity_type,
             "standing": standing.standing,
             "added_by": added_by_username,
             "added_by_main": added_by_main,
@@ -556,19 +556,19 @@ def view_standings(request):
         }
 
         # Add entity-specific details
-        if entity.entity_type == StandingsEntry.EntityType.CHARACTER:
+        if standing.entity_type == StandingsEntry.EntityType.CHARACTER:
             standing_data["portrait_url"] = (
-                f"https://images.evetech.net/characters/{entity.eve_id}/portrait?size=64"
+                f"https://images.evetech.net/characters/{entity.id}/portrait?size=64"
             )
             characters.append(standing_data)
-        elif entity.entity_type == StandingsEntry.EntityType.CORPORATION:
+        elif standing.entity_type == StandingsEntry.EntityType.CORPORATION:
             standing_data["logo_url"] = (
-                f"https://images.evetech.net/corporations/{entity.eve_id}/logo?size=64"
+                f"https://images.evetech.net/corporations/{entity.id}/logo?size=64"
             )
             corporations.append(standing_data)
-        elif entity.entity_type == StandingsEntry.EntityType.ALLIANCE:
+        elif standing.entity_type == StandingsEntry.EntityType.ALLIANCE:
             standing_data["logo_url"] = (
-                f"https://images.evetech.net/alliances/{entity.eve_id}/logo?size=64"
+                f"https://images.evetech.net/alliances/{entity.id}/logo?size=64"
             )
             alliances.append(standing_data)
 
@@ -629,8 +629,8 @@ def export_standings_csv(request):
 
         writer.writerow(
             [
-                standing.eve_entity.get_entity_type_display(),
-                standing.eve_entity.eve_id,
+                standing.get_entity_type_display(),
+                standing.eve_entity.id,
                 standing.eve_entity.name,
                 standing.standing,
                 added_by_username,
@@ -771,7 +771,7 @@ def api_remove_standing(request, entity_id):
     try:
         # Find entity
         try:
-            entity = EveEntity.objects.get(eve_id=entity_id)
+            entity = EveEntity.objects.get(id=entity_id)
         except EveEntity.DoesNotExist:
             return JsonResponse(
                 {"success": False, "error": "Entity not found."}, status=404
@@ -786,7 +786,7 @@ def api_remove_standing(request, entity_id):
 
         # Check if user owns this entity
         # For characters, verify ownership
-        if entity.entity_type == StandingsEntry.EntityType.CHARACTER:
+        if entity.category == EveEntity.CATEGORY_CHARACTER:
             try:
                 CharacterOwnership.objects.get(
                     user=request.user, character__character_id=entity_id
@@ -857,7 +857,7 @@ def api_add_character_to_sync(request, character_id):
         # Check if character has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
+                id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:

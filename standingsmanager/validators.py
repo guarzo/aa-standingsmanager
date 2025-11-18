@@ -13,8 +13,14 @@ from esi.models import Token
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
+from allianceauth.services.hooks import get_extension_logger
+from app_utils.logging import LoggerAddTag
+
+from . import __title__
 from .app_settings import STANDINGS_SCOPE_REQUIREMENTS
 from .models import SyncedCharacter
+
+logger = LoggerAddTag(get_extension_logger(__name__), __title__)
 
 
 def get_required_scopes_for_user(user: User) -> List[str]:
@@ -62,25 +68,46 @@ def character_has_required_scopes(
     """
     required_scopes = get_required_scopes_for_user(user)
 
-    # Get character's token
+    # Get all valid tokens for this character
     try:
-        token = (
+        tokens = list(
             Token.objects.filter(
                 user=user,
                 character_id=character.character_id,
             )
             .require_valid()
-            .first()
+            .prefetch_related("scopes")
         )
-    except Exception:
+    except Exception as e:
         # No valid token
+        logger.warning(
+            f"Exception checking tokens for {character.character_name} "
+            f"(id={character.character_id}): {e}"
+        )
         return False, required_scopes
 
-    if not token:
+    if not tokens:
+        # Debug: check if there are ANY tokens for this character (even invalid)
+        all_tokens = Token.objects.filter(
+            user=user,
+            character_id=character.character_id,
+        )
+        logger.info(
+            f"No valid tokens for {character.character_name} (id={character.character_id}). "
+            f"Total tokens (including invalid): {all_tokens.count()}"
+        )
         return False, required_scopes
 
-    # Check which scopes are missing
-    token_scopes = set(token.scopes.values_list("name", flat=True))
+    # Aggregate scopes from all valid tokens for this character
+    token_scopes = set()
+    for token in tokens:
+        token_scopes.update(scope.name for scope in token.scopes.all())
+
+    logger.info(
+        f"Found {len(tokens)} valid token(s) for {character.character_name} "
+        f"(id={character.character_id}). Scopes: {token_scopes}"
+    )
+
     required_scopes_set = set(required_scopes)
     missing_scopes = list(required_scopes_set - token_scopes)
 

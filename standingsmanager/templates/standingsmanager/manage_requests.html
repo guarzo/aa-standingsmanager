@@ -63,9 +63,9 @@
                                 {% elif req.age_days < 3 %}
                                     <span class="label label-info">{% blocktrans count days=req.age_days %}{{ days }} day{% plural %}{{ days }} days{% endblocktrans %}</span>
                                 {% elif req.age_days < 7 %}
-                                    <span class="label label-warning">{% blocktrans count days=req.age_days %}{{ days }} days{% endblocktrans %}</span>
+                                    <span class="label label-warning">{% blocktrans count days=req.age_days %}{{ days }} day{% plural %}{{ days }} days{% endblocktrans %}</span>
                                 {% else %}
-                                    <span class="label label-danger">{% blocktrans count days=req.age_days %}{{ days }} days{% endblocktrans %}</span>
+                                    <span class="label label-danger">{% blocktrans count days=req.age_days %}{{ days }} day{% plural %}{{ days }} days{% endblocktrans %}</span>
                                 {% endif %}
                             </td>
                             <td>

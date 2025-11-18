@@ -60,18 +60,24 @@ def index(request):
 
 @login_required
 @permission_required("standingsmanager.add_syncedcharacter")
-@token_required(scopes=SyncedCharacter.get_esi_scopes())
+@token_required(scopes=SyncedCharacter.get_esi_scopes(), new=True)
 def add_scopes(request, token):
     """
     View that triggers EVE OAuth with required scopes.
 
-    Uses token_required decorator which will:
-    1. Redirect to EVE SSO if no valid token with scopes exists
+    Uses token_required decorator with new=True which will:
+    1. Always redirect to EVE SSO to get a fresh token with required scopes
     2. After successful auth, redirect back here with the new token
     3. Then redirect to the request standings page
 
     The token parameter is provided by the decorator after successful auth.
     """
+    # Log token info for debugging
+    logger.info(
+        f"Token added for character_id={token.character_id}, "
+        f"character_name={token.character_name}, "
+        f"scopes={list(token.scopes.values_list('name', flat=True))}"
+    )
     # Token was successfully added/updated with required scopes
     # Redirect back to the request standings page
     return redirect("standingsmanager:request_standings")
@@ -457,7 +463,7 @@ def manage_revocations(request):
     # Get all pending revocations
     pending_revocations = (
         StandingRevocation.objects.filter(
-            state=StandingRevocation.RevocationState.PENDING
+            state=StandingRevocation.State.PENDING
         )
         .select_related("eve_entity", "requested_by")
         .order_by("-request_date")
@@ -1088,7 +1094,7 @@ def api_approve_revocation(request, revocation_pk):
         revocation = get_object_or_404(StandingRevocation, pk=revocation_pk)
 
         # Check if still pending
-        if revocation.state != StandingRevocation.RevocationState.PENDING:
+        if revocation.state != StandingRevocation.State.PENDING:
             return JsonResponse(
                 {"success": False, "error": "Revocation is not pending."}, status=400
             )
@@ -1135,7 +1141,7 @@ def api_reject_revocation(request, revocation_pk):
         revocation = get_object_or_404(StandingRevocation, pk=revocation_pk)
 
         # Check if still pending
-        if revocation.state != StandingRevocation.RevocationState.PENDING:
+        if revocation.state != StandingRevocation.State.PENDING:
             return JsonResponse(
                 {"success": False, "error": "Revocation is not pending."}, status=400
             )

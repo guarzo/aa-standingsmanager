@@ -105,7 +105,7 @@ def request_standings(request):
                 id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
             pending_request = StandingRequest.objects.filter(
-                eve_entity=entity, state=StandingRequest.RequestState.PENDING
+                eve_entity=entity, state=StandingRequest.State.PENDING
             ).exists()
         except EveEntity.DoesNotExist:
             pending_request = False
@@ -190,7 +190,7 @@ def request_standings(request):
                 id=corp_id, category=EveEntity.CATEGORY_CORPORATION
             )
             pending_request = StandingRequest.objects.filter(
-                eve_entity=entity, state=StandingRequest.RequestState.PENDING
+                eve_entity=entity, state=StandingRequest.State.PENDING
             ).exists()
         except EveEntity.DoesNotExist:
             pending_request = False
@@ -364,7 +364,7 @@ def manage_requests(request):
     """
     # Get all pending requests
     pending_requests = (
-        StandingRequest.objects.filter(state=StandingRequest.RequestState.PENDING)
+        StandingRequest.objects.filter(state=StandingRequest.State.PENDING)
         .select_related("eve_entity", "requested_by")
         .order_by("-request_date")
     )
@@ -977,7 +977,7 @@ def api_approve_request(request, request_pk):
         standing_request = get_object_or_404(StandingRequest, pk=request_pk)
 
         # Check if still pending
-        if standing_request.state != StandingRequest.RequestState.PENDING:
+        if standing_request.state != StandingRequest.State.PENDING:
             return JsonResponse(
                 {"success": False, "error": "Request is not pending."}, status=400
             )
@@ -1024,7 +1024,7 @@ def api_reject_request(request, request_pk):
         standing_request = get_object_or_404(StandingRequest, pk=request_pk)
 
         # Check if still pending
-        if standing_request.state != StandingRequest.RequestState.PENDING:
+        if standing_request.state != StandingRequest.State.PENDING:
             return JsonResponse(
                 {"success": False, "error": "Request is not pending."}, status=400
             )

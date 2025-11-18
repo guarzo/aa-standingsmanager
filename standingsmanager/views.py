@@ -93,7 +93,7 @@ def request_standings(request):
         # Check if character has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=EveEntity.EntityType.CHARACTER
+                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -102,7 +102,7 @@ def request_standings(request):
         # Check if there's a pending request
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=EveEntity.EntityType.CHARACTER
+                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
             )
             pending_request = StandingRequest.objects.filter(
                 eve_entity=entity, state=StandingRequest.RequestState.PENDING
@@ -178,7 +178,7 @@ def request_standings(request):
         # Check if corporation has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=corp_id, entity_type=EveEntity.EntityType.CORPORATION
+                eve_id=corp_id, entity_type=StandingsEntry.EntityType.CORPORATION
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -187,7 +187,7 @@ def request_standings(request):
         # Check if there's a pending request
         try:
             entity = EveEntity.objects.get(
-                eve_id=corp_id, entity_type=EveEntity.EntityType.CORPORATION
+                eve_id=corp_id, entity_type=StandingsEntry.EntityType.CORPORATION
             )
             pending_request = StandingRequest.objects.filter(
                 eve_entity=entity, state=StandingRequest.RequestState.PENDING
@@ -314,7 +314,7 @@ def my_synced_characters(request):
         # Check if character has standing (required for sync)
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=EveEntity.EntityType.CHARACTER
+                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:
@@ -399,15 +399,15 @@ def manage_requests(request):
         }
 
         # Add entity-specific details
-        if entity_type == EveEntity.EntityType.CHARACTER:
+        if entity_type == StandingsEntry.EntityType.CHARACTER:
             request_data["portrait_url"] = (
                 f"https://images.evetech.net/characters/{entity_id}/portrait?size=64"
             )
-        elif entity_type == EveEntity.EntityType.CORPORATION:
+        elif entity_type == StandingsEntry.EntityType.CORPORATION:
             request_data["logo_url"] = (
                 f"https://images.evetech.net/corporations/{entity_id}/logo?size=64"
             )
-        elif entity_type == EveEntity.EntityType.ALLIANCE:
+        elif entity_type == StandingsEntry.EntityType.ALLIANCE:
             request_data["logo_url"] = (
                 f"https://images.evetech.net/alliances/{entity_id}/logo?size=64"
             )
@@ -482,15 +482,15 @@ def manage_revocations(request):
         }
 
         # Add entity-specific details
-        if entity_type == EveEntity.EntityType.CHARACTER:
+        if entity_type == StandingsEntry.EntityType.CHARACTER:
             revocation_data["portrait_url"] = (
                 f"https://images.evetech.net/characters/{entity_id}/portrait?size=64"
             )
-        elif entity_type == EveEntity.EntityType.CORPORATION:
+        elif entity_type == StandingsEntry.EntityType.CORPORATION:
             revocation_data["logo_url"] = (
                 f"https://images.evetech.net/corporations/{entity_id}/logo?size=64"
             )
-        elif entity_type == EveEntity.EntityType.ALLIANCE:
+        elif entity_type == StandingsEntry.EntityType.ALLIANCE:
             revocation_data["logo_url"] = (
                 f"https://images.evetech.net/alliances/{entity_id}/logo?size=64"
             )
@@ -556,17 +556,17 @@ def view_standings(request):
         }
 
         # Add entity-specific details
-        if entity.entity_type == EveEntity.EntityType.CHARACTER:
+        if entity.entity_type == StandingsEntry.EntityType.CHARACTER:
             standing_data["portrait_url"] = (
                 f"https://images.evetech.net/characters/{entity.eve_id}/portrait?size=64"
             )
             characters.append(standing_data)
-        elif entity.entity_type == EveEntity.EntityType.CORPORATION:
+        elif entity.entity_type == StandingsEntry.EntityType.CORPORATION:
             standing_data["logo_url"] = (
                 f"https://images.evetech.net/corporations/{entity.eve_id}/logo?size=64"
             )
             corporations.append(standing_data)
-        elif entity.entity_type == EveEntity.EntityType.ALLIANCE:
+        elif entity.entity_type == StandingsEntry.EntityType.ALLIANCE:
             standing_data["logo_url"] = (
                 f"https://images.evetech.net/alliances/{entity.eve_id}/logo?size=64"
             )
@@ -786,7 +786,7 @@ def api_remove_standing(request, entity_id):
 
         # Check if user owns this entity
         # For characters, verify ownership
-        if entity.entity_type == EveEntity.EntityType.CHARACTER:
+        if entity.entity_type == StandingsEntry.EntityType.CHARACTER:
             try:
                 CharacterOwnership.objects.get(
                     user=request.user, character__character_id=entity_id
@@ -857,7 +857,7 @@ def api_add_character_to_sync(request, character_id):
         # Check if character has standing
         try:
             entity = EveEntity.objects.get(
-                eve_id=character_id, entity_type=EveEntity.EntityType.CHARACTER
+                eve_id=character_id, entity_type=StandingsEntry.EntityType.CHARACTER
             )
             has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
         except EveEntity.DoesNotExist:

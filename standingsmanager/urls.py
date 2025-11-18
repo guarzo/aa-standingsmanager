@@ -10,6 +10,7 @@ urlpatterns = [
     # Main pages
     path("", views.index, name="index"),
     path("request/", views.request_standings, name="request_standings"),
+    path("add-scopes/", views.add_scopes, name="add_scopes"),
     path("sync/", views.my_synced_characters, name="my_synced_characters"),
     path("manage/", views.manage_requests, name="manage_requests"),
     path("manage/revocations/", views.manage_revocations, name="manage_revocations"),

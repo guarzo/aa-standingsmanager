@@ -5,8 +5,10 @@ import csv
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
@@ -53,6 +55,25 @@ def common_context(ctx: dict) -> dict:
 @permission_required("standingsmanager.add_syncedcharacter")
 def index(request):
     """Render index page - redirect to request standings."""
+    return redirect("standingsmanager:request_standings")
+
+
+@login_required
+@permission_required("standingsmanager.add_syncedcharacter")
+@token_required(scopes=SyncedCharacter.get_esi_scopes())
+def add_scopes(request, token):
+    """
+    View that triggers EVE OAuth with required scopes.
+
+    Uses token_required decorator which will:
+    1. Redirect to EVE SSO if no valid token with scopes exists
+    2. After successful auth, redirect back here with the new token
+    3. Then redirect to the request standings page
+
+    The token parameter is provided by the decorator after successful auth.
+    """
+    # Token was successfully added/updated with required scopes
+    # Redirect back to the request standings page
     return redirect("standingsmanager:request_standings")
 
 

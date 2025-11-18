@@ -17,4 +17,7 @@ if __name__ == "__main__":
                 "forget to activate a virtual environment?"
             )
         raise
-    execute_from_command_line(sys.argv.insert(1, "test"))
+    sys.argv.insert(1, "test")
+    if len(sys.argv) == 2:
+        sys.argv.append("standingsmanager")
+    execute_from_command_line(sys.argv)

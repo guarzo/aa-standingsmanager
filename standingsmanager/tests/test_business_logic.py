@@ -147,13 +147,13 @@ class ScopeValidationTestCase(TestCase):
         mock_scope2.name = "esi-characters.write_contacts.v1"
 
         mock_token = Mock()
-        mock_token.scopes.values_list.return_value = [
-            "esi-characters.read_contacts.v1",
-            "esi-characters.write_contacts.v1",
-        ]
+        mock_token.scopes.all.return_value = [mock_scope1, mock_scope2]
 
+        # Mock the queryset chain: filter().require_valid().prefetch_related() -> list of tokens
         mock_token_qs = Mock()
-        mock_token_qs.require_valid.return_value.first.return_value = mock_token
+        mock_prefetch_qs = Mock()
+        mock_prefetch_qs.__iter__ = Mock(return_value=iter([mock_token]))
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)
@@ -172,13 +172,17 @@ class ScopeValidationTestCase(TestCase):
         )
 
         # Mock token with only one scope
-        mock_token = Mock()
-        mock_token.scopes.values_list.return_value = [
-            "esi-characters.read_contacts.v1",
-        ]
+        mock_scope1 = Mock()
+        mock_scope1.name = "esi-characters.read_contacts.v1"
 
+        mock_token = Mock()
+        mock_token.scopes.all.return_value = [mock_scope1]
+
+        # Mock the queryset chain: filter().require_valid().prefetch_related() -> list of tokens
         mock_token_qs = Mock()
-        mock_token_qs.require_valid.return_value.first.return_value = mock_token
+        mock_prefetch_qs = Mock()
+        mock_prefetch_qs.__iter__ = Mock(return_value=iter([mock_token]))
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)
@@ -196,9 +200,11 @@ class ScopeValidationTestCase(TestCase):
             corporation_name="Test Corp",
         )
 
-        # Mock no token
+        # Mock no token - return empty list
         mock_token_qs = Mock()
-        mock_token_qs.require_valid.return_value.first.return_value = None
+        mock_prefetch_qs = Mock()
+        mock_prefetch_qs.__iter__ = Mock(return_value=iter([]))
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)

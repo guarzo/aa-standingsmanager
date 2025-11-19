@@ -115,55 +115,92 @@ def request_standings(request):
     # Get required scopes for this user
     required_scopes = get_required_scopes_for_user(user)
 
+    # Pre-fetch all character IDs for bulk queries
+    character_ids = [co.character.character_id for co in character_ownerships]
+
+    # Bulk fetch all entities for these characters
+    character_entities = {
+        e.id: e for e in EveEntity.objects.filter(
+            id__in=character_ids,
+            category=EveEntity.CATEGORY_CHARACTER
+        )
+    }
+
+    # Bulk fetch standings for all character entities
+    entity_ids_with_standings = set(
+        StandingsEntry.objects.filter(
+            eve_entity_id__in=character_entities.keys()
+        ).values_list('eve_entity_id', flat=True)
+    )
+
+    # Bulk fetch pending requests for all character entities
+    entity_ids_with_pending = set(
+        StandingRequest.objects.filter(
+            eve_entity_id__in=character_entities.keys(),
+            state=StandingRequest.State.PENDING
+        ).values_list('eve_entity_id', flat=True)
+    )
+
+    # Bulk fetch all valid tokens for this user with scopes
+    from esi.models import Token
+    user_tokens = list(
+        Token.objects.filter(user=user, character_id__in=character_ids)
+        .require_valid()
+        .prefetch_related("scopes")
+    )
+
+    # Build a map of character_id -> set of scopes
+    character_scopes = {}
+    for token in user_tokens:
+        if token.character_id not in character_scopes:
+            character_scopes[token.character_id] = set()
+        character_scopes[token.character_id].update(
+            scope.name for scope in token.scopes.all()
+        )
+
+    required_scopes_set = set(required_scopes)
+
     for co in character_ownerships:
         character = co.character
         character_id = character.character_id
 
-        # Check if character has standing
-        try:
-            entity = EveEntity.objects.get(
-                id=character_id, category=EveEntity.CATEGORY_CHARACTER
-            )
-            has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
-        except EveEntity.DoesNotExist:
-            has_standing = False
+        # Check if character has standing (using pre-fetched data)
+        has_standing = character_id in entity_ids_with_standings
 
-        # Check if there's a pending request
-        try:
-            entity = EveEntity.objects.get(
-                id=character_id, category=EveEntity.CATEGORY_CHARACTER
-            )
-            pending_request = StandingRequest.objects.filter(
-                eve_entity=entity, state=StandingRequest.State.PENDING
-            ).exists()
-        except EveEntity.DoesNotExist:
-            pending_request = False
+        # Check if there's a pending request (using pre-fetched data)
+        pending_request = character_id in entity_ids_with_pending
 
-        # Check eligibility
-        can_request, error_message = can_user_request_character_standing(
-            character, user
-        )
+        # Check scopes (using pre-fetched data)
+        token_scopes = character_scopes.get(character_id, set())
+        missing_scopes = list(required_scopes_set - token_scopes)
+        has_scopes = len(missing_scopes) == 0
 
-        # Check scopes
-        has_scopes, missing_scopes = character_has_required_scopes(character, user)
-
-        # Determine status
+        # Determine eligibility and status
         if has_standing:
             status = "approved"
             status_text = "Approved"
+            can_request = False
             can_remove = True
+            error_message = None
         elif pending_request:
             status = "pending"
             status_text = "Pending Approval"
+            can_request = False
             can_remove = False
-        elif can_request:
+            error_message = None
+        elif not has_scopes:
+            status = "cannot_request"
+            scope_list = ", ".join(missing_scopes)
+            status_text = f"Missing scopes"
+            can_request = False
+            can_remove = False
+            error_message = f"Missing required scopes: {scope_list}"
+        else:
             status = "can_request"
             status_text = "Can Request"
+            can_request = True
             can_remove = False
-        else:
-            status = "cannot_request"
-            status_text = error_message or "Cannot Request"
-            can_remove = False
+            error_message = None
 
         character_data = {
             "id": character_id,
@@ -201,33 +238,50 @@ def request_standings(request):
 
     # Process corporation data
     corporations_list = []
+
+    # Bulk fetch corporation entities
+    corp_ids = list(corporations_data.keys())
+    corp_entities = {
+        e.id: e for e in EveEntity.objects.filter(
+            id__in=corp_ids,
+            category=EveEntity.CATEGORY_CORPORATION
+        )
+    }
+
+    # Bulk fetch standings for corporations
+    corp_ids_with_standings = set(
+        StandingsEntry.objects.filter(
+            eve_entity_id__in=corp_entities.keys()
+        ).values_list('eve_entity_id', flat=True)
+    )
+
+    # Bulk fetch pending requests for corporations
+    corp_ids_with_pending = set(
+        StandingRequest.objects.filter(
+            eve_entity_id__in=corp_entities.keys(),
+            state=StandingRequest.State.PENDING
+        ).values_list('eve_entity_id', flat=True)
+    )
+
+    # Bulk fetch EveCorporationInfo
+    corp_infos = {
+        c.corporation_id: c for c in EveCorporationInfo.objects.filter(
+            corporation_id__in=corp_ids
+        )
+    }
+
     for corp_data in corporations_data.values():
         corp_id = corp_data["id"]
 
-        # Check if corporation has standing
-        try:
-            entity = EveEntity.objects.get(
-                id=corp_id, category=EveEntity.CATEGORY_CORPORATION
-            )
-            has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
-        except EveEntity.DoesNotExist:
-            has_standing = False
+        # Check if corporation has standing (using pre-fetched data)
+        has_standing = corp_id in corp_ids_with_standings
 
-        # Check if there's a pending request
-        try:
-            entity = EveEntity.objects.get(
-                id=corp_id, category=EveEntity.CATEGORY_CORPORATION
-            )
-            pending_request = StandingRequest.objects.filter(
-                eve_entity=entity, state=StandingRequest.State.PENDING
-            ).exists()
-        except EveEntity.DoesNotExist:
-            pending_request = False
+        # Check if there's a pending request (using pre-fetched data)
+        pending_request = corp_id in corp_ids_with_pending
 
-        # Check token coverage
-        try:
-            corp_info = EveCorporationInfo.objects.get(corporation_id=corp_id)
-        except EveCorporationInfo.DoesNotExist:
+        # Get or create corporation info
+        corp_info = corp_infos.get(corp_id)
+        if not corp_info:
             # Create corporation info if it doesn't exist
             # Handle race condition where another process may have created it
             try:
@@ -236,32 +290,38 @@ def request_standings(request):
                 # Another process created it, fetch it
                 corp_info = EveCorporationInfo.objects.get(corporation_id=corp_id)
 
+        # Check token coverage for user's characters in this corp
+        # (Note: This only validates user's characters, not all corp members)
         has_full_coverage, missing_characters = validate_corporation_token_coverage(
             corp_info, user
         )
 
-        # Check eligibility
-        can_request, error_message = can_user_request_corporation_standing(
-            corp_info, user
-        )
-
-        # Determine status
+        # Determine eligibility and status
         if has_standing:
             status = "approved"
             status_text = "Approved"
+            can_request = False
             can_remove = True
+            error_message = None
         elif pending_request:
             status = "pending"
             status_text = "Pending Approval"
+            can_request = False
             can_remove = False
-        elif can_request:
+            error_message = None
+        elif not has_full_coverage:
+            status = "cannot_request"
+            char_list = ", ".join(missing_characters)
+            status_text = "Missing Tokens"
+            can_request = False
+            can_remove = False
+            error_message = f"Missing tokens for: {char_list}"
+        else:
             status = "can_request"
             status_text = "Can Request"
+            can_request = True
             can_remove = False
-        else:
-            status = "cannot_request"
-            status_text = error_message or "Cannot Request"
-            can_remove = False
+            error_message = None
 
         corp_data.update(
             {

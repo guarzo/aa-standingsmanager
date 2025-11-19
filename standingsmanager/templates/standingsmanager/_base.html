@@ -3,13 +3,15 @@
 {% load static %}
 
 {% block page_title %}{% translate app_title %}{% endblock %}
-{% block content %}
-    <br />
-    {% include 'standingsmanager/partial/menu.html' %}
-    <h2>{{ page_title }}</h2>
-    {% block details %}{% endblock %}
-{% endblock %}
 
 {% block extra_css %}
     <link href="{% static 'standingsmanager/base.css' %}" type="text/css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+    <div class="col-sm-12">
+        {% include 'standingsmanager/partial/menu.html' %}
+        <h2>{{ page_title }}</h2>
+        {% block details %}{% endblock %}
+    </div>
 {% endblock %}

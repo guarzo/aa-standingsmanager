@@ -141,10 +141,10 @@ def validate_character_token(character: EveCharacter, user: User) -> None:
 def validate_corporation_token_coverage(
     corporation: EveCorporationInfo, user: User
 ) -> Tuple[bool, List[str]]:
-    """Validate that user has tokens for all characters in a corporation.
+    """Validate that ALL characters in a corporation have valid tokens.
 
-    For corporation standing requests, users must have valid tokens with
-    required scopes for ALL their characters in that corporation.
+    For corporation standing requests, ALL characters in the corporation
+    must have valid tokens with required scopes registered in Auth.
 
     Args:
         corporation: EveCorporationInfo to check
@@ -156,7 +156,7 @@ def validate_corporation_token_coverage(
     Raises:
         ValidationError: If user has no characters in the corporation
     """
-    # Get all user's characters in this corporation
+    # First check that the requesting user has at least one character in the corp
     user_chars_in_corp = EveCharacter.objects.filter(
         character_ownership__user=user,
         corporation_id=corporation.corporation_id,
@@ -167,12 +167,43 @@ def validate_corporation_token_coverage(
             f"You have no characters in {corporation.corporation_name}"
         )
 
+    # Get ALL characters in this corporation (from all users)
+    all_chars_in_corp = EveCharacter.objects.filter(
+        corporation_id=corporation.corporation_id,
+        character_ownership__isnull=False,  # Only characters with ownership
+    ).select_related('character_ownership__user')
+
     characters_without_tokens = []
 
-    # Check each character
-    for character in user_chars_in_corp:
-        has_scopes, _ = character_has_required_scopes(character, user)
-        if not has_scopes:
+    # Get required scopes (use the requesting user's requirements as baseline)
+    required_scopes = get_required_scopes_for_user(user)
+    required_scopes_set = set(required_scopes)
+
+    # Bulk fetch all valid tokens for all characters in this corporation
+    char_ids = [c.character_id for c in all_chars_in_corp]
+
+    # Get all valid tokens for these characters
+    valid_tokens = list(
+        Token.objects.filter(character_id__in=char_ids)
+        .require_valid()
+        .prefetch_related("scopes")
+    )
+
+    # Build a map of character_id -> set of scopes
+    character_scopes = {}
+    for token in valid_tokens:
+        if token.character_id not in character_scopes:
+            character_scopes[token.character_id] = set()
+        character_scopes[token.character_id].update(
+            scope.name for scope in token.scopes.all()
+        )
+
+    # Check each character in the corporation
+    for character in all_chars_in_corp:
+        token_scopes = character_scopes.get(character.character_id, set())
+        missing_scopes = required_scopes_set - token_scopes
+
+        if missing_scopes:
             characters_without_tokens.append(character.character_name)
 
     has_full_coverage = len(characters_without_tokens) == 0

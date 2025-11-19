@@ -126,7 +126,7 @@
     <div class="panel-body">
         {% if corporations %}
             <p class="text-muted">
-                Request standings for entire corporations. You must have valid tokens for ALL characters in the corporation.
+                Request standings for entire corporations. ALL characters in the corporation must have valid tokens registered in Auth.
             </p>
             <table class="table table-hover" id="corporations-table">
                 <thead>
@@ -221,8 +221,8 @@
 
         <h4>Corporation Requests</h4>
         <p>
-            To request standings for a corporation, you must have valid tokens for ALL characters you own in that corporation.
-            This ensures you have full control and authorization for the corporation-level request.
+            To request standings for a corporation, ALL characters in the corporation must have valid tokens registered in Auth.
+            This ensures the entire corporation has authorized the standing request.
         </p>
 
         {% if required_scopes %}

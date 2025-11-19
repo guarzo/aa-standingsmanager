@@ -243,11 +243,13 @@ class CorporationTokenValidationTestCase(TestCase):
 
         self.assertIn("no characters", str(context.exception).lower())
 
-    @patch("standingsmanager.validators.character_has_required_scopes")
+    @patch("standingsmanager.validators.get_required_scopes_for_user")
     def test_validate_corporation_token_coverage_all_tokens_valid(
-        self, mock_has_scopes
+        self, mock_get_scopes
     ):
         """Test validation passes when all characters have valid tokens."""
+        from esi.models import Token, Scope
+
         # Use a different corporation for this test to avoid conflicts
         test_corp, _ = EveCorporationInfo.objects.get_or_create(
             corporation_id=98000002,
@@ -279,8 +281,32 @@ class CorporationTokenValidationTestCase(TestCase):
             user=self.user, character=char2, owner_hash="hash2"
         )
 
-        # Mock all characters have scopes
-        mock_has_scopes.return_value = (True, [])
+        # Mock required scopes
+        mock_get_scopes.return_value = ["esi-characters.read_contacts.v1"]
+
+        # Create scope
+        scope, _ = Scope.objects.get_or_create(name="esi-characters.read_contacts.v1")
+
+        # Create valid tokens for both characters
+        token1 = Token.objects.create(
+            user=self.user,
+            character_id=char1.character_id,
+            character_name=char1.character_name,
+            character_owner_hash="hash1",
+            access_token="test_access_token_1",
+            refresh_token="test_refresh_token_1",
+        )
+        token1.scopes.add(scope)
+
+        token2 = Token.objects.create(
+            user=self.user,
+            character_id=char2.character_id,
+            character_name=char2.character_name,
+            character_owner_hash="hash2",
+            access_token="test_access_token_2",
+            refresh_token="test_refresh_token_2",
+        )
+        token2.scopes.add(scope)
 
         has_coverage, missing_chars = validate_corporation_token_coverage(
             test_corp, self.user
@@ -289,9 +315,11 @@ class CorporationTokenValidationTestCase(TestCase):
         self.assertTrue(has_coverage)
         self.assertEqual(missing_chars, [])
 
-    @patch("standingsmanager.validators.character_has_required_scopes")
-    def test_validate_corporation_token_coverage_missing_tokens(self, mock_has_scopes):
+    @patch("standingsmanager.validators.get_required_scopes_for_user")
+    def test_validate_corporation_token_coverage_missing_tokens(self, mock_get_scopes):
         """Test validation fails when some characters lack tokens."""
+        from esi.models import Token, Scope
+
         # Use a different corporation for this test to avoid conflicts
         test_corp, _ = EveCorporationInfo.objects.get_or_create(
             corporation_id=98000003,
@@ -317,20 +345,28 @@ class CorporationTokenValidationTestCase(TestCase):
 
         # Create ownership
         CharacterOwnership.objects.create(
-            user=self.user, character=char1, owner_hash="hash1"
+            user=self.user, character=char1, owner_hash="hash3"
         )
         CharacterOwnership.objects.create(
-            user=self.user, character=char2, owner_hash="hash2"
+            user=self.user, character=char2, owner_hash="hash4"
         )
 
-        # Mock one character missing scopes
-        def mock_scopes_side_effect(char, user):
-            if char.character_id == 12347:
-                return (True, [])
-            else:
-                return (False, ["esi-characters.write_contacts.v1"])
+        # Mock required scopes
+        mock_get_scopes.return_value = ["esi-characters.read_contacts.v1"]
 
-        mock_has_scopes.side_effect = mock_scopes_side_effect
+        # Create scope
+        scope, _ = Scope.objects.get_or_create(name="esi-characters.read_contacts.v1")
+
+        # Create valid token only for char1 (char2 has no token)
+        token1 = Token.objects.create(
+            user=self.user,
+            character_id=char1.character_id,
+            character_name=char1.character_name,
+            character_owner_hash="hash3",
+            access_token="test_access_token_3",
+            refresh_token="test_refresh_token_3",
+        )
+        token1.scopes.add(scope)
 
         has_coverage, missing_chars = validate_corporation_token_coverage(
             test_corp, self.user

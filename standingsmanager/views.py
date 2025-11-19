@@ -845,8 +845,16 @@ def api_remove_standing(request, entity_id):
                 user=request.user,
             )
         except ValidationError as e:
+            # Handle Django ValidationError message extraction
+            if hasattr(e, 'messages') and e.messages:
+                error_msg = str(e.messages[0])
+            elif hasattr(e, 'message'):
+                error_msg = str(e.message)
+            else:
+                error_msg = str(e)
+            logger.warning(f"Validation error creating revocation for {entity.name}: {error_msg}")
             return JsonResponse(
-                {"success": False, "error": str(e.message if hasattr(e, 'message') else e)},
+                {"success": False, "error": error_msg},
                 status=400,
             )
 
@@ -863,7 +871,7 @@ def api_remove_standing(request, entity_id):
         )
 
     except Exception as e:
-        logger.exception(f"Error creating revocation request: {e}")
+        logger.exception(f"Error creating revocation request for entity_id={entity_id}")
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
@@ -1071,11 +1079,18 @@ def api_bulk_remove_standings(request):
                         user=request.user,
                     )
                 except ValidationError as e:
+                    # Handle Django ValidationError message extraction
+                    if hasattr(e, 'messages') and e.messages:
+                        error_msg = str(e.messages[0])
+                    elif hasattr(e, 'message'):
+                        error_msg = str(e.message)
+                    else:
+                        error_msg = str(e)
                     results.append({
                         "entity_id": entity_id,
                         "entity_name": entity.name,
                         "success": False,
-                        "error": str(e.message if hasattr(e, 'message') else e)
+                        "error": error_msg
                     })
                     error_count += 1
                     continue

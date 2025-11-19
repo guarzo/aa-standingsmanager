@@ -133,7 +133,7 @@
                     <tr>
                         <th>Corporation</th>
                         <th>Alliance</th>
-                        <th>Characters</th>
+                        <th>Members</th>
                         <th>Status</th>
                         <th>Token Coverage</th>
                         <th>Actions</th>
@@ -154,7 +154,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {{ corp.character_count }} character{{ corp.character_count|pluralize }}
+                                {{ corp.registered_count }}/{{ corp.actual_member_count }} registered
                             </td>
                             <td>
                                 {% if corp.status == 'approved' %}

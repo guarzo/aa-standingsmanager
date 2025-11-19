@@ -29,7 +29,6 @@ from .models import (
 from .validators import (
     can_user_request_character_standing,
     can_user_request_corporation_standing,
-    character_has_required_scopes,
     get_required_scopes_for_user,
     validate_corporation_token_coverage,
 )
@@ -191,7 +190,7 @@ def request_standings(request):
         elif not has_scopes:
             status = "cannot_request"
             scope_list = ", ".join(missing_scopes)
-            status_text = f"Missing scopes"
+            status_text = "Missing scopes"
             can_request = False
             can_remove = False
             error_message = f"Missing required scopes: {scope_list}"
@@ -290,11 +289,17 @@ def request_standings(request):
                 # Another process created it, fetch it
                 corp_info = EveCorporationInfo.objects.get(corporation_id=corp_id)
 
-        # Check token coverage for user's characters in this corp
-        # (Note: This only validates user's characters, not all corp members)
+        # Check token coverage for all corp members
         has_full_coverage, missing_characters = validate_corporation_token_coverage(
             corp_info, user
         )
+
+        # Get actual member count from corp info
+        actual_member_count = corp_info.member_count
+        registered_count = EveCharacter.objects.filter(
+            corporation_id=corp_id,
+            character_ownership__isnull=False,
+        ).count()
 
         # Determine eligibility and status
         if has_standing:
@@ -312,10 +317,10 @@ def request_standings(request):
         elif not has_full_coverage:
             status = "cannot_request"
             char_list = ", ".join(missing_characters)
-            status_text = "Missing Tokens"
+            status_text = "Incomplete"
             can_request = False
             can_remove = False
-            error_message = f"Missing tokens for: {char_list}"
+            error_message = f"Missing: {char_list}"
         else:
             status = "can_request"
             status_text = "Can Request"
@@ -332,6 +337,8 @@ def request_standings(request):
                 "has_full_coverage": has_full_coverage,
                 "missing_characters": missing_characters,
                 "error_message": error_message,
+                "actual_member_count": actual_member_count,
+                "registered_count": registered_count,
             }
         )
         corporations_list.append(corp_data)
@@ -930,7 +937,7 @@ def api_remove_standing(request, entity_id):
             }
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error creating revocation request for entity_id={entity_id}")
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500

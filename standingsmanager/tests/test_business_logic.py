@@ -251,13 +251,17 @@ class CorporationTokenValidationTestCase(TestCase):
         from esi.models import Token, Scope
 
         # Use a different corporation for this test to avoid conflicts
+        # Set member_count to 2 to match the characters we'll create
         test_corp, _ = EveCorporationInfo.objects.get_or_create(
             corporation_id=98000002,
             defaults={
                 "corporation_name": "Test Corporation 2",
-                "member_count": 100,
+                "member_count": 2,
             },
         )
+        # Update member count in case it already existed with different value
+        test_corp.member_count = 2
+        test_corp.save()
 
         # Create characters in corp
         char1 = EveCharacter.objects.create(
@@ -321,13 +325,17 @@ class CorporationTokenValidationTestCase(TestCase):
         from esi.models import Token, Scope
 
         # Use a different corporation for this test to avoid conflicts
+        # Set member_count to 2 to match the characters we'll create
         test_corp, _ = EveCorporationInfo.objects.get_or_create(
             corporation_id=98000003,
             defaults={
                 "corporation_name": "Test Corporation 3",
-                "member_count": 100,
+                "member_count": 2,
             },
         )
+        # Update member count in case it already existed with different value
+        test_corp.member_count = 2
+        test_corp.save()
 
         # Create characters in corp with unique IDs
         char1 = EveCharacter.objects.create(

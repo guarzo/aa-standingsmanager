@@ -146,12 +146,17 @@ def validate_corporation_token_coverage(
     For corporation standing requests, ALL characters in the corporation
     must have valid tokens with required scopes registered in Auth.
 
+    This checks against the corporation's actual member count from ESI,
+    not just the characters registered in Auth.
+
     Args:
         corporation: EveCorporationInfo to check
         user: User making the request
 
     Returns:
-        Tuple of (has_full_coverage: bool, characters_without_tokens: List[str])
+        Tuple of (has_full_coverage: bool, missing_info: List[str])
+        missing_info contains either character names missing tokens, or
+        a message about unregistered members
 
     Raises:
         ValidationError: If user has no characters in the corporation
@@ -167,11 +172,23 @@ def validate_corporation_token_coverage(
             f"You have no characters in {corporation.corporation_name}"
         )
 
-    # Get ALL characters in this corporation (from all users)
+    # Get ALL characters in this corporation registered in Auth (from all users)
     all_chars_in_corp = EveCharacter.objects.filter(
         corporation_id=corporation.corporation_id,
         character_ownership__isnull=False,  # Only characters with ownership
     ).select_related('character_ownership__user')
+
+    registered_count = all_chars_in_corp.count()
+    actual_member_count = corporation.member_count
+
+    # Check if all corporation members are registered in Auth
+    if registered_count < actual_member_count:
+        unregistered_count = actual_member_count - registered_count
+        msg = (
+            f"{unregistered_count} corp members not registered in Auth "
+            f"(need {actual_member_count}, have {registered_count})"
+        )
+        return False, [msg]
 
     characters_without_tokens = []
 

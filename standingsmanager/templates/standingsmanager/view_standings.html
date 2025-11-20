@@ -243,6 +243,7 @@
 {% endblock %}
 
 {% block extra_javascript %}
+{% include 'bundles/datatables-js.html' %}
 <script>
 $(document).ready(function() {
     // Initialize DataTables for each tab
@@ -262,4 +263,9 @@ $(document).ready(function() {
     });
 });
 </script>
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+{% include 'bundles/datatables-css.html' %}
 {% endblock %}

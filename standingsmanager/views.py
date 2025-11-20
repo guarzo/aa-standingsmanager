@@ -119,9 +119,9 @@ def request_standings(request):
 
     # Bulk fetch all entities for these characters
     character_entities = {
-        e.id: e for e in EveEntity.objects.filter(
-            id__in=character_ids,
-            category=EveEntity.CATEGORY_CHARACTER
+        e.id: e
+        for e in EveEntity.objects.filter(
+            id__in=character_ids, category=EveEntity.CATEGORY_CHARACTER
         )
     }
 
@@ -129,19 +129,20 @@ def request_standings(request):
     entity_ids_with_standings = set(
         StandingsEntry.objects.filter(
             eve_entity_id__in=character_entities.keys()
-        ).values_list('eve_entity_id', flat=True)
+        ).values_list("eve_entity_id", flat=True)
     )
 
     # Bulk fetch pending requests for all character entities
     entity_ids_with_pending = set(
         StandingRequest.objects.filter(
             eve_entity_id__in=character_entities.keys(),
-            state=StandingRequest.State.PENDING
-        ).values_list('eve_entity_id', flat=True)
+            state=StandingRequest.State.PENDING,
+        ).values_list("eve_entity_id", flat=True)
     )
 
     # Bulk fetch all valid tokens for this user with scopes
     from esi.models import Token
+
     user_tokens = list(
         Token.objects.filter(user=user, character_id__in=character_ids)
         .require_valid()
@@ -241,9 +242,9 @@ def request_standings(request):
     # Bulk fetch corporation entities
     corp_ids = list(corporations_data.keys())
     corp_entities = {
-        e.id: e for e in EveEntity.objects.filter(
-            id__in=corp_ids,
-            category=EveEntity.CATEGORY_CORPORATION
+        e.id: e
+        for e in EveEntity.objects.filter(
+            id__in=corp_ids, category=EveEntity.CATEGORY_CORPORATION
         )
     }
 
@@ -251,22 +252,20 @@ def request_standings(request):
     corp_ids_with_standings = set(
         StandingsEntry.objects.filter(
             eve_entity_id__in=corp_entities.keys()
-        ).values_list('eve_entity_id', flat=True)
+        ).values_list("eve_entity_id", flat=True)
     )
 
     # Bulk fetch pending requests for corporations
     corp_ids_with_pending = set(
         StandingRequest.objects.filter(
-            eve_entity_id__in=corp_entities.keys(),
-            state=StandingRequest.State.PENDING
-        ).values_list('eve_entity_id', flat=True)
+            eve_entity_id__in=corp_entities.keys(), state=StandingRequest.State.PENDING
+        ).values_list("eve_entity_id", flat=True)
     )
 
     # Bulk fetch EveCorporationInfo
     corp_infos = {
-        c.corporation_id: c for c in EveCorporationInfo.objects.filter(
-            corporation_id__in=corp_ids
-        )
+        c.corporation_id: c
+        for c in EveCorporationInfo.objects.filter(corporation_id__in=corp_ids)
     }
 
     for corp_data in corporations_data.values():
@@ -534,9 +533,7 @@ def manage_revocations(request):
     """
     # Get all pending revocations
     pending_revocations = (
-        StandingRevocation.objects.filter(
-            state=StandingRevocation.State.PENDING
-        )
+        StandingRevocation.objects.filter(state=StandingRevocation.State.PENDING)
         .select_related("eve_entity", "requested_by")
         .order_by("-request_date")
     )
@@ -823,10 +820,14 @@ def api_request_corporation_standing(request, corporation_id):
         except EveCorporationInfo.DoesNotExist:
             # Handle race condition where another process may have created it
             try:
-                corporation = EveCorporationInfo.objects.create_corporation(corporation_id)
+                corporation = EveCorporationInfo.objects.create_corporation(
+                    corporation_id
+                )
             except IntegrityError:
                 # Another process created it, fetch it
-                corporation = EveCorporationInfo.objects.get(corporation_id=corporation_id)
+                corporation = EveCorporationInfo.objects.get(
+                    corporation_id=corporation_id
+                )
 
         # Check eligibility
         can_request, error_message = can_user_request_corporation_standing(
@@ -913,13 +914,15 @@ def api_remove_standing(request, entity_id):
             )
         except ValidationError as e:
             # Handle Django ValidationError message extraction
-            if hasattr(e, 'messages') and e.messages:
+            if hasattr(e, "messages") and e.messages:
                 error_msg = str(e.messages[0])
-            elif hasattr(e, 'message'):
+            elif hasattr(e, "message"):
                 error_msg = str(e.message)
             else:
                 error_msg = str(e)
-            logger.warning(f"Validation error creating revocation for {entity.name}: {error_msg}")
+            logger.warning(
+                f"Validation error creating revocation for {entity.name}: {error_msg}"
+            )
             return JsonResponse(
                 {"success": False, "error": error_msg},
                 status=400,
@@ -982,11 +985,13 @@ def api_bulk_request_character_standings(request):
                 try:
                     character = EveCharacter.objects.get(character_id=character_id)
                 except EveCharacter.DoesNotExist:
-                    results.append({
-                        "character_id": character_id,
-                        "success": False,
-                        "error": "Character not found."
-                    })
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "success": False,
+                            "error": "Character not found.",
+                        }
+                    )
                     error_count += 1
                     continue
 
@@ -994,12 +999,14 @@ def api_bulk_request_character_standings(request):
                 if not CharacterOwnership.objects.filter(
                     user=request.user, character=character
                 ).exists():
-                    results.append({
-                        "character_id": character_id,
-                        "character_name": character.character_name,
-                        "success": False,
-                        "error": "You do not own this character."
-                    })
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "character_name": character.character_name,
+                            "success": False,
+                            "error": "You do not own this character.",
+                        }
+                    )
                     error_count += 1
                     continue
 
@@ -1008,12 +1015,14 @@ def api_bulk_request_character_standings(request):
                     character, request.user
                 )
                 if not can_request:
-                    results.append({
-                        "character_id": character_id,
-                        "character_name": character.character_name,
-                        "success": False,
-                        "error": error_message
-                    })
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "character_name": character.character_name,
+                            "success": False,
+                            "error": error_message,
+                        }
+                    )
                     error_count += 1
                     continue
 
@@ -1027,36 +1036,42 @@ def api_bulk_request_character_standings(request):
                     f"for character {character.character_name}"
                 )
 
-                results.append({
-                    "character_id": character_id,
-                    "character_name": character.character_name,
-                    "success": True,
-                    "request_pk": standing_request.pk
-                })
+                results.append(
+                    {
+                        "character_id": character_id,
+                        "character_name": character.character_name,
+                        "success": True,
+                        "request_pk": standing_request.pk,
+                    }
+                )
                 success_count += 1
 
             except Exception as e:
                 logger.exception(
                     f"Error creating standing request for character {character_id}: {e}"
                 )
-                results.append({
-                    "character_id": character_id,
-                    "success": False,
-                    "error": "An unexpected error occurred."
-                })
+                results.append(
+                    {
+                        "character_id": character_id,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
                 error_count += 1
 
         message = f"Requested standings for {success_count} character(s)"
         if error_count > 0:
             message += f", {error_count} failed"
 
-        return JsonResponse({
-            "success": error_count == 0,
-            "message": message,
-            "results": results,
-            "success_count": success_count,
-            "error_count": error_count
-        })
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Error in bulk character standing request: {e}")
@@ -1103,22 +1118,26 @@ def api_bulk_remove_standings(request):
                 try:
                     entity = EveEntity.objects.get(id=entity_id)
                 except EveEntity.DoesNotExist:
-                    results.append({
-                        "entity_id": entity_id,
-                        "success": False,
-                        "error": "Entity not found."
-                    })
+                    results.append(
+                        {
+                            "entity_id": entity_id,
+                            "success": False,
+                            "error": "Entity not found.",
+                        }
+                    )
                     error_count += 1
                     continue
 
                 # Check if standing exists
                 if not StandingsEntry.objects.filter(eve_entity=entity).exists():
-                    results.append({
-                        "entity_id": entity_id,
-                        "entity_name": entity.name,
-                        "success": False,
-                        "error": "No standing exists for this entity."
-                    })
+                    results.append(
+                        {
+                            "entity_id": entity_id,
+                            "entity_name": entity.name,
+                            "success": False,
+                            "error": "No standing exists for this entity.",
+                        }
+                    )
                     error_count += 1
                     continue
 
@@ -1129,12 +1148,14 @@ def api_bulk_remove_standings(request):
                             user=request.user, character__character_id=entity_id
                         )
                     except CharacterOwnership.DoesNotExist:
-                        results.append({
-                            "entity_id": entity_id,
-                            "entity_name": entity.name,
-                            "success": False,
-                            "error": "You can only request removal of your own standings."
-                        })
+                        results.append(
+                            {
+                                "entity_id": entity_id,
+                                "entity_name": entity.name,
+                                "success": False,
+                                "error": "You can only request removal of your own standings.",
+                            }
+                        )
                         error_count += 1
                         continue
 
@@ -1147,18 +1168,20 @@ def api_bulk_remove_standings(request):
                     )
                 except ValidationError as e:
                     # Handle Django ValidationError message extraction
-                    if hasattr(e, 'messages') and e.messages:
+                    if hasattr(e, "messages") and e.messages:
                         error_msg = str(e.messages[0])
-                    elif hasattr(e, 'message'):
+                    elif hasattr(e, "message"):
                         error_msg = str(e.message)
                     else:
                         error_msg = str(e)
-                    results.append({
-                        "entity_id": entity_id,
-                        "entity_name": entity.name,
-                        "success": False,
-                        "error": error_msg
-                    })
+                    results.append(
+                        {
+                            "entity_id": entity_id,
+                            "entity_name": entity.name,
+                            "success": False,
+                            "error": error_msg,
+                        }
+                    )
                     error_count += 1
                     continue
 
@@ -1167,36 +1190,42 @@ def api_bulk_remove_standings(request):
                     f"for {entity.name}"
                 )
 
-                results.append({
-                    "entity_id": entity_id,
-                    "entity_name": entity.name,
-                    "success": True,
-                    "revocation_pk": revocation.pk
-                })
+                results.append(
+                    {
+                        "entity_id": entity_id,
+                        "entity_name": entity.name,
+                        "success": True,
+                        "revocation_pk": revocation.pk,
+                    }
+                )
                 success_count += 1
 
             except Exception as e:
                 logger.exception(
                     f"Error creating revocation request for entity {entity_id}: {e}"
                 )
-                results.append({
-                    "entity_id": entity_id,
-                    "success": False,
-                    "error": "An unexpected error occurred."
-                })
+                results.append(
+                    {
+                        "entity_id": entity_id,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
                 error_count += 1
 
         message = f"Requested revocation for {success_count} entity(ies)"
         if error_count > 0:
             message += f", {error_count} failed"
 
-        return JsonResponse({
-            "success": error_count == 0,
-            "message": message,
-            "results": results,
-            "success_count": success_count,
-            "error_count": error_count
-        })
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
 
     except Exception as e:
         logger.exception(f"Error in bulk revocation request: {e}")

@@ -166,6 +166,7 @@
 {% endblock %}
 
 {% block extra_javascript %}
+{% include 'bundles/datatables-js.html' %}
 <script src="{% static 'standingsmanager/js/standings.js' %}"></script>
 <script>
 $(document).ready(function() {
@@ -176,4 +177,9 @@ $(document).ready(function() {
     });
 });
 </script>
+{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+{% include 'bundles/datatables-css.html' %}
 {% endblock %}

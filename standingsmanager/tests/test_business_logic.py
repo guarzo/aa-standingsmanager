@@ -153,7 +153,9 @@ class ScopeValidationTestCase(TestCase):
         mock_token_qs = Mock()
         mock_prefetch_qs = Mock()
         mock_prefetch_qs.__iter__ = Mock(return_value=iter([mock_token]))
-        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = (
+            mock_prefetch_qs
+        )
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)
@@ -182,7 +184,9 @@ class ScopeValidationTestCase(TestCase):
         mock_token_qs = Mock()
         mock_prefetch_qs = Mock()
         mock_prefetch_qs.__iter__ = Mock(return_value=iter([mock_token]))
-        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = (
+            mock_prefetch_qs
+        )
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)
@@ -204,7 +208,9 @@ class ScopeValidationTestCase(TestCase):
         mock_token_qs = Mock()
         mock_prefetch_qs = Mock()
         mock_prefetch_qs.__iter__ = Mock(return_value=iter([]))
-        mock_token_qs.require_valid.return_value.prefetch_related.return_value = mock_prefetch_qs
+        mock_token_qs.require_valid.return_value.prefetch_related.return_value = (
+            mock_prefetch_qs
+        )
         mock_token_filter.return_value = mock_token_qs
 
         has_scopes, missing = character_has_required_scopes(character, self.user)
@@ -248,7 +254,7 @@ class CorporationTokenValidationTestCase(TestCase):
         self, mock_get_scopes
     ):
         """Test validation passes when all characters have valid tokens."""
-        from esi.models import Token, Scope
+        from esi.models import Scope, Token
 
         # Use a different corporation for this test to avoid conflicts
         # Set member_count to 2 to match the characters we'll create
@@ -322,7 +328,7 @@ class CorporationTokenValidationTestCase(TestCase):
     @patch("standingsmanager.validators.get_required_scopes_for_user")
     def test_validate_corporation_token_coverage_missing_tokens(self, mock_get_scopes):
         """Test validation fails when some characters lack tokens."""
-        from esi.models import Token, Scope
+        from esi.models import Scope, Token
 
         # Use a different corporation for this test to avoid conflicts
         # Set member_count to 2 to match the characters we'll create

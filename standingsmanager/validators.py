@@ -12,7 +12,6 @@ from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
-
 from allianceauth.services.hooks import get_extension_logger
 from app_utils.logging import LoggerAddTag
 
@@ -176,7 +175,7 @@ def validate_corporation_token_coverage(
     all_chars_in_corp = EveCharacter.objects.filter(
         corporation_id=corporation.corporation_id,
         character_ownership__isnull=False,  # Only characters with ownership
-    ).select_related('character_ownership__user')
+    ).select_related("character_ownership__user")
 
     registered_count = all_chars_in_corp.count()
     actual_member_count = corporation.member_count

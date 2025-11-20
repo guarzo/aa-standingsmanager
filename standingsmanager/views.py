@@ -410,13 +410,39 @@ def my_synced_characters(request):
             sync_status_text = "Not synced"
 
         # Check if character has standing (required for sync)
+        # Check character, corporation, or alliance standings
+        has_standing = False
         try:
+            # Check character standing
             entity = EveEntity.objects.get(
                 id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
-            has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
+            if StandingsEntry.objects.filter(eve_entity=entity).exists():
+                has_standing = True
         except EveEntity.DoesNotExist:
-            has_standing = False
+            pass
+
+        # Check corporation standing if character doesn't have one
+        if not has_standing and character.corporation_id:
+            try:
+                corp_entity = EveEntity.objects.get(
+                    id=character.corporation_id, category=EveEntity.CATEGORY_CORPORATION
+                )
+                if StandingsEntry.objects.filter(eve_entity=corp_entity).exists():
+                    has_standing = True
+            except EveEntity.DoesNotExist:
+                pass
+
+        # Check alliance standing if still no standing found
+        if not has_standing and character.alliance_id:
+            try:
+                alliance_entity = EveEntity.objects.get(
+                    id=character.alliance_id, category=EveEntity.CATEGORY_ALLIANCE
+                )
+                if StandingsEntry.objects.filter(eve_entity=alliance_entity).exists():
+                    has_standing = True
+            except EveEntity.DoesNotExist:
+                pass
 
         character_data = {
             "id": character_id,
@@ -1262,20 +1288,45 @@ def api_add_character_to_sync(request, character_id):
                 status=403,
             )
 
-        # Check if character has standing
+        # Check if character has standing (character, corporation, or alliance)
+        has_standing = False
         try:
+            # Check character standing
             entity = EveEntity.objects.get(
                 id=character_id, category=EveEntity.CATEGORY_CHARACTER
             )
-            has_standing = StandingsEntry.objects.filter(eve_entity=entity).exists()
+            if StandingsEntry.objects.filter(eve_entity=entity).exists():
+                has_standing = True
         except EveEntity.DoesNotExist:
-            has_standing = False
+            pass
+
+        # Check corporation standing if character doesn't have one
+        if not has_standing and character.corporation_id:
+            try:
+                corp_entity = EveEntity.objects.get(
+                    id=character.corporation_id, category=EveEntity.CATEGORY_CORPORATION
+                )
+                if StandingsEntry.objects.filter(eve_entity=corp_entity).exists():
+                    has_standing = True
+            except EveEntity.DoesNotExist:
+                pass
+
+        # Check alliance standing if still no standing found
+        if not has_standing and character.alliance_id:
+            try:
+                alliance_entity = EveEntity.objects.get(
+                    id=character.alliance_id, category=EveEntity.CATEGORY_ALLIANCE
+                )
+                if StandingsEntry.objects.filter(eve_entity=alliance_entity).exists():
+                    has_standing = True
+            except EveEntity.DoesNotExist:
+                pass
 
         if not has_standing:
             return JsonResponse(
                 {
                     "success": False,
-                    "error": "Character must have an approved standing before adding to sync.",
+                    "error": "Character, their corporation, or alliance must have an approved standing before adding to sync.",
                 },
                 status=400,
             )

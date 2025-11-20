@@ -7,13 +7,42 @@ from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 
 from . import tasks
+from .forms import StandingsEntryAdminForm
 from .models import (
     AuditLog,
+    EveEntity,
     StandingRequest,
     StandingRevocation,
     StandingsEntry,
     SyncedCharacter,
 )
+
+# ============================================================================
+# EveEntity Admin (for autocomplete)
+# ============================================================================
+
+
+@admin.register(EveEntity)
+class EveEntityAdmin(admin.ModelAdmin):
+    """Admin for EveEntity to enable autocomplete with category filtering."""
+
+    search_fields = ("name",)
+    list_display = ("name", "category")
+    list_filter = ("category",)
+
+    def get_search_results(self, request, queryset, search_term):
+        """Override to filter by category parameter from autocomplete."""
+        queryset, use_distinct = super().get_search_results(
+            request, queryset, search_term
+        )
+
+        # Check if category filter is requested (from autocomplete)
+        category = request.GET.get("category")
+        if category:
+            queryset = queryset.filter(category=category)
+
+        return queryset, use_distinct
+
 
 # ============================================================================
 # Standings Entry Admin
@@ -22,6 +51,7 @@ from .models import (
 
 @admin.register(StandingsEntry)
 class StandingsEntryAdmin(admin.ModelAdmin):
+    form = StandingsEntryAdminForm
     list_display = (
         "_entity_name",
         "_entity_type",
@@ -32,11 +62,12 @@ class StandingsEntryAdmin(admin.ModelAdmin):
     list_filter = ("entity_type", "added_date", "standing")
     search_fields = ("eve_entity__name",)
     readonly_fields = ("added_date",)
+    autocomplete_fields = ("eve_entity",)
     fieldsets = (
         (
             "Entity Information",
             {
-                "fields": ("eve_entity", "entity_type"),
+                "fields": ("entity_type", "eve_entity"),
             },
         ),
         (

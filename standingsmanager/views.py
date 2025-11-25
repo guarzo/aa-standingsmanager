@@ -1362,8 +1362,11 @@ def api_remove_character_from_sync(request, synced_char_pk):
         )
 
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
+=======
+>>>>>>> a67b4d2 (feat: select all for sync and approve)
 @login_required
 @permission_required("standingsmanager.add_syncedcharacter")
 @require_http_methods(["POST"])
@@ -1491,7 +1494,13 @@ def api_bulk_add_to_sync(request):
                 success_count += 1
 
             except Exception as e:
+<<<<<<< HEAD
                 logger.exception(f"Error adding character {character_id} to sync: {e}")
+=======
+                logger.exception(
+                    f"Error adding character {character_id} to sync: {e}"
+                )
+>>>>>>> a67b4d2 (feat: select all for sync and approve)
                 results.append(
                     {
                         "character_id": character_id,
@@ -1636,7 +1645,10 @@ def api_bulk_remove_from_sync(request):
         )
 
 
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> a67b4d2 (feat: select all for sync and approve)
 # ============================================================================
 # Approver API Endpoints
 # ============================================================================
@@ -1823,8 +1835,11 @@ def api_reject_revocation(request, revocation_pk):
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
+=======
+>>>>>>> a67b4d2 (feat: select all for sync and approve)
 
 
 @login_required
@@ -1908,7 +1923,13 @@ def api_bulk_approve_requests(request):
                 success_count += 1
 
             except Exception as e:
+<<<<<<< HEAD
                 logger.exception(f"Error approving standing request {request_pk}: {e}")
+=======
+                logger.exception(
+                    f"Error approving standing request {request_pk}: {e}"
+                )
+>>>>>>> a67b4d2 (feat: select all for sync and approve)
                 results.append(
                     {
                         "request_pk": request_pk,
@@ -2053,4 +2074,3 @@ def api_bulk_reject_requests(request):
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
->>>>>>> Stashed changes

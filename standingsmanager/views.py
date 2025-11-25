@@ -1362,6 +1362,281 @@ def api_remove_character_from_sync(request, synced_char_pk):
         )
 
 
+<<<<<<< Updated upstream
+=======
+@login_required
+@permission_required("standingsmanager.add_syncedcharacter")
+@require_http_methods(["POST"])
+def api_bulk_add_to_sync(request):
+    """
+    API endpoint to add multiple characters to sync.
+
+    Expects JSON body with:
+        character_ids: list of EVE character IDs
+
+    Returns:
+        JSON response with success/error status and details for each character
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            character_ids = data.get("character_ids", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not character_ids:
+            return JsonResponse(
+                {"success": False, "error": "No characters specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for character_id in character_ids:
+            try:
+                # Get character
+                try:
+                    character = EveCharacter.objects.get(character_id=character_id)
+                except EveCharacter.DoesNotExist:
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "success": False,
+                            "error": "Character not found.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Check if user owns character
+                try:
+                    character_ownership = CharacterOwnership.objects.get(
+                        user=request.user, character=character
+                    )
+                except CharacterOwnership.DoesNotExist:
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "character_name": character.character_name,
+                            "success": False,
+                            "error": "You do not own this character.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Check if character has standing
+                try:
+                    entity = EveEntity.objects.get(
+                        id=character_id, category=EveEntity.CATEGORY_CHARACTER
+                    )
+                    has_standing = StandingsEntry.objects.filter(
+                        eve_entity=entity
+                    ).exists()
+                except EveEntity.DoesNotExist:
+                    has_standing = False
+
+                if not has_standing:
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "character_name": character.character_name,
+                            "success": False,
+                            "error": "Character must have an approved standing.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Check if already synced
+                if SyncedCharacter.objects.filter(
+                    character_ownership=character_ownership
+                ).exists():
+                    results.append(
+                        {
+                            "character_id": character_id,
+                            "character_name": character.character_name,
+                            "success": False,
+                            "error": "Character is already synced.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Create synced character
+                synced_char = SyncedCharacter.objects.create(
+                    character_ownership=character_ownership
+                )
+
+                # Trigger initial sync
+                tasks.sync_character.delay(synced_char.pk)
+
+                logger.info(
+                    f"User {request.user.username} added character "
+                    f"{character.character_name} to sync"
+                )
+
+                results.append(
+                    {
+                        "character_id": character_id,
+                        "character_name": character.character_name,
+                        "success": True,
+                        "synced_char_pk": synced_char.pk,
+                    }
+                )
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(f"Error adding character {character_id} to sync: {e}")
+                results.append(
+                    {
+                        "character_id": character_id,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
+                error_count += 1
+
+        message = f"Added {success_count} character(s) to sync"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in bulk add to sync: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+
+
+@login_required
+@permission_required("standingsmanager.add_syncedcharacter")
+@require_http_methods(["POST"])
+def api_bulk_remove_from_sync(request):
+    """
+    API endpoint to remove multiple characters from sync.
+
+    Expects JSON body with:
+        synced_char_pks: list of SyncedCharacter primary keys
+
+    Returns:
+        JSON response with success/error status and details for each character
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            synced_char_pks = data.get("synced_char_pks", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not synced_char_pks:
+            return JsonResponse(
+                {"success": False, "error": "No characters specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for synced_char_pk in synced_char_pks:
+            try:
+                # Get synced character
+                try:
+                    synced_char = SyncedCharacter.objects.get(pk=synced_char_pk)
+                except SyncedCharacter.DoesNotExist:
+                    results.append(
+                        {
+                            "synced_char_pk": synced_char_pk,
+                            "success": False,
+                            "error": "Synced character not found.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Verify ownership
+                if synced_char.character_ownership.user != request.user:
+                    results.append(
+                        {
+                            "synced_char_pk": synced_char_pk,
+                            "character_name": synced_char.character.character_name,
+                            "success": False,
+                            "error": "You do not own this synced character.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                character_name = synced_char.character.character_name
+
+                # Delete synced character
+                synced_char.delete()
+
+                logger.info(
+                    f"User {request.user.username} removed character "
+                    f"{character_name} from sync"
+                )
+
+                results.append(
+                    {
+                        "synced_char_pk": synced_char_pk,
+                        "character_name": character_name,
+                        "success": True,
+                    }
+                )
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(
+                    f"Error removing synced character {synced_char_pk} from sync: {e}"
+                )
+                results.append(
+                    {
+                        "synced_char_pk": synced_char_pk,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
+                error_count += 1
+
+        message = f"Removed {success_count} character(s) from sync"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in bulk remove from sync: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+
+
+>>>>>>> Stashed changes
 # ============================================================================
 # Approver API Endpoints
 # ============================================================================
@@ -1548,3 +1823,234 @@ def api_reject_revocation(request, revocation_pk):
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
+<<<<<<< Updated upstream
+=======
+
+
+@login_required
+@permission_required("standingsmanager.approve_standings")
+@require_http_methods(["POST"])
+def api_bulk_approve_requests(request):
+    """
+    API endpoint to approve multiple standing requests.
+
+    Expects JSON body with:
+        request_pks: list of StandingRequest primary keys
+
+    Returns:
+        JSON response with success/error status and details for each request
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            request_pks = data.get("request_pks", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not request_pks:
+            return JsonResponse(
+                {"success": False, "error": "No requests specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for request_pk in request_pks:
+            try:
+                # Get request
+                try:
+                    standing_request = StandingRequest.objects.get(pk=request_pk)
+                except StandingRequest.DoesNotExist:
+                    results.append(
+                        {
+                            "request_pk": request_pk,
+                            "success": False,
+                            "error": "Request not found.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Check if still pending
+                if standing_request.state != StandingRequest.State.PENDING:
+                    results.append(
+                        {
+                            "request_pk": request_pk,
+                            "entity_name": standing_request.eve_entity.name,
+                            "success": False,
+                            "error": "Request is not pending.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                entity_name = standing_request.eve_entity.name
+
+                # Approve request
+                standing_request.approve(request.user)
+
+                logger.info(
+                    f"User {request.user.username} approved standing request "
+                    f"for {entity_name}"
+                )
+
+                results.append(
+                    {
+                        "request_pk": request_pk,
+                        "entity_name": entity_name,
+                        "success": True,
+                    }
+                )
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(f"Error approving standing request {request_pk}: {e}")
+                results.append(
+                    {
+                        "request_pk": request_pk,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
+                error_count += 1
+
+        # Trigger sync for all synced characters once after all approvals
+        if success_count > 0:
+            tasks.trigger_sync_after_approval.delay()
+
+        message = f"Approved {success_count} request(s)"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in bulk approve requests: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+
+
+@login_required
+@permission_required("standingsmanager.approve_standings")
+@require_http_methods(["POST"])
+def api_bulk_reject_requests(request):
+    """
+    API endpoint to reject multiple standing requests.
+
+    Expects JSON body with:
+        request_pks: list of StandingRequest primary keys
+
+    Returns:
+        JSON response with success/error status and details for each request
+    """
+    try:
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+            request_pks = data.get("request_pks", [])
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {"success": False, "error": "Invalid JSON body."}, status=400
+            )
+
+        if not request_pks:
+            return JsonResponse(
+                {"success": False, "error": "No requests specified."}, status=400
+            )
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for request_pk in request_pks:
+            try:
+                # Get request
+                try:
+                    standing_request = StandingRequest.objects.get(pk=request_pk)
+                except StandingRequest.DoesNotExist:
+                    results.append(
+                        {
+                            "request_pk": request_pk,
+                            "success": False,
+                            "error": "Request not found.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                # Check if still pending
+                if standing_request.state != StandingRequest.State.PENDING:
+                    results.append(
+                        {
+                            "request_pk": request_pk,
+                            "entity_name": standing_request.eve_entity.name,
+                            "success": False,
+                            "error": "Request is not pending.",
+                        }
+                    )
+                    error_count += 1
+                    continue
+
+                entity_name = standing_request.eve_entity.name
+
+                # Reject request
+                standing_request.reject(request.user)
+
+                logger.info(
+                    f"User {request.user.username} rejected standing request "
+                    f"for {entity_name}"
+                )
+
+                results.append(
+                    {
+                        "request_pk": request_pk,
+                        "entity_name": entity_name,
+                        "success": True,
+                    }
+                )
+                success_count += 1
+
+            except Exception as e:
+                logger.exception(f"Error rejecting standing request {request_pk}: {e}")
+                results.append(
+                    {
+                        "request_pk": request_pk,
+                        "success": False,
+                        "error": "An unexpected error occurred.",
+                    }
+                )
+                error_count += 1
+
+        message = f"Rejected {success_count} request(s)"
+        if error_count > 0:
+            message += f", {error_count} failed"
+
+        return JsonResponse(
+            {
+                "success": error_count == 0,
+                "message": message,
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count,
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in bulk reject requests: {e}")
+        return JsonResponse(
+            {"success": False, "error": "An unexpected error occurred."}, status=500
+        )
+>>>>>>> Stashed changes

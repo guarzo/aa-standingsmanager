@@ -51,6 +51,16 @@ urlpatterns = [
         views.api_remove_character_from_sync,
         name="api_remove_sync",
     ),
+    path(
+        "api/bulk-add-sync/",
+        views.api_bulk_add_to_sync,
+        name="api_bulk_add_sync",
+    ),
+    path(
+        "api/bulk-remove-sync/",
+        views.api_bulk_remove_from_sync,
+        name="api_bulk_remove_sync",
+    ),
     # Approver API endpoints
     path(
         "api/approve-request/<int:request_pk>/",
@@ -71,6 +81,16 @@ urlpatterns = [
         "api/reject-revocation/<int:revocation_pk>/",
         views.api_reject_revocation,
         name="api_reject_revocation",
+    ),
+    path(
+        "api/bulk-approve-requests/",
+        views.api_bulk_approve_requests,
+        name="api_bulk_approve_requests",
+    ),
+    path(
+        "api/bulk-reject-requests/",
+        views.api_bulk_reject_requests,
+        name="api_bulk_reject_requests",
     ),
     # CSV export
     path("export/csv/", views.export_standings_csv, name="export_standings_csv"),

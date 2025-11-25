@@ -15,9 +15,20 @@
             <p class="text-muted">
                 {% trans "Review and approve or reject pending standing requests from users." %}
             </p>
+            <div class="bulk-actions" style="margin-bottom: 15px;">
+                <button class="btn btn-success btn-sm" id="bulk-approve-btn" disabled>
+                    <i class="fas fa-check"></i> {% trans "Approve Selected" %} (<span id="approve-count">0</span>)
+                </button>
+                <button class="btn btn-danger btn-sm" id="bulk-reject-btn" disabled>
+                    <i class="fas fa-times"></i> {% trans "Reject Selected" %} (<span id="reject-count">0</span>)
+                </button>
+            </div>
             <table class="table table-hover" id="requests-table">
                 <thead>
                     <tr>
+                        <th style="width: 30px;">
+                            <input type="checkbox" id="select-all-requests" title="Select/Deselect All">
+                        </th>
                         <th>{% trans "Entity" %}</th>
                         <th>{% trans "Type" %}</th>
                         <th>{% trans "Requester" %}</th>
@@ -31,6 +42,11 @@
                 <tbody>
                     {% for req in requests %}
                         <tr id="request-row-{{ req.pk }}">
+                            <td>
+                                <input type="checkbox" class="request-manage-checkbox"
+                                       data-request-pk="{{ req.pk }}"
+                                       data-entity-name="{{ req.entity_name }}">
+                            </td>
                             <td>
                                 {% if req.entity_type == 'character' %}
                                     <img src="{{ req.portrait_url }}" alt="{{ req.entity_name }}" class="img-circle" width="32" height="32">
@@ -139,8 +155,11 @@
 $(document).ready(function() {
     // Initialize DataTables
     $('#requests-table').DataTable({
-        "order": [[5, "desc"]],  // Sort by request date descending
-        "pageLength": 25
+        "order": [[7, "desc"]],  // Sort by request date descending (shifted by 1 for checkbox column)
+        "pageLength": 25,
+        "columnDefs": [
+            { "orderable": false, "targets": 0 }
+        ]
     });
 });
 </script>

@@ -1362,8 +1362,6 @@ def api_remove_character_from_sync(request, synced_char_pk):
         )
 
 
-<<<<<<< Updated upstream
-=======
 @login_required
 @permission_required("standingsmanager.add_syncedcharacter")
 @require_http_methods(["POST"])
@@ -1636,7 +1634,6 @@ def api_bulk_remove_from_sync(request):
         )
 
 
->>>>>>> Stashed changes
 # ============================================================================
 # Approver API Endpoints
 # ============================================================================
@@ -1823,8 +1820,6 @@ def api_reject_revocation(request, revocation_pk):
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
-<<<<<<< Updated upstream
-=======
 
 
 @login_required
@@ -2053,4 +2048,3 @@ def api_bulk_reject_requests(request):
         return JsonResponse(
             {"success": False, "error": "An unexpected error occurred."}, status=500
         )
->>>>>>> Stashed changes

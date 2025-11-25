@@ -155,10 +155,10 @@
 $(document).ready(function() {
     // Initialize DataTables
     $('#requests-table').DataTable({
-        "order": [[6, "desc"]],  // Sort by request date descending (shifted by 1 for checkbox column)
+        "order": [[7, "desc"]],  // Sort by request date descending (shifted by 1 for checkbox column)
         "pageLength": 25,
         "columnDefs": [
-            { "orderable": false, "targets": 0 }  // Disable sorting on checkbox column
+            { "orderable": false, "targets": 0 }
         ]
     });
 });

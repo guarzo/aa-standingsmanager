@@ -658,7 +658,6 @@ $(document).on('click', '#bulk-add-sync-btn', function(e) {
         data: JSON.stringify({ character_ids: characterIds }),
         success: function(data) {
             showSuccess(data.message);
-            // Reload page after 1 second to show updated status
             setTimeout(function() {
                 location.reload();
             }, 1000);
@@ -707,7 +706,6 @@ $(document).on('click', '#bulk-remove-sync-btn', function(e) {
         data: JSON.stringify({ synced_char_pks: syncedCharPks }),
         success: function(data) {
             showSuccess(data.message);
-            // Reload page after 1 second to show updated status
             setTimeout(function() {
                 location.reload();
             }, 1000);
@@ -756,7 +754,6 @@ $(document).on('click', '#bulk-approve-btn', function(e) {
         data: JSON.stringify({ request_pks: requestPks }),
         success: function(data) {
             showSuccess(data.message);
-            // Reload page after 1 second to show updated status
             setTimeout(function() {
                 location.reload();
             }, 1000);
@@ -805,7 +802,6 @@ $(document).on('click', '#bulk-reject-btn', function(e) {
         data: JSON.stringify({ request_pks: requestPks }),
         success: function(data) {
             showSuccess(data.message);
-            // Reload page after 1 second to show updated status
             setTimeout(function() {
                 location.reload();
             }, 1000);
